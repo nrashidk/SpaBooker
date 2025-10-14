@@ -1,126 +1,674 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, MessageSquare, Users, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { 
+  Mail, MessageSquare, Plus, Search, Filter, SlidersHorizontal,
+  Bell, Calendar, Clock, Gift, PartyPopper, Crown, ThumbsUp, Heart,
+  Sparkles, CalendarCheck, UserPlus, Users2, Zap, MessageCircle,
+  Tag, Percent, ChevronRight, MoreVertical
+} from "lucide-react";
+
+type MarketingSection = "blast-campaigns" | "automations" | "messages-history" | "deals" | "smart-pricing" | "reviews";
 
 export default function AdminMarketing() {
-  const campaigns = [
+  const [selectedSection, setSelectedSection] = useState<MarketingSection>("blast-campaigns");
+  const [showCreateCampaign, setShowCreateCampaign] = useState(false);
+  const [showCreateDeal, setShowCreateDeal] = useState(false);
+  const [selectedAutomationTab, setSelectedAutomationTab] = useState("reminders");
+
+  const menuSections = [
+    {
+      title: "Messaging",
+      items: [
+        { id: "blast-campaigns" as MarketingSection, label: "Blast campaigns", icon: MessageSquare },
+        { id: "automations" as MarketingSection, label: "Automations", icon: Zap },
+        { id: "messages-history" as MarketingSection, label: "Messages history", icon: Clock },
+      ]
+    },
+    {
+      title: "Promotion",
+      items: [
+        { id: "deals" as MarketingSection, label: "Deals", icon: Tag },
+        { id: "smart-pricing" as MarketingSection, label: "Smart pricing", icon: Percent },
+      ]
+    },
+    {
+      title: "Engage",
+      items: [
+        { id: "reviews" as MarketingSection, label: "Reviews", icon: ThumbsUp },
+      ]
+    }
+  ];
+
+  const blastCampaigns = [
     {
       id: 1,
-      name: "Weekend Special Promotion",
-      type: "Email",
-      status: "active",
-      sent: 245,
-      opened: 187,
-      clicked: 89,
+      title: "50% Discount on our 3rd Anniversary",
+      type: "SMS",
+      date: "31 Dec 2024",
+      status: "Sent",
+      audience: 1526
     },
     {
       id: 2,
-      name: "Birthday Discount",
+      title: "Retro Grooming Lounge For Men is now open online!",
       type: "SMS",
-      status: "scheduled",
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-    },
+      date: "23 Aug 2022",
+      status: "Sent",
+      audience: 57
+    }
   ];
 
-  return (
+  const messagesHistory = [
+    { time: "14 Oct 2025, 10:46pm", client: "Hamad Alhouari", appointment: "#D4F7059D", channel: "Text message", type: "Thank You", status: "Sent" },
+    { time: "14 Oct 2025, 9:58pm", client: "Ahmed Iunia", appointment: "#2788753", channel: "Text message", type: "Thank You", status: "Sent" },
+    { time: "14 Oct 2025, 9:58pm", client: "Ahmed Iunia", appointment: "#2788753", channel: "Email", type: "Thank You", status: "Sent" },
+    { time: "14 Oct 2025, 9:45pm", client: "Jasim", appointment: "#S5C3F350", channel: "Text message", type: "Thank You", status: "Sent" },
+    { time: "14 Oct 2025, 9:44pm", client: "Jasim", appointment: "#356C3934", channel: "Text message", type: "Thank You", status: "Sent" },
+  ];
+
+  const automationTabs = [
+    { id: "reminders", label: "Reminders" },
+    { id: "appointment-updates", label: "Appointment updates" },
+    { id: "waitlist-updates", label: "Waitlist updates" },
+    { id: "increase-bookings", label: "Increase bookings" },
+    { id: "celebrate-milestones", label: "Celebrate milestones" },
+    { id: "client-loyalty", label: "Client loyalty" },
+  ];
+
+  const reminderAutomations = [
+    {
+      title: "24 hours upcoming appointment reminder",
+      description: "Notifies clients reminding them of their upcoming appointment",
+      enabled: true,
+      icon: Bell
+    }
+  ];
+
+  const appointmentUpdateAutomations = [
+    {
+      title: "New appointment",
+      description: "Reach out to clients when their appointment is booked for them.",
+      enabled: true,
+      icon: CalendarCheck
+    },
+    {
+      title: "Rescheduled appointment",
+      description: "Automatically sends to clients when their appointment start time is changed.",
+      enabled: true,
+      icon: Calendar
+    },
+    {
+      title: "Cancelled appointment",
+      description: "Automatically sends to clients when their appointment is cancelled.",
+      enabled: true,
+      icon: Calendar
+    },
+    {
+      title: "Did not show up",
+      description: "Automatically sends to clients when their appointment is marked as a no-show.",
+      enabled: true,
+      icon: Calendar
+    },
+    {
+      title: "Thank you for visiting",
+      description: "Reach out to clients when they checked out, with a link to leave a review.",
+      enabled: true,
+      icon: ThumbsUp
+    },
+    {
+      title: "Thank you for tipping",
+      description: "Reach out to clients when they tip after their appointment.",
+      enabled: true,
+      icon: Heart
+    }
+  ];
+
+  const waitlistAutomations = [
+    {
+      title: "Joined the waitlist",
+      description: "Automatically sends to clients when they join the waitlist.",
+      enabled: true,
+      icon: UserPlus
+    },
+    {
+      title: "Time slot available",
+      description: "Automatically sends to clients when a time slot becomes available to book.",
+      enabled: true,
+      icon: Calendar
+    }
+  ];
+
+  const increaseBookingsAutomations = [
+    {
+      title: "Reminder to rebook",
+      description: "Remind your clients to rebook a few weeks after their last appointment.",
+      enabled: true,
+      icon: Calendar
+    },
+    {
+      title: "Celebrate birthdays",
+      description: "Surprise clients on their special day, a proven way to boost client loyalty and retention.",
+      enabled: true,
+      icon: PartyPopper
+    },
+    {
+      title: "Win back lapsed clients",
+      description: "Reach clients that you haven't seen for a while and encourage them to book their next appointment.",
+      enabled: true,
+      icon: Users2
+    },
+    {
+      title: "Reward loyal clients",
+      description: "Message top spenders and get them even more engaged with a special offer.",
+      enabled: false,
+      icon: Crown
+    }
+  ];
+
+  const celebrateMilestonesAutomations = [
+    {
+      title: "Welcome new clients",
+      description: "Celebrate new clients joining your business by offering them a discount.",
+      enabled: false,
+      icon: Sparkles
+    }
+  ];
+
+  const clientLoyaltyAutomations = [
+    {
+      title: "Earned points summary",
+      description: "Send clients a summary of points earned",
+      enabled: false,
+      icon: Gift
+    },
+    {
+      title: "Achieved loyalty tier",
+      description: "Notify clients when they achieve a new tier",
+      enabled: false,
+      icon: Crown
+    },
+    {
+      title: "Earned rewards summary",
+      description: "Send clients a summary of their rewards",
+      enabled: false,
+      icon: Gift
+    }
+  ];
+
+  const getAutomationsByTab = () => {
+    switch (selectedAutomationTab) {
+      case "reminders":
+        return reminderAutomations;
+      case "appointment-updates":
+        return appointmentUpdateAutomations;
+      case "waitlist-updates":
+        return waitlistAutomations;
+      case "increase-bookings":
+        return increaseBookingsAutomations;
+      case "celebrate-milestones":
+        return celebrateMilestonesAutomations;
+      case "client-loyalty":
+        return clientLoyaltyAutomations;
+      default:
+        return [];
+    }
+  };
+
+  const renderBlastCampaigns = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="marketing-title">Marketing</h1>
-          <p className="text-muted-foreground">Create campaigns and automate customer engagement</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold">Blast campaigns</h2>
+            <Badge variant="secondary">{blastCampaigns.length}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose a message type to customize from our ready-made templates. <a href="#" className="text-primary">Learn more</a>
+          </p>
         </div>
-        <Button data-testid="button-new-campaign">
+        <Button onClick={() => setShowCreateCampaign(true)} data-testid="button-add-campaign">
           <Plus className="h-4 w-4 mr-2" />
-          New Campaign
+          Add
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-600" />
-              Email Campaigns
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold">5</p>
-              <p className="text-sm text-muted-foreground">Active campaigns</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-green-600" />
-              SMS Blasts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold">1,234</p>
-              <p className="text-sm text-muted-foreground">Messages sent this month</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-purple-600" />
-              Audience
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-2xl font-bold">892</p>
-              <p className="text-sm text-muted-foreground">Subscribers</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="sm" data-testid="button-filters">
+          <Filter className="h-4 w-4 mr-2" />
+          Filters
+        </Button>
+        <Button variant="outline" size="sm" data-testid="button-sort">
+          <SlidersHorizontal className="h-4 w-4 mr-2" />
+          Created date (newest first)
+        </Button>
       </div>
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Recent Campaigns</h2>
-        {campaigns.map((campaign) => (
-          <Card key={campaign.id}>
-            <CardContent className="p-6">
+      <div className="space-y-3">
+        {blastCampaigns.map((campaign) => (
+          <Card key={campaign.id} className="hover-elevate cursor-pointer" data-testid={`campaign-card-${campaign.id}`}>
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h3 className="font-semibold">{campaign.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{campaign.type}</Badge>
-                    <Badge variant={campaign.status === "active" ? "default" : "outline"}>
-                      {campaign.status}
-                    </Badge>
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <MessageCircle className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{campaign.title}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-muted-foreground">{campaign.type}</span>
+                      <span className="text-sm text-muted-foreground">•</span>
+                      <span className="text-sm text-muted-foreground">{campaign.date}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-6 text-sm">
-                  <div className="text-center">
-                    <p className="font-semibold">{campaign.sent}</p>
-                    <p className="text-muted-foreground">Sent</p>
+                <div className="flex items-center gap-4">
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    {campaign.status}
+                  </Badge>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Audience</p>
+                    <p className="font-semibold">{campaign.audience} clients</p>
                   </div>
-                  <div className="text-center">
-                    <p className="font-semibold">{campaign.opened}</p>
-                    <p className="text-muted-foreground">Opened</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold">{campaign.clicked}</p>
-                    <p className="text-muted-foreground">Clicked</p>
-                  </div>
-                  <Button variant="outline" size="sm" data-testid={`button-campaign-${campaign.id}`}>
-                    View
+                  <Button variant="ghost" size="icon" data-testid={`button-campaign-menu-${campaign.id}`}>
+                    <MoreVertical className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
+      </div>
+    </div>
+  );
+
+  const renderCreateCampaign = () => (
+    <div className="space-y-6">
+      <div>
+        <Button variant="ghost" onClick={() => setShowCreateCampaign(false)} className="mb-4" data-testid="button-back-campaigns">
+          ← Back to campaigns
+        </Button>
+        <p className="text-sm text-muted-foreground">Create blast campaign</p>
+        <h2 className="text-3xl font-bold mt-1">Select a channel</h2>
+      </div>
+
+      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+        <CardContent className="p-4">
+          <p className="text-sm">200 free emails to use before 31 Oct 2025</p>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        <Card className="hover-elevate cursor-pointer" data-testid="channel-multichannel">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Users2 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">Multichannel</h3>
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Recommended</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Maximise reach and improve campaign performance by using both email and text message
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Reach 1979 clients</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-elevate cursor-pointer" data-testid="channel-email">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Mail className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Email</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Send promotional emails to your clients</p>
+                  <p className="text-sm text-muted-foreground mt-1">Reach 711 clients</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-elevate cursor-pointer" data-testid="channel-text">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <MessageSquare className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Text message</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Send promotional text messages to your clients</p>
+                  <p className="text-sm text-muted-foreground mt-1">Reach 1869 clients</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderAutomations = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Automations</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            View and manage all automated messages sent to your clients. <a href="#" className="text-primary">Learn more</a>
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-muted-foreground">Messaging balance</p>
+          <p className="text-lg font-semibold">AED 25.50</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 border-b overflow-x-auto">
+        {automationTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setSelectedAutomationTab(tab.id)}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+              selectedAutomationTab === tab.id
+                ? "border-b-2 border-primary text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            data-testid={`automation-tab-${tab.id}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <h3 className="font-semibold mb-4 capitalize">{selectedAutomationTab.replace("-", " ")}</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {getAutomationsByTab().map((automation, index) => {
+            const Icon = automation.icon;
+            return (
+              <Card key={index} className={automation.enabled ? "" : "opacity-60"} data-testid={`automation-${index}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {automation.enabled ? (
+                        <>
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            Enabled
+                          </Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`automation-settings-${index}`}>
+                            <SlidersHorizontal className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`automation-delete-${index}`}>
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="outline" size="sm" data-testid={`automation-enable-${index}`}>
+                          Enable
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <h4 className="font-semibold mb-1">{automation.title}</h4>
+                  <p className="text-sm text-muted-foreground">{automation.description}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {selectedAutomationTab === "celebrate-milestones" && (
+            <Card className="border-dashed hover-elevate cursor-pointer" data-testid="create-new-automation">
+              <CardContent className="p-4 flex flex-col items-center justify-center h-full min-h-[150px]">
+                <div className="p-3 rounded-full bg-primary/10 mb-3">
+                  <Plus className="h-6 w-6 text-primary" />
+                </div>
+                <p className="text-sm font-medium text-primary">Create new</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMessagesHistory = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold">Messages history</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          View all the automated messages sent to your clients. Manage your <a href="#" className="text-primary">settings</a> or <a href="#" className="text-primary">learn more</a>
+        </p>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by name, email or booking reference"
+          className="pl-10"
+          data-testid="input-search-messages"
+        />
+      </div>
+
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted/50 border-b">
+            <tr>
+              <th className="text-left p-3 text-sm font-medium">Time sent</th>
+              <th className="text-left p-3 text-sm font-medium">Client</th>
+              <th className="text-left p-3 text-sm font-medium">Appointment</th>
+              <th className="text-left p-3 text-sm font-medium">Channel</th>
+              <th className="text-left p-3 text-sm font-medium">Type</th>
+              <th className="text-left p-3 text-sm font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {messagesHistory.map((message, index) => (
+              <tr key={index} className="border-b last:border-0 hover:bg-muted/50" data-testid={`message-row-${index}`}>
+                <td className="p-3 text-sm">{message.time}</td>
+                <td className="p-3 text-sm text-primary">{message.client}</td>
+                <td className="p-3 text-sm text-primary">{message.appointment}</td>
+                <td className="p-3 text-sm">{message.channel}</td>
+                <td className="p-3 text-sm text-primary">{message.type}</td>
+                <td className="p-3">
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    {message.status}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderDeals = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Deals</h2>
+          <p className="text-sm text-muted-foreground mt-1">Active deals and promotions</p>
+        </div>
+        <Button onClick={() => setShowCreateDeal(true)} data-testid="button-add-deal">
+          <Plus className="h-4 w-4 mr-2" />
+          Add deal
+        </Button>
+      </div>
+
+      <div className="text-center py-12 text-muted-foreground">
+        <Tag className="h-12 w-12 mx-auto mb-3 opacity-50" />
+        <p>No active deals</p>
+        <p className="text-sm">Create your first promotion to attract customers</p>
+      </div>
+    </div>
+  );
+
+  const renderCreateDeal = () => (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <Button variant="ghost" onClick={() => setShowCreateDeal(false)} className="mb-4" data-testid="button-back-deals">
+          ← Back to deals
+        </Button>
+        <h2 className="text-3xl font-bold">Select deal type</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Choose the type of deal you want to create. <a href="#" className="text-primary">Learn more</a>
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <Card className="hover-elevate cursor-pointer border-2 border-primary" data-testid="deal-promotion">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold mb-1">Promotion</h3>
+                <p className="text-sm text-muted-foreground">
+                  Create a discount redeemed by clients entering the code when booking online or during checkout at Point of Sale
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/10">
+                <Tag className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-elevate cursor-pointer" data-testid="deal-flash-sale">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold mb-1">Flash sale</h3>
+                <p className="text-sm text-muted-foreground">
+                  Immediately apply a discount online and let your team members manually add it to appointments and sales
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/10">
+                <Zap className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-elevate cursor-pointer" data-testid="deal-last-minute">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold mb-1">Last-minute offer</h3>
+                <p className="text-sm text-muted-foreground">
+                  Apply a discount for bookings made just before an appointment starts
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/10">
+                <Clock className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-900">
+              <SlidersHorizontal className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+            </div>
+            <div>
+              <p className="text-sm">
+                Configure your off-peak hours, apply higher rates during surge hours, and conveniently manage all dynamic pricing rules from a single place. <a href="#" className="text-primary">Learn more</a>
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const renderContent = () => {
+    if (selectedSection === "blast-campaigns") {
+      return showCreateCampaign ? renderCreateCampaign() : renderBlastCampaigns();
+    }
+    if (selectedSection === "automations") {
+      return renderAutomations();
+    }
+    if (selectedSection === "messages-history") {
+      return renderMessagesHistory();
+    }
+    if (selectedSection === "deals") {
+      return showCreateDeal ? renderCreateDeal() : renderDeals();
+    }
+    if (selectedSection === "smart-pricing") {
+      return (
+        <div className="text-center py-12 text-muted-foreground">
+          <Percent className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>Smart pricing feature coming soon</p>
+        </div>
+      );
+    }
+    if (selectedSection === "reviews") {
+      return (
+        <div className="text-center py-12 text-muted-foreground">
+          <ThumbsUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>Reviews management coming soon</p>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="flex h-full gap-6">
+      {/* Sidebar */}
+      <div className="w-56 flex-shrink-0 space-y-6">
+        <h1 className="text-xl font-bold">Marketing</h1>
+        
+        {menuSections.map((section) => (
+          <div key={section.title} className="space-y-1">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+              {section.title}
+            </h3>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedSection(item.id);
+                    setShowCreateCampaign(false);
+                    setShowCreateDeal(false);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
+                    selectedSection === item.id ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
+                  }`}
+                  data-testid={`nav-${item.id}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {renderContent()}
       </div>
     </div>
   );
