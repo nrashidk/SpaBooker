@@ -55,11 +55,11 @@ The system is currently using in-memory storage with mock data, with plans to tr
 
 ## Recent Updates (October 14, 2025)
 
-### Reports Page - Comprehensive Performance Dashboard
-The Reports page has been completely redesigned with a Fresha-inspired layout featuring comprehensive business analytics:
+### Reports Page - Comprehensive Analytics & Reporting System
+The Reports page has been completely redesigned with a Fresha-inspired layout featuring comprehensive business analytics and 42 standard reports:
 
 **Page Structure:**
-- Sidebar navigation with 7 categories: All reports (52), Favourites (1), Dashboards (2), Standard (44), Premium (8), Custom (0), Targets
+- Sidebar navigation with 7 categories: All reports (52), Favourites (1), Dashboards (2), Standard (42), Premium (8), Custom (0), Targets
 - Search functionality for quick report discovery
 - Folders system for custom organization
 - Data connector integration
@@ -79,6 +79,21 @@ The Reports page has been completely redesigned with a Fresha-inspired layout fe
 - **Returning Client Analysis**: Customer segmentation (returning, new, walk-ins) with percentage calculations
 - **Top Team Members**: Performance table showing staff sales, occupancy, returning client rates from actual booking assignments
 
+**Standard Reports (42 total):**
+Organized into 6 subcategories with tab navigation:
+- **Sales (7 reports)**: Sales summary, Sales list, Sales log detail, Gift card list, Membership list, Discount summary, Taxes summary
+- **Finance (10 reports)**: Finance summary, Payments summary, Payment transactions (favorited), Cash flow summary, Cash flow statement, Service charges, Liability summary, Liability activity, Upfront payment list, Taxes list
+- **Appointments (4 reports)**: Appointments summary, Appointments list, Cancellations & no-show summary, Waitlist detail
+- **Team (15 reports)**: Working hours activity, Break activity, Attendance summary, Wages detail, Wages summary, Fee deduction activity, Fee deduction summary, Pay summary, Scheduled shifts, Working hours summary, Team time off, Tips summary, Tips detail, Commission activity, Commission summary
+- **Clients (1 report)**: Client list
+- **Inventory (5 reports)**: Stock on hand, Stock movement summary, Stock movement log, Product list, Ordered stock
+
+Each report card displays:
+- Category-specific icon (Tag, DollarSign, Calendar, Users, UserCheck, Package)
+- Report name and description
+- Favorite/unfavorite toggle button
+- Hover effect for better UX
+
 **Data Integration:**
 - Uses real booking data for sales calculations and trends
 - Calculates staff performance from actual booking assignments
@@ -91,3 +106,5 @@ The Reports page has been completely redesigned with a Fresha-inspired layout fe
 - Historical data snapshots for comparison periods
 - Staff time tracking for precise occupancy metrics
 - Ratings system for comprehensive staff performance
+- Report data export functionality
+- Custom report builder
