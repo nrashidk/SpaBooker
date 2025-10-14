@@ -41,25 +41,49 @@ export default function AdminCalendar() {
   const [view, setView] = useState<View>('week');
 
   // Fetch all required data
-  const { data: bookings = [] } = useQuery<Booking[]>({
+  const { data: bookings = [], isLoading: bookingsLoading, isError: bookingsError } = useQuery<Booking[]>({
     queryKey: ['/api/admin/bookings'],
   });
 
-  const { data: bookingItems = [] } = useQuery<BookingItem[]>({
+  const { data: bookingItems = [], isLoading: itemsLoading } = useQuery<BookingItem[]>({
     queryKey: ['/api/admin/booking-items'],
   });
 
-  const { data: staff = [] } = useQuery<Staff[]>({
+  const { data: staff = [], isLoading: staffLoading } = useQuery<Staff[]>({
     queryKey: ['/api/admin/staff'],
   });
 
-  const { data: services = [] } = useQuery<Service[]>({
+  const { data: services = [], isLoading: servicesLoading } = useQuery<Service[]>({
     queryKey: ['/api/admin/services'],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ['/api/admin/customers'],
   });
+
+  const isLoading = bookingsLoading || itemsLoading || staffLoading || servicesLoading || customersLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading calendar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bookingsError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-destructive mb-4">Failed to load calendar data</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   // Update booking mutation
   const updateBookingMutation = useMutation({
