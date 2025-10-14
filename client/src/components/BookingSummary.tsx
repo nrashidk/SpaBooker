@@ -1,9 +1,11 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, User, Phone, Mail } from "lucide-react";
+import { Calendar, Clock, User, Phone, Mail, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { type Service } from "./ServiceSelector";
 
 interface BookingSummaryProps {
+  services?: Service[];
   date: Date | null;
   time: string | null;
   staffName: string | null;
@@ -13,6 +15,7 @@ interface BookingSummaryProps {
 }
 
 export default function BookingSummary({
+  services = [],
   date,
   time,
   staffName,
@@ -20,11 +23,37 @@ export default function BookingSummary({
   customerPhone,
   customerEmail,
 }: BookingSummaryProps) {
+  const totalDuration = services.reduce((sum, service) => sum + service.duration, 0);
+
   return (
     <Card className="p-6">
       <h3 className="text-xl font-semibold mb-4">Booking Summary</h3>
       
       <div className="space-y-4">
+        {services.length > 0 && (
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-5 w-5 text-primary mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">Services</p>
+              <div className="space-y-1 mt-1">
+                {services.map((service) => (
+                  <div key={service.id} className="flex items-center justify-between" data-testid={`summary-service-${service.id}`}>
+                    <p className="font-medium">{service.name}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {service.duration} min
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              {totalDuration > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Total duration: {totalDuration} minutes
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {date && (
           <div className="flex items-start gap-3">
             <Calendar className="h-5 w-5 text-primary mt-0.5" />
@@ -91,9 +120,9 @@ export default function BookingSummary({
           </div>
         )}
 
-        {!date && !time && !staffName && (
+        {services.length === 0 && !date && !time && !staffName && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Start by selecting a date to see your booking details
+            Start by selecting services to see your booking details
           </p>
         )}
       </div>

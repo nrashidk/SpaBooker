@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ServiceSelector, { type Service } from "@/components/ServiceSelector";
 import BookingCalendar from "@/components/BookingCalendar";
 import TimeSlotPicker from "@/components/TimeSlotPicker";
 import StaffSelector from "@/components/StaffSelector";
@@ -9,6 +10,38 @@ import BookingSummary from "@/components/BookingSummary";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import BookingSteps from "@/components/BookingSteps";
 import ThemeToggle from "@/components/ThemeToggle";
+
+//todo: remove mock functionality
+const mockServices: Service[] = [
+  {
+    id: "1",
+    name: "Swedish Massage",
+    description: "Relaxing full-body massage with gentle pressure",
+    duration: 60,
+    price: 80,
+  },
+  {
+    id: "2",
+    name: "Deep Tissue Massage",
+    description: "Therapeutic massage targeting muscle tension",
+    duration: 90,
+    price: 110,
+  },
+  {
+    id: "3",
+    name: "Aromatherapy Facial",
+    description: "Rejuvenating facial with essential oils",
+    duration: 45,
+    price: 65,
+  },
+  {
+    id: "4",
+    name: "Hot Stone Therapy",
+    description: "Soothing heated stone massage treatment",
+    duration: 75,
+    price: 95,
+  },
+];
 
 //todo: remove mock functionality
 const mockStaff = [
@@ -34,20 +67,35 @@ const mockTimeSlots = [
 
 export default function BookingPage() {
   const [step, setStep] = useState(1);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [customerDetails, setCustomerDetails] = useState<any>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
+  const handleServiceToggle = (serviceId: string) => {
+    setSelectedServiceIds(prev =>
+      prev.includes(serviceId)
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const handleContinueToDate = () => {
+    if (selectedServiceIds.length > 0) {
+      setStep(2);
+    }
+  };
+
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    setStep(2);
+    setStep(3);
   };
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
-    setStep(3);
+    setStep(4);
   };
 
   const handleStaffSelect = (staffId: string | null) => {
@@ -55,13 +103,14 @@ export default function BookingPage() {
   };
 
   const handleContinueToDetails = () => {
-    setStep(4);
+    setStep(5);
   };
 
   const handleCustomerSubmit = (data: any) => {
     setCustomerDetails(data);
     setIsConfirmed(true);
     console.log("Booking confirmed:", {
+      services: selectedServices,
       date: selectedDate,
       time: selectedTime,
       staffId: selectedStaffId,
@@ -71,6 +120,7 @@ export default function BookingPage() {
 
   const handleNewBooking = () => {
     setStep(1);
+    setSelectedServiceIds([]);
     setSelectedDate(null);
     setSelectedTime(null);
     setSelectedStaffId(null);
@@ -78,7 +128,9 @@ export default function BookingPage() {
     setIsConfirmed(false);
   };
 
+  const selectedServices = mockServices.filter(s => selectedServiceIds.includes(s.id));
   const selectedStaff = mockStaff.find(s => s.id === selectedStaffId);
+  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0);
 
   if (isConfirmed && customerDetails) {
     return (
@@ -97,6 +149,7 @@ export default function BookingPage() {
 
         <main className="container mx-auto px-4 py-8">
           <BookingConfirmation
+            services={selectedServices}
             date={selectedDate!}
             time={selectedTime!}
             staffName={selectedStaff?.name || null}
@@ -128,7 +181,7 @@ export default function BookingPage() {
 
       <BookingSteps
         currentStep={step}
-        steps={["Date", "Time", "Staff", "Details"]}
+        steps={["Services", "Date", "Time", "Staff", "Details"]}
       />
 
       <main className="container mx-auto px-4 pb-12">
@@ -136,13 +189,32 @@ export default function BookingPage() {
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-2">Book Your Spa Experience</h2>
             <p className="text-muted-foreground">
-              Choose your preferred date, time, and specialist
+              Select your services and choose your preferred date, time, and specialist
             </p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               {step >= 1 && (
+                <div className="space-y-4">
+                  <ServiceSelector
+                    selectedServiceIds={selectedServiceIds}
+                    onServiceToggle={handleServiceToggle}
+                    services={mockServices}
+                  />
+                  {selectedServiceIds.length > 0 && (
+                    <Button
+                      onClick={handleContinueToDate}
+                      className="w-full"
+                      data-testid="button-continue-to-date"
+                    >
+                      Continue to Date Selection
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {step >= 2 && (
                 <BookingCalendar
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelect}
@@ -150,15 +222,16 @@ export default function BookingPage() {
                 />
               )}
 
-              {step >= 2 && selectedDate && (
+              {step >= 3 && selectedDate && (
                 <TimeSlotPicker
                   selectedTime={selectedTime}
                   onTimeSelect={handleTimeSelect}
                   timeSlots={mockTimeSlots}
+                  totalDuration={totalDuration}
                 />
               )}
 
-              {step >= 3 && selectedTime && (
+              {step >= 4 && selectedTime && (
                 <div className="space-y-4">
                   <StaffSelector
                     selectedStaffId={selectedStaffId}
@@ -175,7 +248,7 @@ export default function BookingPage() {
                 </div>
               )}
 
-              {step >= 4 && (
+              {step >= 5 && (
                 <CustomerDetailsForm
                   onSubmit={handleCustomerSubmit}
                 />
@@ -185,6 +258,7 @@ export default function BookingPage() {
             <div className="lg:col-span-1">
               <div className="sticky top-24">
                 <BookingSummary
+                  services={selectedServices}
                   date={selectedDate}
                   time={selectedTime}
                   staffName={selectedStaff?.name || null}

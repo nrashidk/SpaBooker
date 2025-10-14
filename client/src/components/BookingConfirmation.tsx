@@ -1,10 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Calendar, Clock, User, Phone, Mail, Download } from "lucide-react";
+import { CheckCircle, Calendar, Clock, User, Phone, Mail, Download, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { type Service } from "./ServiceSelector";
 
 interface BookingConfirmationProps {
+  services: Service[];
   date: Date;
   time: string;
   staffName: string | null;
@@ -17,6 +19,7 @@ interface BookingConfirmationProps {
 }
 
 export default function BookingConfirmation({
+  services,
   date,
   time,
   staffName,
@@ -30,6 +33,8 @@ export default function BookingConfirmation({
   const handleAddToCalendar = () => {
     console.log("Add to calendar clicked");
   };
+
+  const totalDuration = services.reduce((sum, service) => sum + service.duration, 0);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -67,6 +72,26 @@ export default function BookingConfirmation({
         <h3 className="text-lg font-semibold mb-4">Appointment Details</h3>
         
         <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-5 w-5 text-primary mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">Services</p>
+              <div className="space-y-1 mt-1">
+                {services.map((service) => (
+                  <div key={service.id} className="flex items-center justify-between" data-testid={`confirmation-service-${service.id}`}>
+                    <p className="font-medium">{service.name}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {service.duration} min
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Total duration: {totalDuration} minutes
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-start gap-3">
             <Calendar className="h-5 w-5 text-primary mt-0.5" />
             <div>
