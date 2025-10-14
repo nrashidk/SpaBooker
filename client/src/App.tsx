@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import BookingPage from "@/pages/booking";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminServices from "@/pages/admin/Services";
@@ -20,61 +21,77 @@ function Router() {
     <Switch>
       <Route path="/" component={BookingPage} />
       
-      {/* Admin Routes */}
+      {/* Admin Routes - Protected with admin role requirement */}
       <Route path="/admin">
         {() => (
-          <AdminLayout>
-            <AdminDashboard />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/services">
         {() => (
-          <AdminLayout>
-            <AdminServices />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminServices />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/staff">
         {() => (
-          <AdminLayout>
-            <AdminStaff />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminStaff />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/bookings">
         {() => (
-          <AdminLayout>
-            <AdminBookings />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminBookings />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/inventory">
         {() => (
-          <AdminLayout>
-            <AdminInventory />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminInventory />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/finance">
         {() => (
-          <AdminLayout>
-            <AdminFinance />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminFinance />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/reports">
         {() => (
-          <AdminLayout>
-            <AdminReports />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminReports />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path="/admin/settings">
         {() => (
-          <AdminLayout>
-            <AdminSettings />
-          </AdminLayout>
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminSettings />
+            </AdminLayout>
+          </ProtectedRoute>
         )}
       </Route>
       

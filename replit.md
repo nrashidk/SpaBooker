@@ -13,6 +13,16 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - Receive WhatsApp/SMS and/or email notifications based on provided contact method
 
 ## Recent Changes
+**Authentication & Admin Protection (October 14, 2025)**
+- Implemented Replit Auth integration for user authentication
+- Added role-based access control (customer, staff, admin roles)
+- Protected all /admin routes with admin-only middleware
+- Created ProtectedRoute component for frontend route protection
+- Users table updated for Replit Auth compatibility (email, firstName, lastName, profileImageUrl)
+- Sessions table created for secure session storage
+- Admin access requires both authentication + admin role
+- Unauthorized/forbidden users redirected with toast notifications
+
 **Customer Details & Notifications (October 14, 2025)**
 - Added customer details form on step 4 before confirmation
 - Implemented validation: name + at least ONE contact method (mobile OR email OR both)
