@@ -7,12 +7,15 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Settings, CalendarDays, Users, Clock, Tag, CreditCard, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Booking, BookingItem, Staff, Service, Customer } from '@shared/schema';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -56,6 +59,12 @@ export default function AdminCalendar() {
   const [formDate, setFormDate] = useState<string>('');
   const [formTime, setFormTime] = useState<string>('');
   const [formStatus, setFormStatus] = useState<string>('confirmed');
+  
+  // Sales sidebar state
+  const [isSalesSidebarOpen, setIsSalesSidebarOpen] = useState(false);
+  
+  // Calendar zoom state
+  const [calendarZoom, setCalendarZoom] = useState(100);
 
   // Fetch all required data
   const { data: bookings = [], isLoading: bookingsLoading, isError: bookingsError } = useQuery<Booking[]>({
@@ -430,11 +439,89 @@ export default function AdminCalendar() {
           <p className="text-sm sm:text-base text-muted-foreground">Manage appointments and staff schedules</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button onClick={handleNewBooking} size="sm" data-testid="button-new-booking">
-            <Plus className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">New Booking</span>
-            <span className="sm:hidden">New</span>
+          {/* Settings Button */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" data-testid="button-settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64" align="end">
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Calendar Settings</h4>
+                <div className="space-y-2">
+                  <Label className="text-sm">Zoom Level: {calendarZoom}%</Label>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => setCalendarZoom(Math.max(50, calendarZoom - 10))}
+                      disabled={calendarZoom <= 50}
+                      data-testid="button-zoom-out"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCalendarZoom(100)}
+                      data-testid="button-zoom-reset"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-2" />
+                      Reset
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => setCalendarZoom(Math.min(200, calendarZoom + 10))}
+                      disabled={calendarZoom >= 200}
+                      data-testid="button-zoom-in"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Refresh Button */}
+          <Button variant="outline" size="icon" onClick={navigateToToday} data-testid="button-refresh">
+            <RotateCcw className="h-4 w-4" />
           </Button>
+
+          {/* Add to Calendar Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" data-testid="button-add-to-calendar">
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={handleNewBooking} data-testid="menu-item-appointment">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Appointment
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleNewBooking} data-testid="menu-item-group-appointment">
+                <Users className="h-4 w-4 mr-2" />
+                Group appointment
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleNewBooking} data-testid="menu-item-blocked-time">
+                <Clock className="h-4 w-4 mr-2" />
+                Blocked time
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsSalesSidebarOpen(true)} data-testid="menu-item-sale">
+                <Tag className="h-4 w-4 mr-2" />
+                Sale
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleNewBooking} data-testid="menu-item-quick-payment">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Quick payment
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <div className="flex items-center gap-1">
             <Button variant="outline" onClick={navigateToPrevious} size="icon" data-testid="calendar-prev">
               <ChevronLeft className="h-4 w-4" />
@@ -479,7 +566,10 @@ export default function AdminCalendar() {
       </div>
 
       <Card className="p-2 sm:p-4">
-        <div className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-250px)]">
+        <div 
+          className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-250px)]"
+          style={{ transform: `scale(${calendarZoom / 100})`, transformOrigin: 'top left' }}
+        >
           <DragAndDropCalendar
             localizer={localizer}
             events={events}
@@ -645,6 +735,120 @@ export default function AdminCalendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sales Sidebar */}
+      <Sheet open={isSalesSidebarOpen} onOpenChange={setIsSalesSidebarOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl p-0 flex flex-col">
+          <SheetHeader className="p-6 border-b">
+            <SheetTitle>Add to cart</SheetTitle>
+            <SheetDescription className="text-sm text-muted-foreground">
+              Cart › Tip › Payment
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="flex-1 overflow-hidden flex">
+            {/* Products Section */}
+            <div className="flex-1 p-6 overflow-y-auto border-r">
+              {/* Search */}
+              <div className="mb-4">
+                <Input placeholder="Search" className="w-full" data-testid="input-sales-search" />
+              </div>
+
+              {/* Category Tabs */}
+              <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                <Button variant="default" size="sm" data-testid="tab-quick-sale">Quick Sale</Button>
+                <Button variant="outline" size="sm" data-testid="tab-appointments">Appointments</Button>
+                <Button variant="outline" size="sm" data-testid="tab-services">Services</Button>
+                <Button variant="outline" size="sm" data-testid="tab-products">Products</Button>
+                <Button variant="outline" size="sm" data-testid="tab-memberships">Memberships</Button>
+                <Button variant="outline" size="sm" data-testid="tab-gift-cards">Gift cards</Button>
+              </div>
+
+              {/* Products Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {services.slice(0, 8).map((service) => (
+                  <Card key={service.id} className="p-4 hover-elevate cursor-pointer" data-testid={`product-card-${service.id}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                        <Tag className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm truncate">{service.name}</h3>
+                        <p className="text-sm text-muted-foreground">AED {service.price}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              <Button variant="link" className="mt-4 text-primary" data-testid="button-edit-items">
+                Edit items
+              </Button>
+            </div>
+
+            {/* Cart Section */}
+            <div className="w-full sm:w-80 flex flex-col">
+              <div className="flex-1 p-6 overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium">Add client</h3>
+                  <Button variant="ghost" size="icon" data-testid="button-add-client">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mb-6">Leave empty for walk-ins</p>
+
+                {/* Cart Items */}
+                <div className="space-y-3 mb-6">
+                  <div className="p-3 bg-muted rounded-md" data-testid="cart-item-1">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-medium text-sm">KremBlack</span>
+                      <span className="font-medium text-sm">AED 60</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">4 · Nasser Al Ali</p>
+                  </div>
+                  <div className="p-3 bg-muted rounded-md" data-testid="cart-item-2">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-medium text-sm">Sun's view</span>
+                      <span className="font-medium text-sm">AED 200</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">6 · Nasser Al Ali</p>
+                  </div>
+                  <div className="p-3 bg-muted rounded-md" data-testid="cart-item-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-medium text-sm">Haircut scissors & beard scissors</span>
+                      <span className="font-medium text-sm">AED 270</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">4 sessions · 2 services · AED 270 value</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cart Footer */}
+              <div className="border-t p-6 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>AED 530</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span>AED 0</span>
+                </div>
+                <div className="flex justify-between font-medium text-base border-t pt-3">
+                  <span>Total</span>
+                  <span>AED 530</span>
+                </div>
+                <div className="flex justify-between items-center border-t pt-3">
+                  <span className="font-medium">To pay</span>
+                  <span className="text-lg font-bold">AED 530</span>
+                </div>
+                <Button className="w-full" size="lg" data-testid="button-continue-payment">
+                  Continue to payment
+                </Button>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
