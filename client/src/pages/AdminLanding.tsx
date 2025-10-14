@@ -8,9 +8,11 @@ import { Calendar, Users, TrendingUp, Settings, ArrowRight, Sparkles } from "luc
 export default function AdminLanding() {
   const [, setLocation] = useLocation();
 
-  // Check if user is already logged in
+  // Check if user is already logged in (handle 401 gracefully for non-authenticated visitors)
   const { data: user } = useQuery<{ id: string; role: string }>({
-    queryKey: ["/api/user"],
+    queryKey: ["/api/auth/user"],
+    retry: false, // Don't retry on 401
+    throwOnError: false, // Don't throw on error - landing should always render
   });
 
   // If user is logged in and is admin, redirect to admin panel
