@@ -14,6 +14,28 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 
 ## Recent Changes
 
+**Admin Landing Page - Main Entry Point (October 14, 2025)**
+- ✅ **New Landing Page**: Root URL (/) now shows professional admin authentication page
+  - Hero section with gradient background and decorative orbs
+  - Clear messaging: "Build Your Dream Spa Management System"
+  - Two primary CTAs: "Login as Admin" and "Book an Appointment"
+  - 4 feature cards showcasing admin capabilities (Calendar, Clients, Analytics, Settings)
+  - Trust badge with animated pulse indicator
+  - Responsive design with mobile/tablet/desktop breakpoints
+- ✅ **Route Restructure**: Customer booking moved to /booking route
+  - / = Admin landing and login page
+  - /booking = Customer booking flow (4-step process)
+  - /admin = Admin dashboard (protected, requires admin role)
+- ✅ **Smart Authentication**: Auto-redirect logic for logged-in admins
+  - Checks /api/auth/user on page load
+  - Gracefully handles 401 for unauthenticated visitors (retry: false, throwOnError: false)
+  - Auto-redirects to /admin if user is already logged in as admin
+  - After login callback, redirects to /admin instead of /
+- ✅ **GitHub Integration**: Repository created and code pushed
+  - Repository: https://github.com/nrashidk/SpaBooker
+  - All spa booking system code version controlled
+  - Ready for CI/CD and automatic deployments
+
 **Admin Calendar - Enhanced UI Controls (October 14, 2025)**
 - ✅ **"Add to Calendar" Dropdown**: Replaced "New Booking" button with dropdown menu
   - 5 options: Appointment, Group appointment, Blocked time, Sale, Quick payment
