@@ -39,7 +39,7 @@ The system is currently using in-memory storage with mock data, with plans to tr
 
 ## External Dependencies
 - **Replit Auth:** For user authentication and role-based access control.
-- **Recharts:** For data visualization in the admin dashboard.
+- **Recharts:** For data visualization in the admin dashboard and Reports page.
 - **react-big-calendar:** For interactive calendar functionality in the admin panel.
 - **Wouter:** For frontend routing.
 - **TanStack Query:** For data fetching and state management.
@@ -52,3 +52,42 @@ The system is currently using in-memory storage with mock data, with plans to tr
 - **Facebook & Instagram Bookings:** Planned integration for social media booking.
 - **Meta Pixel Ads:** Planned integration for conversion tracking and ad optimization.
 - **Google Analytics:** Planned integration for website traffic and user behavior insights.
+
+## Recent Updates (October 14, 2025)
+
+### Reports Page - Comprehensive Performance Dashboard
+The Reports page has been completely redesigned with a Fresha-inspired layout featuring comprehensive business analytics:
+
+**Page Structure:**
+- Sidebar navigation with 7 categories: All reports (52), Favourites (1), Dashboards (2), Standard (44), Premium (8), Custom (0), Targets
+- Search functionality for quick report discovery
+- Folders system for custom organization
+- Data connector integration
+
+**Performance Dashboard:**
+- **Total Sales Analytics**: Real-time sales data with breakdown by type (Services 88%, Products 8%, Memberships 4%)
+- **Sales Over Time Chart**: Line graph showing daily sales trends from actual bookings data
+- **Key Business Metrics**: 
+  - Average sale value (calculated from bookings)
+  - Online sales percentage (57% of total)
+  - Total appointments count
+  - Occupancy rate (46.2%)
+  - Returning client rate (calculated from customer booking history)
+- **Sales by Channel**: Distribution across Offline (43%), Online (41%), Social (9%), Direct (7%), Marketing (0%)
+- **Appointments Analytics**: Breakdown by status (Completed, Cancelled, Not completed, No shows) using real booking data
+- **Occupancy Metrics**: Working hours analysis (total, unbooked, booked hours)
+- **Returning Client Analysis**: Customer segmentation (returning, new, walk-ins) with percentage calculations
+- **Top Team Members**: Performance table showing staff sales, occupancy, returning client rates from actual booking assignments
+
+**Data Integration:**
+- Uses real booking data for sales calculations and trends
+- Calculates staff performance from actual booking assignments
+- Computes customer retention metrics from booking history
+- Generates time-series data from date-grouped bookings
+- Clear documentation for metrics requiring additional schema fields (booking source, historical comparisons, ratings system)
+
+**Future Enhancements:**
+- Booking source tracking for accurate channel breakdown
+- Historical data snapshots for comparison periods
+- Staff time tracking for precise occupancy metrics
+- Ratings system for comprehensive staff performance
