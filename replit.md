@@ -14,9 +14,28 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 
 ## Recent Changes
 
+**Admin Calendar - Enhanced UI Controls (October 14, 2025)**
+- ✅ **"Add to Calendar" Dropdown**: Replaced "New Booking" button with dropdown menu
+  - 5 options: Appointment, Group appointment, Blocked time, Sale, Quick payment
+  - Each option has unique icon (CalendarDays, Users, Clock, Tag, CreditCard)
+  - "Sale" option opens Sales sidebar for POS transactions
+  - Other options open booking dialog with appropriate defaults
+- ✅ **Settings & Zoom Controls**: Popover with calendar zoom functionality
+  - Zoom range: 50% to 200% in 10% increments
+  - Zoom in/out buttons with visual feedback
+  - Reset button to return to 100%
+  - Uses CSS zoom property with overflow-auto for proper scrolling
+- ✅ **Sales Sidebar (POS)**: Right-side Sheet for quick sales
+  - Full-width on mobile, max-w-3xl on desktop
+  - Search bar for quick product lookup
+  - Category tabs: Quick Sale, Appointments, Services, Products, Memberships, Gift cards
+  - Product grid showing services with prices
+  - Cart section with client selector, item list, totals
+  - "Continue to payment" checkout button
+  - Responsive two-column flex layout
+
 **Admin Calendar - Full Booking Management (October 14, 2025)**
 - ✅ **Responsive Design**: Mobile/tablet optimized with adaptive layouts and text
-- ✅ **New Booking Button**: Quick access to create bookings from calendar header
 - ✅ **Click Empty Slots**: Click any calendar slot to create booking (pre-fills date/time/staff)
 - ✅ **Click Events to Edit**: Click existing bookings to view/edit/delete
 - ✅ **Comprehensive Dialog**: Customer, service, staff, date, time, status fields
@@ -25,8 +44,8 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - ✅ **Real-time Updates**: Cache invalidation ensures calendar reflects changes immediately
 - ✅ **Auth Fix**: Fixed upsertUser to use email as conflict target (prevents duplicate key errors)
 - ✅ **Form Validation**: SelectItem fixed to prevent empty value errors
-- Mobile: Shows "D/W/M" and "New" (shortened text)
-- Desktop: Shows full "Day/Week/Month" and "New Booking" text
+- Mobile: Shows "D/W/M" (shortened text)
+- Desktop: Shows full "Day/Week/Month" text
 - Calendar height: 500px mobile → 600px tablet → full height desktop
 
 **Admin Panel Development - Complete (October 14, 2025)**
