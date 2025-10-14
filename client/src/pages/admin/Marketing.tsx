@@ -16,6 +16,7 @@ export default function AdminMarketing() {
   const [selectedSection, setSelectedSection] = useState<MarketingSection>("blast-campaigns");
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [showCreateDeal, setShowCreateDeal] = useState(false);
+  const [selectedDealType, setSelectedDealType] = useState<string | null>(null);
   const [selectedAutomationTab, setSelectedAutomationTab] = useState("reminders");
 
   const menuSections = [
@@ -521,84 +522,119 @@ export default function AdminMarketing() {
     </div>
   );
 
-  const renderCreateDeal = () => (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <Button variant="ghost" onClick={() => setShowCreateDeal(false)} className="mb-4" data-testid="button-back-deals">
-          ← Back to deals
-        </Button>
-        <h2 className="text-3xl font-bold">Select deal type</h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Choose the type of deal you want to create. <a href="#" className="text-primary">Learn more</a>
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <Card className="hover-elevate cursor-pointer border-2 border-primary" data-testid="deal-promotion">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold mb-1">Promotion</h3>
-                <p className="text-sm text-muted-foreground">
-                  Create a discount redeemed by clients entering the code when booking online or during checkout at Point of Sale
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-primary/10">
-                <Tag className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-elevate cursor-pointer" data-testid="deal-flash-sale">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold mb-1">Flash sale</h3>
-                <p className="text-sm text-muted-foreground">
-                  Immediately apply a discount online and let your team members manually add it to appointments and sales
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-primary/10">
-                <Zap className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-elevate cursor-pointer" data-testid="deal-last-minute">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold mb-1">Last-minute offer</h3>
-                <p className="text-sm text-muted-foreground">
-                  Apply a discount for bookings made just before an appointment starts
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-primary/10">
-                <Clock className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-900">
-              <SlidersHorizontal className="h-4 w-4 text-blue-700 dark:text-blue-300" />
-            </div>
-            <div>
-              <p className="text-sm">
-                Configure your off-peak hours, apply higher rates during surge hours, and conveniently manage all dynamic pricing rules from a single place. <a href="#" className="text-primary">Learn more</a>
-              </p>
-            </div>
+  const renderCreateDeal = () => {
+    // If a deal type is selected, show the deal form
+    if (selectedDealType) {
+      return (
+        <div className="space-y-6 max-w-3xl">
+          <div>
+            <Button variant="ghost" onClick={() => setSelectedDealType(null)} className="mb-4" data-testid="button-back-deal-types">
+              ← Back to deal types
+            </Button>
+            <h2 className="text-3xl font-bold">New {selectedDealType}</h2>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+
+          {/* Placeholder for deal form - will be implemented based on deal type */}
+          <div className="space-y-4">
+            <p className="text-muted-foreground">Deal creation form coming soon...</p>
+            <Button data-testid="button-save-deal">Save deal</Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Show deal type selection
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <div>
+          <Button variant="ghost" onClick={() => setShowCreateDeal(false)} className="mb-4" data-testid="button-back-deals">
+            ← Back to deals
+          </Button>
+          <h2 className="text-3xl font-bold">Select deal type</h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            Choose the type of deal you want to create. <a href="#" className="text-primary">Learn more</a>
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <Card 
+            className="hover-elevate cursor-pointer border-2 border-primary" 
+            data-testid="deal-promotion"
+            onClick={() => setSelectedDealType("Promotion")}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold mb-1">Promotion</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Create a discount redeemed by clients entering the code when booking online or during checkout at Point of Sale
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Tag className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="hover-elevate cursor-pointer" 
+            data-testid="deal-flash-sale"
+            onClick={() => setSelectedDealType("Flash sale")}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold mb-1">Flash sale</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Immediately apply a discount online and let your team members manually add it to appointments and sales
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Zap className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="hover-elevate cursor-pointer" 
+            data-testid="deal-last-minute"
+            onClick={() => setSelectedDealType("Last-minute offer")}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold mb-1">Last-minute offer</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Apply a discount for bookings made just before an appointment starts
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Clock className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-900">
+                <SlidersHorizontal className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+              </div>
+              <div>
+                <p className="text-sm">
+                  Configure your off-peak hours, apply higher rates during surge hours, and conveniently manage all dynamic pricing rules from a single place. <a href="#" className="text-primary">Learn more</a>
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const renderContent = () => {
     if (selectedSection === "blast-campaigns") {
@@ -651,6 +687,7 @@ export default function AdminMarketing() {
                     setSelectedSection(item.id);
                     setShowCreateCampaign(false);
                     setShowCreateDeal(false);
+                    setSelectedDealType(null);
                   }}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
                     selectedSection === item.id ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"

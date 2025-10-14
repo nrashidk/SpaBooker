@@ -129,7 +129,7 @@ export default function AdminServices() {
               <Badge className="mb-2">New</Badge>
               <p className="font-medium">Simplify your service menu, perfect for extras, products or refreshments</p>
             </div>
-            <Button variant="link" className="text-primary" data-testid="button-learn-more">
+            <Button variant="ghost" className="text-primary" data-testid="button-learn-more">
               Learn more →
             </Button>
           </div>
@@ -153,7 +153,7 @@ export default function AdminServices() {
               <span className="text-xs text-muted-foreground">{category.count}</span>
             </button>
           ))}
-          <Button variant="link" className="text-primary w-full justify-start px-3" data-testid="button-add-category">
+          <Button variant="ghost" className="text-primary w-full justify-start px-3" data-testid="button-add-category">
             <Plus className="h-4 w-4 mr-2" />
             Add category
           </Button>
