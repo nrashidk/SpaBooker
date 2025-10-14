@@ -569,12 +569,11 @@ export default function AdminCalendar() {
 
             <div className="space-y-2">
               <Label htmlFor="staff">Staff (Optional)</Label>
-              <Select value={formStaffId} onValueChange={setFormStaffId}>
+              <Select value={formStaffId || undefined} onValueChange={setFormStaffId}>
                 <SelectTrigger id="staff" data-testid="select-staff">
                   <SelectValue placeholder="Any available staff" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any available staff</SelectItem>
                   {staff.map((member) => (
                     <SelectItem key={member.id} value={String(member.id)}>
                       {member.name}

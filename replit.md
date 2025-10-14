@@ -14,6 +14,21 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 
 ## Recent Changes
 
+**Admin Calendar - Full Booking Management (October 14, 2025)**
+- ✅ **Responsive Design**: Mobile/tablet optimized with adaptive layouts and text
+- ✅ **New Booking Button**: Quick access to create bookings from calendar header
+- ✅ **Click Empty Slots**: Click any calendar slot to create booking (pre-fills date/time/staff)
+- ✅ **Click Events to Edit**: Click existing bookings to view/edit/delete
+- ✅ **Comprehensive Dialog**: Customer, service, staff, date, time, status fields
+- ✅ **Service Updates**: Fixed critical bug - editing bookings now properly updates services
+- ✅ **Delete Bookings**: Confirmation prompt before deletion
+- ✅ **Real-time Updates**: Cache invalidation ensures calendar reflects changes immediately
+- ✅ **Auth Fix**: Fixed upsertUser to use email as conflict target (prevents duplicate key errors)
+- ✅ **Form Validation**: SelectItem fixed to prevent empty value errors
+- Mobile: Shows "D/W/M" and "New" (shortened text)
+- Desktop: Shows full "Day/Week/Month" and "New Booking" text
+- Calendar height: 500px mobile → 600px tablet → full height desktop
+
 **Admin Panel Development - Complete (October 14, 2025)**
 - ✅ Dashboard with real-time charts (Recharts) - revenue, appointments, top services/team
 - ✅ Interactive Calendar with drag-drop booking management (react-big-calendar)
@@ -30,8 +45,6 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - Fixed revenue calculations to use actual booking totals (isSameDay for accurate date filtering)
 - Resolved React hooks bundling issue with react-big-calendar
 - Complete admin navigation with 15+ pages
-
-## Recent Changes
 **Authentication & Admin Protection (October 14, 2025)**
 - Implemented Replit Auth integration for user authentication
 - Added role-based access control (customer, staff, admin roles)
