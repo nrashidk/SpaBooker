@@ -108,3 +108,97 @@ Each report card displays:
 - Ratings system for comprehensive staff performance
 - Report data export functionality
 - Custom report builder
+
+### Marketing Page - Comprehensive Campaign & Promotion Management
+The Marketing page has been completely redesigned with a comprehensive sidebar navigation and feature-rich sections:
+
+**Page Structure:**
+- Sidebar navigation with 3 main sections: Messaging, Promotion, Engage
+- Dynamic content area that changes based on selected section
+- Consistent UI patterns across all marketing features
+
+**Messaging Section:**
+- **Blast Campaigns**: 
+  - List view showing existing campaigns with status, date, and audience count
+  - Add campaign button triggers channel selection flow
+  - Channel options: Multichannel (Recommended), Email, Text message
+  - Filter and sort capabilities for campaign management
+- **Automations**:
+  - 6 tab navigation: Reminders, Appointment updates, Waitlist updates, Increase bookings, Celebrate milestones, Client loyalty
+  - Automation cards showing enabled/disabled status
+  - Toggle controls for quick activation/deactivation
+  - Detailed descriptions for each automation type
+- **Messages History**:
+  - Comprehensive table with columns: Time sent, Client, Appointment, Channel, Type, Status
+  - Search functionality for quick message lookup
+  - Filter and export capabilities
+
+**Promotion Section:**
+- **Deals**:
+  - List of active deals with Add button
+  - Deal type selection flow with 3 options:
+    - Promotion: Discount code for online booking or POS checkout
+    - Flash sale: Immediate online discount with manual team application
+    - Last-minute offer: Discount for last-minute bookings
+  - Each type shows description and recommended use case
+  - New deal form (placeholder) triggered by type selection
+- **Smart Pricing**: Placeholder for dynamic pricing features
+
+**Engage Section:**
+- **Reviews**: Placeholder for review management features
+
+**Implementation Details:**
+- State management for section navigation and creation flows
+- Click handlers for deal type selection with form display
+- Back navigation at each level of the creation flow
+- Tested with E2E Playwright tests for core user flows
+
+### Services Page - Complete Service Management System
+The Services page has been redesigned with comprehensive service catalog and inventory management:
+
+**Page Structure:**
+- Sidebar navigation with 2 main sections: Catalog, Inventory
+- Categories filter sidebar for service browsing
+- Dynamic content area based on selected section
+
+**Catalog Section:**
+- **Catalog**: Overview of all services and products
+- **Service Menu**:
+  - Categories sidebar: All categories, Hair (14), Coloring (9), Shave & Beard (6), Facial (4), Hand & Foot Care (5)
+  - Service list with cards showing name, duration, and price
+  - Add button with dropdown options: Single service, Bundle, Category, +Service
+  - Search and filter functionality
+- **Memberships**: Placeholder for membership management
+- **Products**: Placeholder for product catalog
+
+**Inventory Section:**
+- **Stock Takes**: Placeholder for stock count management
+- **Stock Orders**: Placeholder for purchase order management
+- **Suppliers**: Placeholder for supplier management
+
+**New Service Form:**
+- Full-screen overlay design with close and save buttons
+- Left sidebar navigation with sections:
+  - Basic details (selected by default)
+  - Team members (7)
+  - Resources
+  - Service add-ons
+  - Settings
+- **Basic Details Section**:
+  - Treatment name input (0/255 character limit)
+  - Menu category dropdown
+  - Treatment type dropdown
+  - Description textarea (0/1000 character limit)
+- **Pricing and Duration Section**:
+  - Price type dropdown (Fixed, Variable, Free)
+  - Price input with AED currency
+  - Duration dropdown (15min to 2 hours)
+  - Add extra time button
+  - Options button for advanced settings
+
+**Implementation Details:**
+- Service data loaded from database via React Query
+- Category filtering with service count badges
+- Form validation ready for backend integration
+- Close button with state reset for clean UX
+- Tested with E2E Playwright tests for service creation flow
