@@ -3,40 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, Edit, Star, Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { Staff } from "@shared/schema";
 
 export default function AdminStaff() {
-  const staff = [
-    {
-      id: 1,
-      name: "Saqib",
-      specialty: "Hairdresser/Massage Therapist",
-      rating: 4.9,
-      active: true,
-      email: "saqib@spa.com",
-      phone: "+971 50 123 4567",
-      commission: 20,
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      specialty: "Skincare Specialist",
-      rating: 4.8,
-      active: true,
-      email: "sarah@spa.com",
-      phone: "+971 50 234 5678",
-      commission: 18,
-    },
-    {
-      id: 3,
-      name: "Michael Chen",
-      specialty: "Massage Therapist",
-      rating: 4.7,
-      active: true,
-      email: "michael@spa.com",
-      phone: "+971 50 345 6789",
-      commission: 22,
-    },
-  ];
+  const { data: staff = [], isLoading } = useQuery<Staff[]>({
+    queryKey: ["/api/admin/staff"],
+  });
+
+  if (isLoading) {
+    return <div className="p-8">Loading staff...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -62,10 +39,6 @@ export default function AdminStaff() {
                 <div className="flex-1">
                   <CardTitle className="text-lg">{member.name}</CardTitle>
                   <p className="text-sm text-muted-foreground">{member.specialty}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm font-medium">{member.rating}</span>
-                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -80,8 +53,8 @@ export default function AdminStaff() {
                   <span className="font-medium">{member.phone}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Commission</span>
-                  <Badge variant="secondary">{member.commission}%</Badge>
+                  <span className="text-muted-foreground">Specialty</span>
+                  <Badge variant="secondary">{member.specialty}</Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2 pt-2">
