@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import ServiceSelector, { type Service } from "@/components/ServiceSelector";
-import BookingCalendar from "@/components/BookingCalendar";
-import TimeSlotPicker from "@/components/TimeSlotPicker";
-import StaffSelector from "@/components/StaffSelector";
-import CustomerDetailsForm from "@/components/CustomerDetailsForm";
-import BookingSummary from "@/components/BookingSummary";
+import ServiceCategorySelector, { type Service } from "@/components/ServiceCategorySelector";
+import ProfessionalSelector, { type Professional } from "@/components/ProfessionalSelector";
+import TimeSelectionView from "@/components/TimeSelectionView";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import BookingSteps from "@/components/BookingSteps";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -15,63 +11,98 @@ import ThemeToggle from "@/components/ThemeToggle";
 const mockServices: Service[] = [
   {
     id: "1",
-    name: "Swedish Massage",
-    description: "Relaxing full-body massage with gentle pressure",
-    duration: 60,
-    price: 80,
+    name: "Express Haircut - اكسبريس قص الشعر - عادي",
+    duration: 25,
+    price: 50,
+    category: "Hair Services",
+    package: {
+      description: "Get 6 sessions for AED 250 with 5 Haircuts + 1 Free Haircut ✨",
+      originalPrice: 300,
+    },
   },
   {
     id: "2",
-    name: "Deep Tissue Massage",
-    description: "Therapeutic massage targeting muscle tension",
-    duration: 90,
-    price: 110,
+    name: "Beard Styling- خط اللحية",
+    duration: 25,
+    price: 50,
+    category: "Shave Services",
   },
   {
     id: "3",
-    name: "Aromatherapy Facial",
-    description: "Rejuvenating facial with essential oils",
-    duration: 45,
-    price: 65,
+    name: "Headshave - حلق الرأس (على الصفر)",
+    duration: 25,
+    price: 50,
+    category: "Hair Services",
   },
   {
     id: "4",
-    name: "Hot Stone Therapy",
-    description: "Soothing heated stone massage treatment",
-    duration: 75,
-    price: 95,
+    name: "Little Master Haircut - قص الشعر|الأطفل",
+    duration: 25,
+    price: 40,
+    category: "Hair Services",
+  },
+  {
+    id: "5",
+    name: "Executive Pedicure - اكسيكيوتف بادكير - حامي (دقيقة)",
+    duration: 40,
+    price: 80,
+    category: "Nails",
+    discount: 33,
+  },
+  {
+    id: "6",
+    name: "Executive Manicure - اكسيكيوتف مانيكير - حامي (دقيقة)",
+    duration: 30,
+    price: 65,
+    category: "Nails",
+    discount: 24,
   },
 ];
 
 //todo: remove mock functionality
-const mockStaff = [
-  { id: "1", name: "Sarah Johnson", specialty: "Massage Therapist", available: true },
-  { id: "2", name: "Michael Chen", specialty: "Skincare Specialist", available: true },
-  { id: "3", name: "Emma Williams", specialty: "Aromatherapist", available: false },
-  { id: "4", name: "David Martinez", specialty: "Wellness Expert", available: true },
+const mockProfessionals: Professional[] = [
+  {
+    id: "1",
+    name: "Saqib",
+    specialty: "Hairdresser/Massage Therapist",
+    rating: 4.9,
+  },
+  {
+    id: "2",
+    name: "Sarah Johnson",
+    specialty: "Skincare Specialist",
+    rating: 4.8,
+  },
+  {
+    id: "3",
+    name: "Michael Chen",
+    specialty: "Massage Therapist",
+    rating: 4.7,
+  },
 ];
 
-//todo: remove mock functionality
+//todo: remove mock functionality  
 const mockTimeSlots = [
-  { time: "9:00 AM", available: true, duration: 60 },
-  { time: "10:00 AM", available: true, duration: 60 },
-  { time: "11:00 AM", available: false, duration: 60 },
-  { time: "12:00 PM", available: true, duration: 60 },
-  { time: "1:00 PM", available: false, duration: 60 },
-  { time: "2:00 PM", available: true, duration: 60 },
-  { time: "3:00 PM", available: true, duration: 60 },
-  { time: "4:00 PM", available: true, duration: 60 },
-  { time: "5:00 PM", available: false, duration: 60 },
-  { time: "6:00 PM", available: true, duration: 60 },
+  { time: "5:30PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "5:45PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "6:00PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "6:15PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "6:30PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "6:45PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "7:00PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "7:15PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "7:30PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "7:45PM", available: true, price: 180, originalPrice: 220, discount: 18 },
+  { time: "8:00PM", available: true, price: 180, originalPrice: 220, discount: 18 },
 ];
 
 export default function BookingPage() {
   const [step, setStep] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [professionalMode, setProfessionalMode] = useState<'any' | 'per-service' | 'specific' | null>(null);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [customerDetails, setCustomerDetails] = useState<any>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
   const handleServiceToggle = (serviceId: string) => {
@@ -82,57 +113,39 @@ export default function BookingPage() {
     );
   };
 
-  const handleContinueToDate = () => {
+  const handleContinueToProfessional = () => {
     if (selectedServiceIds.length > 0) {
       setStep(2);
     }
   };
 
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    setStep(3);
+  const handleContinueToTime = () => {
+    if (professionalMode !== null) {
+      setStep(3);
+    }
   };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-    setStep(4);
-  };
-
-  const handleStaffSelect = (staffId: string | null) => {
-    setSelectedStaffId(staffId);
-  };
-
-  const handleContinueToDetails = () => {
-    setStep(5);
-  };
-
-  const handleCustomerSubmit = (data: any) => {
-    setCustomerDetails(data);
-    setIsConfirmed(true);
-    console.log("Booking confirmed:", {
-      services: selectedServices,
-      date: selectedDate,
-      time: selectedTime,
-      staffId: selectedStaffId,
-      customer: data,
-    });
+  const handleContinueToConfirm = () => {
+    if (selectedTime) {
+      setStep(4);
+      setIsConfirmed(true);
+    }
   };
 
   const handleNewBooking = () => {
     setStep(1);
     setSelectedServiceIds([]);
+    setProfessionalMode(null);
+    setSelectedProfessionalId(null);
     setSelectedDate(null);
     setSelectedTime(null);
-    setSelectedStaffId(null);
-    setCustomerDetails(null);
     setIsConfirmed(false);
   };
 
   const selectedServices = mockServices.filter(s => selectedServiceIds.includes(s.id));
-  const selectedStaff = mockStaff.find(s => s.id === selectedStaffId);
-  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0);
+  const selectedProfessional = mockProfessionals.find(p => p.id === selectedProfessionalId) || null;
 
-  if (isConfirmed && customerDetails) {
+  if (isConfirmed) {
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b sticky top-0 bg-background z-50">
@@ -152,18 +165,21 @@ export default function BookingPage() {
             services={selectedServices}
             date={selectedDate!}
             time={selectedTime!}
-            staffName={selectedStaff?.name || null}
-            customerName={customerDetails.name}
-            customerPhone={customerDetails.phone}
-            customerEmail={customerDetails.email}
+            staffName={selectedProfessional?.name || "Any Available"}
+            customerName="Customer"
+            customerPhone="+1234567890"
+            customerEmail=""
             smsNotificationSent={true}
-            emailNotificationSent={!!customerDetails.email}
+            emailNotificationSent={false}
             onNewBooking={handleNewBooking}
           />
         </main>
       </div>
     );
   }
+
+  const breadcrumbItems = ["Services", "Professional", "Time", "Confirm"];
+  const currentBreadcrumb = breadcrumbItems[step - 1];
 
   return (
     <div className="min-h-screen bg-background">
@@ -179,93 +195,75 @@ export default function BookingPage() {
         </div>
       </header>
 
-      <BookingSteps
-        currentStep={step}
-        steps={["Services", "Date", "Time", "Staff", "Details"]}
-      />
-
-      <main className="container mx-auto px-4 pb-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold mb-2">Book Your Spa Experience</h2>
-            <p className="text-muted-foreground">
-              Select your services and choose your preferred date, time, and specialist
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {step >= 1 && (
-                <div className="space-y-4">
-                  <ServiceSelector
-                    selectedServiceIds={selectedServiceIds}
-                    onServiceToggle={handleServiceToggle}
-                    services={mockServices}
-                  />
-                  {selectedServiceIds.length > 0 && (
-                    <Button
-                      onClick={handleContinueToDate}
-                      className="w-full"
-                      data-testid="button-continue-to-date"
-                    >
-                      Continue to Date Selection
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {step >= 2 && (
-                <BookingCalendar
-                  selectedDate={selectedDate}
-                  onDateSelect={handleDateSelect}
-                  unavailableDates={[new Date(2025, 9, 18), new Date(2025, 9, 22)]}
-                />
-              )}
-
-              {step >= 3 && selectedDate && (
-                <TimeSlotPicker
-                  selectedTime={selectedTime}
-                  onTimeSelect={handleTimeSelect}
-                  timeSlots={mockTimeSlots}
-                  totalDuration={totalDuration}
-                />
-              )}
-
-              {step >= 4 && selectedTime && (
-                <div className="space-y-4">
-                  <StaffSelector
-                    selectedStaffId={selectedStaffId}
-                    onStaffSelect={handleStaffSelect}
-                    staff={mockStaff}
-                  />
-                  <Button
-                    onClick={handleContinueToDetails}
-                    className="w-full"
-                    data-testid="button-continue-to-details"
-                  >
-                    Continue to Details
-                  </Button>
-                </div>
-              )}
-
-              {step >= 5 && (
-                <CustomerDetailsForm
-                  onSubmit={handleCustomerSubmit}
-                />
-              )}
-            </div>
-
-            <div className="lg:col-span-1">
-              <div className="sticky top-24">
-                <BookingSummary
-                  services={selectedServices}
-                  date={selectedDate}
-                  time={selectedTime}
-                  staffName={selectedStaff?.name || null}
-                />
+      <div className="border-b bg-background">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-2 text-sm">
+            {breadcrumbItems.map((item, index) => (
+              <div key={item} className="flex items-center gap-2">
+                <span
+                  className={`${
+                    index + 1 === step
+                      ? 'text-foreground font-medium'
+                      : index + 1 < step
+                      ? 'text-foreground'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {item}
+                </span>
+                {index < breadcrumbItems.length - 1 && (
+                  <span className="text-muted-foreground">›</span>
+                )}
               </div>
-            </div>
+            ))}
           </div>
+        </div>
+      </div>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {step === 1 && (
+            <div>
+              <h2 className="text-4xl font-bold mb-8">Services</h2>
+              <ServiceCategorySelector
+                selectedServiceIds={selectedServiceIds}
+                onServiceToggle={handleServiceToggle}
+                services={mockServices}
+                onContinue={handleContinueToProfessional}
+              />
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <h2 className="text-4xl font-bold mb-8">Select professional</h2>
+              <ProfessionalSelector
+                selectedProfessionalId={selectedProfessionalId}
+                onProfessionalSelect={setSelectedProfessionalId}
+                professionals={mockProfessionals}
+                onContinue={handleContinueToTime}
+                mode={professionalMode || 'any'}
+                onModeChange={setProfessionalMode}
+              />
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <h2 className="text-4xl font-bold mb-8">Select time</h2>
+              <TimeSelectionView
+                selectedDate={selectedDate}
+                selectedTime={selectedTime}
+                selectedProfessional={selectedProfessional}
+                onDateSelect={setSelectedDate}
+                onTimeSelect={setSelectedTime}
+                onProfessionalChange={setSelectedProfessionalId}
+                timeSlots={mockTimeSlots}
+                professionals={mockProfessionals}
+                onContinue={handleContinueToConfirm}
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>
