@@ -567,8 +567,10 @@ export default function AdminCalendar() {
 
       <Card className="p-2 sm:p-4">
         <div 
-          className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-250px)]"
-          style={{ transform: `scale(${calendarZoom / 100})`, transformOrigin: 'top left' }}
+          className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-250px)] overflow-auto"
+          style={{ 
+            zoom: `${calendarZoom}%`
+          }}
         >
           <DragAndDropCalendar
             localizer={localizer}
@@ -781,7 +783,7 @@ export default function AdminCalendar() {
                 ))}
               </div>
 
-              <Button variant="link" className="mt-4 text-primary" data-testid="button-edit-items">
+              <Button variant="ghost" className="mt-4 text-primary" data-testid="button-edit-items">
                 Edit items
               </Button>
             </div>
