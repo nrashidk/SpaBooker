@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { 
   BarChart3, TrendingUp, TrendingDown, Users, Star, FolderPlus, 
   Database, Search, Filter, Plus, FileText, Award, Target, 
-  Heart, Settings, Activity, ArrowUp, ArrowDown
+  Heart, Settings, Activity, ArrowUp, ArrowDown, Tag, DollarSign,
+  Calendar, Package, UserCheck, Banknote, Receipt
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,10 +16,12 @@ import {
 } from "recharts";
 
 type ReportCategory = "all" | "favourites" | "dashboards" | "standard" | "premium" | "custom" | "targets";
+type StandardSubcategory = "all" | "sales" | "finance" | "appointments" | "team" | "clients" | "inventory";
 
 export default function AdminReports() {
   const [selectedCategory, setSelectedCategory] = useState<ReportCategory>("dashboards");
   const [selectedDashboard, setSelectedDashboard] = useState<string | null>(null);
+  const [selectedStandardSubcategory, setSelectedStandardSubcategory] = useState<StandardSubcategory>("all");
 
   // Fetch bookings data for metrics
   const { data: bookings = [] } = useQuery<any[]>({
@@ -182,6 +185,80 @@ export default function AdminReports() {
       icon: Activity,
     },
   ];
+
+  const standardReports = {
+    sales: [
+      { name: "Sales summary", description: "Sales quantities and value, excluding tips and gift card sales.", icon: Tag },
+      { name: "Sales list", description: "Complete listing of all sales transactions.", icon: Tag },
+      { name: "Sales log detail", description: "In-depth view into each sale transaction.", icon: Tag },
+      { name: "Gift card list", description: "Full list of issued and outstanding gift cards.", icon: Tag },
+      { name: "Membership list", description: "Complete list of active memberships.", icon: Tag },
+      { name: "Discount summary", description: "Overview of discounts granted and their impact on sales.", icon: Tag },
+      { name: "Taxes summary", description: "Summary of all tax-related transactions.", icon: Tag },
+    ],
+    finance: [
+      { name: "Finance summary", description: "High-level summary of sales, payments and liabilities.", icon: DollarSign },
+      { name: "Payments summary", description: "Payments split by payment methods.", icon: DollarSign },
+      { name: "Payment transactions", description: "Detailed view of all payment transactions.", icon: DollarSign, favorited: true },
+      { name: "Cash flow summary", description: "Overview of funds inflow and outflows.", icon: DollarSign },
+      { name: "Cash flow statement", description: "Detailed record of cash flow over a selected period.", icon: DollarSign },
+      { name: "Service charges", description: "Breakdown of service charge revenue.", icon: DollarSign },
+      { name: "Liability summary", description: "Overview of company liabilities by type. This report excludes unpaid and voided gift cards.", icon: DollarSign },
+      { name: "Liability activity", description: "Detailed view of liability-related transactions.", icon: DollarSign },
+      { name: "Upfront payment list", description: "Complete record of all upfront payments.", icon: DollarSign },
+      { name: "Taxes list", description: "Complete listing of all taxes transactions.", icon: DollarSign },
+    ],
+    appointments: [
+      { name: "Appointments summary", description: "General overview of appointment trends and patterns, including cancellations and no-shows.", icon: Calendar },
+      { name: "Appointments list", description: "Full list of scheduled appointments.", icon: Calendar },
+      { name: "Appointments cancellations & no-show summary", description: "Insight into appointment cancellations and no-shows.", icon: Calendar },
+      { name: "Waitlist detail", description: "Detailed view of waitlist entries.", icon: Calendar },
+    ],
+    team: [
+      { name: "Working hours activity", description: "Detailed view of team members worked hours, shifts, and timesheets.", icon: Users },
+      { name: "Break activity", description: "Detailed view of team members' breaks.", icon: Users },
+      { name: "Attendance summary", description: "Overview of team members' punctuality and attendance for their shifts.", icon: Users },
+      { name: "Wages detail", description: "Detailed view of wages earned by team members across locations.", icon: Users },
+      { name: "Wages summary", description: "Overview of wages earned by team members.", icon: Users },
+      { name: "Fee deduction activity", description: "Complete list of fees applied to team member earnings.", icon: Users },
+      { name: "Fee deduction summary", description: "Overview of fees applied to earnings by team member, locations and sale items.", icon: Users },
+      { name: "Pay summary", description: "Overview of team member compensation.", icon: Users },
+      { name: "Scheduled shifts", description: "Detailed view of team members scheduled shifts.", icon: Users },
+      { name: "Working hours summary", description: "Overview of operational hours and productivity.", icon: Users },
+      { name: "Team time off report", description: "Detailed view of team time off.", icon: Users },
+      { name: "Tips summary", description: "Analysis of gratuity income.", icon: Users },
+      { name: "Tips detail", description: "Comprehensive breakdown of all tips received.", icon: Users },
+      { name: "Commission activity", description: "Full list of all sales with commissions payable.", icon: Users },
+      { name: "Commission summary", description: "Overview of commission earned by team members, locations and sale items.", icon: Users },
+    ],
+    clients: [
+      { name: "Client list", description: "Comprehensive list of all active clients.", icon: UserCheck },
+    ],
+    inventory: [
+      { name: "Stock on hand", description: "Current status and quantity of stock items.", icon: Package },
+      { name: "Stock movement summary", description: "Summary of stock inflow and outflow.", icon: Package },
+      { name: "Stock movement log", description: "Detailed record of all stock movements.", icon: Package },
+      { name: "Product list", description: "Comprehensive list of all products.", icon: Package },
+      { name: "Ordered stock", description: "Detailed record of all stock orders.", icon: Package },
+    ],
+  };
+
+  const standardSubcategories = [
+    { id: "all", label: "All reports" },
+    { id: "sales", label: "Sales" },
+    { id: "finance", label: "Finance" },
+    { id: "appointments", label: "Appointments" },
+    { id: "team", label: "Team" },
+    { id: "clients", label: "Clients" },
+    { id: "inventory", label: "Inventory" },
+  ];
+
+  const getFilteredStandardReports = () => {
+    if (selectedStandardSubcategory === "all") {
+      return Object.values(standardReports).flat();
+    }
+    return standardReports[selectedStandardSubcategory] || [];
+  };
 
   if (selectedDashboard === "performance") {
     return (
@@ -762,9 +839,49 @@ export default function AdminReports() {
         )}
 
         {selectedCategory === "standard" && (
-          <div className="text-center py-12 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>44 standard reports available</p>
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-4">Standard Fresha reports</h3>
+              <div className="flex gap-2 flex-wrap">
+                {standardSubcategories.map((sub) => (
+                  <Button
+                    key={sub.id}
+                    variant={selectedStandardSubcategory === sub.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedStandardSubcategory(sub.id as StandardSubcategory)}
+                    data-testid={`subcategory-${sub.id}`}
+                  >
+                    {sub.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {getFilteredStandardReports().map((report, index) => {
+                const Icon = report.icon;
+                return (
+                  <Card key={index} className="hover-elevate cursor-pointer">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Icon className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{report.name}</h3>
+                            <p className="text-sm text-muted-foreground">{report.description}</p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" data-testid={`button-favourite-report-${index}`}>
+                          <Star className={`h-4 w-4 ${report.favorited ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         )}
 
