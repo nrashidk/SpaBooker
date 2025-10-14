@@ -44,10 +44,9 @@ export default function ServiceSelector({ selectedServiceIds, onServiceToggle, s
           return (
             <Card
               key={service.id}
-              className={`p-4 cursor-pointer hover-elevate active-elevate-2 transition-all ${
+              className={`p-4 hover-elevate active-elevate-2 transition-all ${
                 isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
               }`}
-              onClick={() => onServiceToggle(service.id)}
               data-testid={`service-option-${service.id}`}
             >
               <div className="flex items-start gap-3">
@@ -57,7 +56,10 @@ export default function ServiceSelector({ selectedServiceIds, onServiceToggle, s
                   className="mt-1"
                   data-testid={`service-checkbox-${service.id}`}
                 />
-                <div className="flex-1">
+                <div 
+                  className="flex-1 cursor-pointer"
+                  onClick={() => onServiceToggle(service.id)}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h4 className="font-semibold">{service.name}</h4>
