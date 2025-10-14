@@ -1,49 +1,18 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Star } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { Service } from "@shared/schema";
 
 export default function AdminServices() {
-  const [services] = useState([
-    {
-      id: 1,
-      name: "Express Haircut",
-      category: "Hair Services",
-      duration: 25,
-      price: 50,
-      featured: true,
-      active: true,
-    },
-    {
-      id: 2,
-      name: "Beard Styling",
-      category: "Shave Services",
-      duration: 25,
-      price: 50,
-      featured: true,
-      active: true,
-    },
-    {
-      id: 3,
-      name: "Executive Pedicure",
-      category: "Nails",
-      duration: 40,
-      price: 80,
-      discount: 33,
-      featured: true,
-      active: true,
-    },
-    {
-      id: 4,
-      name: "Little Master Haircut",
-      category: "Hair Services",
-      duration: 25,
-      price: 40,
-      featured: false,
-      active: true,
-    },
-  ]);
+  const { data: services = [], isLoading } = useQuery<Service[]>({
+    queryKey: ["/api/admin/services"],
+  });
+
+  if (isLoading) {
+    return <div className="p-8">Loading services...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -70,9 +39,6 @@ export default function AdminServices() {
               <CardTitle className="flex items-start justify-between gap-2">
                 <span className="flex-1">{service.name}</span>
               </CardTitle>
-              <Badge variant="secondary" className="w-fit">
-                {service.category}
-              </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between text-sm">
@@ -82,15 +48,10 @@ export default function AdminServices() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Price</span>
                 <div className="flex items-center gap-2">
-                  {service.discount && (
-                    <span className="text-muted-foreground line-through">
-                      AED {Math.round(service.price / (1 - service.discount / 100))}
-                    </span>
-                  )}
                   <span className="font-semibold">AED {service.price}</span>
-                  {service.discount && (
+                  {service.discountPercent && (
                     <Badge variant="default" className="text-xs">
-                      {service.discount}% off
+                      {service.discountPercent}% off
                     </Badge>
                   )}
                 </div>

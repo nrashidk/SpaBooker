@@ -18,6 +18,9 @@ import AdminInventory from "@/pages/admin/Inventory";
 import AdminFinance from "@/pages/admin/Finance";
 import AdminReports from "@/pages/admin/Reports";
 import AdminSettings from "@/pages/admin/Settings";
+import AdminMarketplace from "@/pages/admin/Marketplace";
+import AdminMarketing from "@/pages/admin/Marketing";
+import AdminAddOns from "@/pages/admin/AddOns";
 
 function Router() {
   return (
@@ -120,6 +123,33 @@ function Router() {
           <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminSettings />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/marketplace">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminMarketplace />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/marketing">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminMarketing />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/addons">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminAddOns />
             </AdminLayout>
           </ProtectedRoute>
         )}

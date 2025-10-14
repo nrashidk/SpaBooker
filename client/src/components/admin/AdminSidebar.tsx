@@ -10,6 +10,9 @@ import {
   UserCircle,
   ShoppingCart,
   UserCheck,
+  Store,
+  Megaphone,
+  Puzzle,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -76,6 +79,21 @@ const menuItems = [
     title: "Reports",
     url: "/admin/reports",
     icon: BarChart3,
+  },
+  {
+    title: "Marketplace",
+    url: "/admin/marketplace",
+    icon: Store,
+  },
+  {
+    title: "Marketing",
+    url: "/admin/marketing",
+    icon: Megaphone,
+  },
+  {
+    title: "Add-ons",
+    url: "/admin/addons",
+    icon: Puzzle,
   },
   {
     title: "Settings",
