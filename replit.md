@@ -1,86 +1,102 @@
-# Spa Booking System
+# Serene Spa - Booking System
 
 ## Overview
+A comprehensive spa booking system inspired by Fresha, allowing customers to book spa treatments online with an intuitive step-by-step process. The system includes service selection, calendar scheduling, staff assignment, and automated notifications.
 
-A modern spa booking application that allows customers to book wellness services through an intuitive multi-step booking flow. The system guides users through selecting services, choosing dates and times, selecting staff members, and entering their contact details before confirming their appointment. Built with a focus on creating a calming, professional user experience that reflects spa and wellness brand values.
+## Current State (October 14, 2025)
+The booking system is fully functional with service selection capabilities. Customers can:
+- Select one or more spa services with duration and pricing
+- View available dates on an interactive calendar
+- Choose time slots that reflect the total duration of selected services
+- Select a specific staff member or choose "Any Available"
+- Enter their contact details (phone required, email optional)
+- Receive booking confirmation with SMS and email notifications
+
+## Recent Changes
+**Service Selection Feature (October 14, 2025)**
+- Added ServiceSelector component allowing customers to select multiple services
+- Total duration is automatically calculated from selected services
+- Time slots now display the total session duration based on selected services
+- Booking summary and confirmation screens show all selected services with individual durations
+- Fixed checkbox event handling to prevent double-toggling
+
+## Project Architecture
+
+### Frontend (React + TypeScript)
+**Main Components:**
+- `ServiceSelector`: Multi-select service picker with duration calculation
+- `BookingCalendar`: Date picker with available/unavailable dates
+- `TimeSlotPicker`: Time slot selection with dynamic duration display
+- `StaffSelector`: Staff member selection with availability status
+- `CustomerDetailsForm`: Contact information collection
+- `BookingSummary`: Real-time booking summary sidebar
+- `BookingConfirmation`: Final confirmation screen with notification status
+- `BookingSteps`: Progress indicator for the booking flow
+- `ThemeToggle`: Light/dark mode switcher
+
+**Booking Flow (5 Steps):**
+1. Services - Select one or more spa treatments
+2. Date - Choose appointment date
+3. Time - Select time slot (duration based on services)
+4. Staff - Choose specialist or "Any Available"
+5. Details - Enter customer information and confirm
+
+### Backend (Express + PostgreSQL - Planned)
+Currently using in-memory storage with mock data.
+
+**Planned Features:**
+- Database integration for persistent storage
+- Admin panel for managing services and staff schedules
+- Customer authentication using Replit Auth
+- SMS notifications via Twilio API
+- Email notifications
+- Customer profile management
+
+### Mock Data (To Be Replaced)
+**Services:**
+- Swedish Massage (60 min, $80)
+- Deep Tissue Massage (90 min, $110)
+- Aromatherapy Facial (45 min, $65)
+- Hot Stone Therapy (75 min, $95)
+
+**Staff:**
+- Sarah Johnson (Massage Therapist)
+- Michael Chen (Skincare Specialist)
+- Emma Williams (Aromatherapist)
+- David Martinez (Wellness Expert)
+
+## Design Guidelines
+The application follows a calming spa aesthetic with:
+- Primary color: Deep ocean blue (210 45% 25%) - trust and calm
+- Secondary: Soft mint background (160 35% 95%) - freshness
+- Accent: Lighter blue (210 40% 55%) for interactions
+- Typography: Inter for headings/body, DM Sans for calendar numbers
+- Consistent spacing and elevation system for interactions
 
 ## User Preferences
+- SMS notifications preferred but Twilio connector declined (will use API keys)
+- Email notifications when customer provides email
+- Customer registration via phone or email
+- Booking history and profile storage required
 
-Preferred communication style: Simple, everyday language.
+## Next Steps
+1. Implement backend database schema for services, staff, bookings, and customers
+2. Add Replit Auth integration for customer accounts
+3. Set up Twilio API for SMS notifications
+4. Implement email notification system
+5. Create admin dashboard for service/staff management
+6. Add booking cancellation and rescheduling features
+7. Implement recurring appointments and package bookings
 
-## System Architecture
+## Technical Notes
+- Using PostgreSQL database (Neon-backed via Replit)
+- Frontend: React with Wouter for routing, TanStack Query for data fetching
+- UI: Shadcn components with Tailwind CSS
+- Date handling: date-fns library
+- Forms: React Hook Form with Zod validation
+- All interactive elements have data-testid attributes for e2e testing
 
-### Frontend Architecture
-
-**Framework & Build Tools**
-- React 18 with TypeScript for type-safe component development
-- Vite as the build tool and development server for fast hot module replacement
-- Wouter for lightweight client-side routing
-- TanStack Query for server state management and caching
-
-**UI Component System**
-- shadcn/ui component library (New York style variant) for consistent, accessible components
-- Radix UI primitives for headless, accessible UI components
-- Tailwind CSS for utility-first styling with custom design tokens
-- Class Variance Authority (CVA) for type-safe component variants
-
-**Design System**
-- Custom color palette with CSS variables for light/dark theme support
-- Ocean blue primary colors (#210 45% 25%) for trust and calm
-- Soft mint secondary backgrounds (#160 35% 95%) for freshness
-- Typography using Inter font family for clean, professional appearance
-- Custom elevation system using overlay opacity (--elevate-1, --elevate-2)
-
-**State Management Pattern**
-- Local component state with React hooks (useState) for UI interactions
-- Form state managed via React Hook Form with Zod schema validation
-- Multi-step booking flow state managed at page level
-- Mock data currently used for services, staff, and time slots
-
-### Backend Architecture
-
-**Server Framework**
-- Express.js for HTTP server and API routing
-- TypeScript for type safety across the stack
-- Development and production build scripts with esbuild
-
-**Database Layer**
-- Neon serverless PostgreSQL as the database provider
-- Drizzle ORM for type-safe database queries and schema management
-- WebSocket support via ws library for Neon serverless connections
-- Migration system using drizzle-kit
-
-**Storage Pattern**
-- In-memory storage implementation (MemStorage) for development
-- Interface-based design (IStorage) allowing easy swap to database persistence
-- Currently implements basic user CRUD operations
-- Designed to be extended with booking, service, and staff management
-
-**API Design**
-- RESTful API pattern with /api prefix for all endpoints
-- Session management ready with connect-pg-simple for PostgreSQL session store
-- Middleware for request logging with duration tracking
-- Error handling middleware for consistent error responses
-
-### External Dependencies
-
-**UI & Interaction Libraries**
-- @radix-ui/* suite for accessible component primitives (dialogs, popovers, dropdowns, etc.)
-- react-hook-form with @hookform/resolvers for form validation
-- date-fns for date manipulation and formatting
-- cmdk for command palette functionality
-- lucide-react for consistent icon set
-
-**Database & ORM**
-- @neondatabase/serverless for serverless PostgreSQL connections
-- drizzle-orm and drizzle-zod for ORM and schema validation
-- ws for WebSocket support in serverless environment
-
-**Development Tools**
-- @replit/vite-plugin-* for Replit-specific development features
-- tsx for running TypeScript files directly
-- PostCSS with Tailwind CSS for style processing
-
-**Data Validation**
-- Zod for runtime type validation and schema definition
-- drizzle-zod for automatic Zod schema generation from database schema
+## Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string
+- `SESSION_SECRET` - Session encryption key
+- Twilio credentials will be added when SMS is implemented
