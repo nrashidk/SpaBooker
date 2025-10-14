@@ -165,7 +165,7 @@ export default function AdminReports() {
     { id: "all", label: "All reports", count: 52, icon: FileText },
     { id: "favourites", label: "Favourites", count: 1, icon: Heart },
     { id: "dashboards", label: "Dashboards", count: 2, icon: BarChart3 },
-    { id: "standard", label: "Standard", count: 44, icon: FileText },
+    { id: "standard", label: "Standard", count: 42, icon: FileText },
     { id: "premium", label: "Premium", count: 8, icon: Award },
     { id: "custom", label: "Custom", count: 0, icon: Settings },
     { id: "targets", label: "Targets", count: null, icon: Target },
