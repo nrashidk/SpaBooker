@@ -9,11 +9,24 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - Choose professional assignment mode (Any professional, Per-service, or Specific professional)
 - View available dates on a horizontal week calendar
 - Select time slots with pricing and discounts
-- Enter contact details and receive booking confirmation
+- Enter contact details (name + mobile OR email) and receive booking confirmation
+- Receive WhatsApp/SMS and/or email notifications based on provided contact method
 
 ## Recent Changes
+**Customer Details & Notifications (October 14, 2025)**
+- Added customer details form on step 4 before confirmation
+- Implemented validation: name + at least ONE contact method (mobile OR email OR both)
+- Created booking summary component showing all booking details
+- Updated confirmation to show notification badges based on provided contact:
+  - "WhatsApp/SMS Sent" badge when mobile is provided
+  - "Email Sent" badge when email is provided
+  - Both badges when both are provided
+- Added spa/barber name configuration (displayed in header and confirmation)
+- Updated breadcrumb from "Confirm" to "Details" for step 4
+- State properly resets customer details on new booking
+
 **Complete Redesign (October 14, 2025)**
-- Updated booking flow from 5 steps to 4 steps: Services → Professional → Time → Confirm
+- Updated booking flow from 5 steps to 4 steps: Services → Professional → Time → Details
 - Redesigned Services page with horizontal scrollable category tabs
 - Implemented featured services flag system
 - Redesigned Professional selection with three modes:
@@ -35,15 +48,17 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - `ServiceCategorySelector`: Category tabs with multi-select service cards, featured services
 - `ProfessionalSelector`: Three-mode professional selection (Any, Per-service, Specific)
 - `TimeSelectionView`: Horizontal week calendar with time slot selection
-- `BookingConfirmation`: Final confirmation with all booking details
-- `BookingSteps`: Breadcrumb navigation (Services › Professional › Time › Confirm)
+- `CustomerDetailsForm`: Customer information form with validation (name + mobile/email)
+- `BookingSummary`: Shows selected services, date, time, and professional
+- `BookingConfirmation`: Final confirmation with notification badges and appointment details
+- `BookingSteps`: Breadcrumb navigation (Services › Professional › Time › Details)
 - `ThemeToggle`: Light/dark mode switcher
 
 **Booking Flow (4 Steps):**
 1. **Services** - Browse categories, select services with duration/pricing
 2. **Professional** - Choose assignment mode and select professionals
 3. **Time** - Pick date from week view, select time slot with pricing
-4. **Confirm** - Review details and complete booking
+4. **Details** - Enter customer information and review booking summary, then confirm
 
 ### Features Implemented
 **Service Selection:**
@@ -71,11 +86,21 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - Original and discounted pricing
 - Clear availability indicators
 
+**Customer Details & Notifications:**
+- Customer name (required, minimum 2 characters)
+- Mobile number (optional) - for WhatsApp/SMS notifications
+- Email address (optional) - for email notifications
+- Validation: At least ONE contact method required (mobile OR email OR both)
+- Booking summary sidebar showing all selected details
+- Notification badges on confirmation based on provided contact methods
+- Spa/barber name configurable and displayed throughout
+
 **State Management:**
 - Service selection tracking
 - Professional mode and assignments
 - Per-service professional mapping
 - Date and time selection
+- Customer details storage
 - Complete state reset on new booking
 
 ### Backend (Express + PostgreSQL - Planned)
@@ -120,23 +145,27 @@ The application follows the provided design specifications with:
 - Week-view calendar navigation
 
 ## User Preferences
-- 4-step booking sequence (Services → Professional → Time → Confirm)
+- 4-step booking sequence (Services → Professional → Time → Details)
 - Category-based service browsing
 - Flexible professional assignment (any, per-service, specific)
 - Time slots with pricing and discounts
-- SMS/Email notifications on booking
-- Customer registration via phone or email
+- Customer details form with name + mobile OR email (or both)
+- WhatsApp/SMS notifications when mobile is provided
+- Email notifications when email is provided
+- Spa/barber name displayed throughout interface
 
 ## Next Steps
-1. Implement backend database schema for services, staff, bookings, and customers
-2. Replace mock data with live data from database
-3. Add Replit Auth integration for customer accounts
-4. Set up Twilio API for SMS notifications
-5. Implement email notification system
-6. Create admin dashboard for service/staff management
-7. Add booking cancellation and rescheduling features
-8. Implement customer booking history
-9. Add staff availability management
+1. **Set up Twilio integration** for actual WhatsApp/SMS notifications (currently simulated)
+2. Implement email notification system (currently simulated)
+3. Implement backend database schema for services, staff, bookings, and customers
+4. Create backend API routes to save bookings and send notifications
+5. Replace mock data with live data from database
+6. Add Replit Auth integration for customer accounts
+7. Create admin panel for spa/barber name configuration
+8. Create admin dashboard for service/staff management
+9. Add booking cancellation and rescheduling features
+10. Implement customer booking history
+11. Add staff availability management
 
 ## Technical Notes
 - Using PostgreSQL database (Neon-backed via Replit)
@@ -154,10 +183,16 @@ The application follows the provided design specifications with:
 - Twilio credentials will be added when SMS is implemented
 
 ## Testing Status
-✅ Complete 4-step booking flow tested
+✅ Complete 4-step booking flow tested (Services → Professional → Time → Details)
 ✅ Service selection with categories
 ✅ Per-service professional assignment
 ✅ Time selection with calendar
-✅ Booking confirmation
-✅ State reset on new booking
+✅ Customer details form with validation
+✅ Booking confirmation with notification badges
+✅ Notifications show correctly based on contact method:
+  - Both mobile and email: Shows both badges
+  - Mobile only: Shows WhatsApp/SMS badge only
+  - Email only: Shows Email badge only
+✅ Spa name displays in header and confirmation
+✅ State reset on new booking (including customer details)
 ✅ Multiple booking sessions tested
