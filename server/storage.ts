@@ -94,6 +94,10 @@ export interface IStorage {
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
   deleteBooking(id: number): Promise<boolean>;
+  
+  // Booking Item operations
+  getAllBookingItems(): Promise<BookingItem[]>;
+  getBookingItemsByBookingId(bookingId: number): Promise<BookingItem[]>;
   createBookingItem(item: InsertBookingItem): Promise<BookingItem>;
 }
 
@@ -321,6 +325,15 @@ export class DatabaseStorage implements IStorage {
   async deleteBooking(id: number): Promise<boolean> {
     const result = await db.delete(bookings).where(eq(bookings.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Booking Item operations
+  async getAllBookingItems(): Promise<BookingItem[]> {
+    return db.select().from(bookingItems);
+  }
+
+  async getBookingItemsByBookingId(bookingId: number): Promise<BookingItem[]> {
+    return db.select().from(bookingItems).where(eq(bookingItems.bookingId, bookingId));
   }
 
   async createBookingItem(item: InsertBookingItem): Promise<BookingItem> {

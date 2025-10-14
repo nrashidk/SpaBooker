@@ -8,6 +8,9 @@ import BookingPage from "@/pages/booking";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/Dashboard";
+import AdminCalendar from "@/pages/admin/Calendar";
+import AdminSales from "@/pages/admin/Sales";
+import AdminClients from "@/pages/admin/Clients";
 import AdminServices from "@/pages/admin/Services";
 import AdminStaff from "@/pages/admin/Staff";
 import AdminBookings from "@/pages/admin/Bookings";
@@ -27,6 +30,33 @@ function Router() {
           <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminDashboard />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/calendar">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminCalendar />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/sales">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminSales />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/clients">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <AdminClients />
             </AdminLayout>
           </ProtectedRoute>
         )}

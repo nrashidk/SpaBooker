@@ -1,171 +1,433 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Calendar, Users, TrendingUp, Package, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { format, subDays, isToday, isSameDay } from "date-fns";
+import { Calendar, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import type { Booking, BookingItem, Service, Staff, Customer } from "@shared/schema";
 
 export default function AdminDashboard() {
-  const stats = [
-    {
-      title: "Today's Revenue",
-      value: "AED 3,240",
-      change: "+12.5%",
-      icon: DollarSign,
-      trend: "up",
-    },
-    {
-      title: "Today's Bookings",
-      value: "18",
-      change: "+3 from yesterday",
-      icon: Calendar,
-      trend: "up",
-    },
-    {
-      title: "Active Customers",
-      value: "256",
-      change: "+8 this week",
-      icon: Users,
-      trend: "up",
-    },
-    {
-      title: "Low Stock Items",
-      value: "7",
-      change: "Needs attention",
-      icon: Package,
-      trend: "warning",
-    },
+  // Fetch all required data
+  const { data: bookings = [], isLoading: loadingBookings } = useQuery<Booking[]>({
+    queryKey: ["/api/admin/bookings"],
+  });
+
+  const { data: bookingItems = [] } = useQuery<BookingItem[]>({
+    queryKey: ["/api/admin/booking-items"],
+  });
+
+  const { data: services = [] } = useQuery<Service[]>({
+    queryKey: ["/api/admin/services"],
+  });
+
+  const { data: staff = [] } = useQuery<Staff[]>({
+    queryKey: ["/api/admin/staff"],
+  });
+
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/admin/customers"],
+  });
+
+  // Calculate stats
+  const todaysBookings = bookings.filter(b => isToday(new Date(b.bookingDate)));
+  const confirmedCount = todaysBookings.filter(b => b.status === "confirmed").length;
+  const cancelledCount = todaysBookings.filter(b => b.status === "cancelled").length;
+  const totalBookings = todaysBookings.length;
+
+  // Sales data for last 7 days
+  const salesData = Array.from({ length: 7 }, (_, i) => {
+    const date = subDays(new Date(), 6 - i);
+    const dayBookings = bookings.filter(b => {
+      const bookingDate = new Date(b.bookingDate);
+      return isSameDay(bookingDate, date);
+    });
+    
+    const completedBookings = dayBookings.filter(b => b.status === 'completed');
+    const dailyRevenue = completedBookings.reduce((sum, b) => 
+      sum + parseFloat(b.totalAmount?.toString() || '0'), 0
+    );
+    
+    return {
+      date: format(date, 'MMM dd'),
+      Sales: dailyRevenue,
+      Appointments: dayBookings.length,
+    };
+  });
+
+  // Upcoming appointments chart data
+  const appointmentsData = [
+    { name: 'Confirmed', value: confirmedCount },
+    { name: 'Cancelled', value: cancelledCount },
   ];
 
-  const recentBookings = [
-    { id: 1, customer: "Ahmed Ali", service: "Express Haircut", time: "10:30 AM", staff: "Saqib", status: "Confirmed" },
-    { id: 2, customer: "Sarah Johnson", service: "Manicure", time: "11:00 AM", staff: "Sarah", status: "Pending" },
-    { id: 3, customer: "Mohammed Khan", service: "Beard Styling", time: "11:30 AM", staff: "Saqib", status: "Confirmed" },
-    { id: 4, customer: "Emily Davis", service: "Pedicure", time: "12:00 PM", staff: "Sarah", status: "Completed" },
-  ];
+  // Recent completed appointments
+  const recentActivity = bookings
+    .filter(b => b.status === 'completed')
+    .slice(0, 4)
+    .map(booking => {
+      const customer = customers.find(c => c.id === booking.customerId);
+      const items = bookingItems.filter(item => item.bookingId === booking.id);
+      const firstItem = items[0];
+      const service = firstItem ? services.find(s => s.id === firstItem.serviceId) : null;
+      const staffMember = staff.find(s => s.id === booking.staffId);
+      return {
+        ...booking,
+        customerName: customer?.name || 'Unknown Customer',
+        serviceName: service?.name || 'Unknown Service',
+        staffName: staffMember?.name || 'Any professional',
+      };
+    });
 
-  const topServices = [
-    { name: "Express Haircut", bookings: 45, revenue: "AED 2,250" },
-    { name: "Beard Styling", bookings: 38, revenue: "AED 1,900" },
-    { name: "Executive Pedicure", bookings: 22, revenue: "AED 1,760" },
-    { name: "Manicure", bookings: 18, revenue: "AED 1,170" },
-  ];
+  // Today's upcoming appointments
+  const upcomingToday = todaysBookings
+    .filter(b => b.status === 'confirmed')
+    .slice(0, 4)
+    .map(booking => {
+      const customer = customers.find(c => c.id === booking.customerId);
+      const items = bookingItems.filter(item => item.bookingId === booking.id);
+      const firstItem = items[0];
+      const service = firstItem ? services.find(s => s.id === firstItem.serviceId) : null;
+      const staffMember = staff.find(s => s.id === booking.staffId);
+      return {
+        ...booking,
+        customerName: customer?.name || 'Unknown Customer',
+        serviceName: service?.name || 'Unknown Service',
+        staffName: staffMember?.name || 'Any professional',
+      };
+    });
+
+  // Top services by booking count
+  const serviceBookingCounts = services.map(service => {
+    const thisMonthCount = bookingItems.filter(item => {
+      const booking = bookings.find(b => b.id === item.bookingId);
+      if (!booking) return false;
+      const bookingDate = new Date(booking.bookingDate);
+      const now = new Date();
+      return item.serviceId === service.id && 
+             bookingDate.getMonth() === now.getMonth() &&
+             bookingDate.getFullYear() === now.getFullYear();
+    }).length;
+
+    const lastMonthCount = bookingItems.filter(item => {
+      const booking = bookings.find(b => b.id === item.bookingId);
+      if (!booking) return false;
+      const bookingDate = new Date(booking.bookingDate);
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      return item.serviceId === service.id && 
+             bookingDate.getMonth() === lastMonth.getMonth() &&
+             bookingDate.getFullYear() === lastMonth.getFullYear();
+    }).length;
+
+    const servicePrice = parseFloat(service.price?.toString() || "0");
+    return {
+      name: service.name,
+      thisMonth: thisMonthCount,
+      lastMonth: lastMonthCount,
+      revenue: `AED ${(thisMonthCount * servicePrice).toFixed(0)}`,
+    };
+  }).sort((a, b) => b.thisMonth - a.thisMonth).slice(0, 5);
+
+  // Top team members by revenue
+  const teamMemberStats = staff.map(member => {
+    const thisMonthBookings = bookings.filter(b => {
+      const bookingDate = new Date(b.bookingDate);
+      const now = new Date();
+      return b.staffId === member.id && 
+             bookingDate.getMonth() === now.getMonth() &&
+             bookingDate.getFullYear() === now.getFullYear() &&
+             b.status === 'completed';
+    });
+
+    const lastMonthBookings = bookings.filter(b => {
+      const bookingDate = new Date(b.bookingDate);
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      return b.staffId === member.id && 
+             bookingDate.getMonth() === lastMonth.getMonth() &&
+             bookingDate.getFullYear() === lastMonth.getFullYear() &&
+             b.status === 'completed';
+    });
+
+    const thisMonthRevenue = thisMonthBookings.reduce((sum, b) => 
+      sum + parseFloat(b.totalAmount?.toString() || '0'), 0
+    );
+    
+    const lastMonthRevenue = lastMonthBookings.reduce((sum, b) => 
+      sum + parseFloat(b.totalAmount?.toString() || '0'), 0
+    );
+
+    return {
+      name: member.name,
+      thisMonth: `AED ${thisMonthRevenue.toFixed(0)}`,
+      lastMonth: `AED ${lastMonthRevenue.toFixed(0)}`,
+    };
+  }).slice(0, 5);
+
+  const totalRevenue = bookings
+    .filter(b => b.status === 'completed')
+    .reduce((sum, booking) => {
+      const totalAmount = parseFloat(booking.totalAmount?.toString() || "0");
+      return sum + totalAmount;
+    }, 0);
+
+  if (loadingBookings) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold" data-testid="admin-dashboard-title">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back! Here's what's happening today.</p>
+        <p className="text-muted-foreground">Overview of your business performance</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold" data-testid={`stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                {stat.value}
+      {/* Charts Row */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Recent Sales Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold">Recent sales</h3>
+                <p className="text-2xl font-bold mt-1">AED {totalRevenue.toFixed(0)}</p>
+                <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                  <span>Appointments <span className="font-semibold text-foreground">{bookings.length}</span></span>
+                  <span>Appointments cost <span className="font-semibold text-foreground">AED {totalRevenue.toFixed(0)}</span></span>
+                </div>
               </div>
-              <p className={`text-xs ${
-                stat.trend === 'up' ? 'text-green-600 dark:text-green-400' :
-                stat.trend === 'warning' ? 'text-orange-600 dark:text-orange-400' :
-                'text-muted-foreground'
-              }`}>
-                {stat.change}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={{ stroke: 'hsl(var(--border))' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={{ stroke: 'hsl(var(--border))' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="Sales" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="Appointments" 
+                  stroke="hsl(var(--accent))" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--accent))' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
+        {/* Upcoming Appointments Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Today's Bookings</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold">Upcoming appointments</h3>
+                <p className="text-2xl font-bold mt-1">{totalBookings} booked</p>
+                <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                  <span>Confirmed appointments <span className="font-semibold text-foreground">{confirmedCount}</span></span>
+                  <span>Cancelled appointments <span className="font-semibold text-foreground">{cancelledCount}</span></span>
+                </div>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={appointmentsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={{ stroke: 'hsl(var(--border))' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={{ stroke: 'hsl(var(--border))' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Activity and Appointments Row */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Appointments Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Appointments activity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentBookings.map((booking) => (
-                <div key={booking.id} className="flex items-center gap-4" data-testid={`booking-${booking.id}`}>
-                  <div className="flex-1 space-y-1">
-                    <p className="font-medium">{booking.customer}</p>
-                    <p className="text-sm text-muted-foreground">{booking.service} • {booking.staff}</p>
+              {recentActivity.length > 0 ? (
+                recentActivity.map((appointment, index) => (
+                  <div key={index} className="flex items-start gap-3" data-testid={`activity-${index}`}>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center justify-center rounded-md bg-muted p-2">
+                        <Calendar className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(appointment.bookingDate), 'dd')}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(appointment.bookingDate), 'MMM')}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">{appointment.customerName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {appointment.serviceName} • {appointment.staffName}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800">
+                          Completed
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{booking.time}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      booking.status === 'Confirmed' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                      booking.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
-                      'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* Today's Next Appointments */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Services (This Week)</CardTitle>
+            <CardTitle>Today's next appointments</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {topServices.map((service, index) => (
-                <div key={service.name} className="flex items-center gap-4" data-testid={`top-service-${index}`}>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary font-semibold">
-                    {index + 1}
+              {upcomingToday.length > 0 ? (
+                upcomingToday.map((appointment, index) => (
+                  <div key={index} className="flex items-start gap-3" data-testid={`upcoming-${index}`}>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center justify-center rounded-md bg-primary/10 p-2">
+                        <Clock className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(appointment.bookingDate), 'dd')}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(appointment.bookingDate), 'MMM')}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">{appointment.serviceName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(appointment.bookingDate), 'h:mma')} with {appointment.staffName}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                          Booked
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{service.name}</p>
-                    <p className="text-sm text-muted-foreground">{service.bookings} bookings</p>
-                  </div>
-                  <p className="font-semibold">{service.revenue}</p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No appointments scheduled for today</p>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <button
-              className="flex items-center gap-3 p-3 rounded-lg border hover-elevate active-elevate-2"
-              data-testid="quick-action-new-booking"
-            >
-              <Calendar className="h-5 w-5 text-primary" />
-              <span className="font-medium">New Booking</span>
-            </button>
-            <button
-              className="flex items-center gap-3 p-3 rounded-lg border hover-elevate active-elevate-2"
-              data-testid="quick-action-add-customer"
-            >
-              <Users className="h-5 w-5 text-primary" />
-              <span className="font-medium">Add Customer</span>
-            </button>
-            <button
-              className="flex items-center gap-3 p-3 rounded-lg border hover-elevate active-elevate-2"
-              data-testid="quick-action-update-inventory"
-            >
-              <Package className="h-5 w-5 text-primary" />
-              <span className="font-medium">Update Inventory</span>
-            </button>
-            <button
-              className="flex items-center gap-3 p-3 rounded-lg border hover-elevate active-elevate-2"
-              data-testid="quick-action-view-reports"
-            >
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <span className="font-medium">View Reports</span>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tables Row */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Top Services */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Top services</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-4 pb-2 border-b text-sm font-medium text-muted-foreground">
+                <div>Service</div>
+                <div className="text-right">This month</div>
+                <div className="text-right">Last month</div>
+              </div>
+              {serviceBookingCounts.length > 0 ? (
+                serviceBookingCounts.map((service, index) => (
+                  <div key={index} className="grid grid-cols-3 gap-4 py-2 text-sm" data-testid={`top-service-${index}`}>
+                    <div className="font-medium">{service.name}</div>
+                    <div className="text-right font-semibold">{service.thisMonth}</div>
+                    <div className="text-right text-muted-foreground">{service.lastMonth}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No service data available</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Team Members */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Top team member</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-4 pb-2 border-b text-sm font-medium text-muted-foreground">
+                <div>Team member</div>
+                <div className="text-right">This month</div>
+                <div className="text-right">Last month</div>
+              </div>
+              {teamMemberStats.length > 0 ? (
+                teamMemberStats.map((member, index) => (
+                  <div key={index} className="grid grid-cols-3 gap-4 py-2 text-sm" data-testid={`top-team-${index}`}>
+                    <div className="font-medium">{member.name}</div>
+                    <div className="text-right font-semibold">{member.thisMonth}</div>
+                    <div className="text-right text-muted-foreground">{member.lastMonth}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No team data available</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

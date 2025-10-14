@@ -8,6 +8,8 @@ import {
   BarChart3,
   Settings,
   UserCircle,
+  ShoppingCart,
+  UserCheck,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -29,6 +31,21 @@ const menuItems = [
     title: "Dashboard",
     url: "/admin",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Calendar",
+    url: "/admin/calendar",
+    icon: Calendar,
+  },
+  {
+    title: "Sales",
+    url: "/admin/sales",
+    icon: DollarSign,
+  },
+  {
+    title: "Clients",
+    url: "/admin/clients",
+    icon: UserCheck,
   },
   {
     title: "Services",

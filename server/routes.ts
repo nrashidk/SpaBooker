@@ -380,6 +380,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Booking Items routes
+  app.get("/api/admin/booking-items", isAdmin, async (req, res) => {
+    try {
+      const items = await storage.getAllBookingItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching booking items:", error);
+      res.status(500).json({ message: "Failed to fetch booking items" });
+    }
+  });
+
+  app.get("/api/admin/bookings/:bookingId/items", isAdmin, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.bookingId);
+      const items = await storage.getBookingItemsByBookingId(bookingId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching booking items:", error);
+      res.status(500).json({ message: "Failed to fetch booking items" });
+    }
+  });
+
   // Customer routes
   app.get("/api/admin/customers", isAdmin, async (req, res) => {
     try {

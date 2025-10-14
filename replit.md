@@ -13,6 +13,17 @@ The booking system is fully functional with a redesigned 4-step flow. Customers 
 - Receive WhatsApp/SMS and/or email notifications based on provided contact method
 
 ## Recent Changes
+
+**Admin Panel Development (October 14, 2025)**
+- Built comprehensive admin dashboard with real-time charts using Recharts
+- Implemented interactive Calendar view with drag-drop booking management (react-big-calendar)
+- Created Sales Analytics page with daily transaction and cash movement tracking
+- Built Clients Management page with search and filtering
+- All pages integrated with real database data via React Query
+- Fixed revenue calculations to use actual booking totals instead of placeholders
+- Resolved React hooks bundling issue with react-big-calendar
+
+## Recent Changes
 **Authentication & Admin Protection (October 14, 2025)**
 - Implemented Replit Auth integration for user authentication
 - Added role-based access control (customer, staff, admin roles)
