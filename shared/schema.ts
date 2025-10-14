@@ -238,7 +238,24 @@ export const insertStaffTimeEntrySchema = createInsertSchema(staffTimeEntries).o
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true });
 
-// Types
+// Insert Types (for creating new records)
+export type InsertSpaSettings = z.infer<typeof insertSpaSettingsSchema>;
+export type InsertServiceCategory = z.infer<typeof insertServiceCategorySchema>;
+export type InsertService = z.infer<typeof insertServiceSchema>;
+export type InsertStaff = z.infer<typeof insertStaffSchema>;
+export type InsertStaffSchedule = z.infer<typeof insertStaffScheduleSchema>;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type InsertBookingItem = z.infer<typeof insertBookingItemSchema>;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
+export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+export type InsertStaffTimeEntry = z.infer<typeof insertStaffTimeEntrySchema>;
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
+
+// Select Types (for reading records)
 export type SpaSettings = typeof spaSettings.$inferSelect;
 export type ServiceCategory = typeof serviceCategories.$inferSelect;
 export type Service = typeof services.$inferSelect;
