@@ -61,30 +61,6 @@ export default function AdminCalendar() {
     queryKey: ['/api/admin/customers'],
   });
 
-  const isLoading = bookingsLoading || itemsLoading || staffLoading || servicesLoading || customersLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading calendar...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (bookingsError) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-destructive mb-4">Failed to load calendar data</p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
-      </div>
-    );
-  }
-
   // Update booking mutation
   const updateBookingMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<Booking> }) => {
@@ -172,6 +148,31 @@ export default function AdminCalendar() {
     },
     [updateBookingMutation]
   );
+
+  // Check loading and error states AFTER all hooks
+  const isLoading = bookingsLoading || itemsLoading || staffLoading || servicesLoading || customersLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading calendar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bookingsError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-destructive mb-4">Failed to load calendar data</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   // Event style getter
   const eventStyleGetter = (event: CalendarEvent) => {
@@ -320,9 +321,9 @@ export default function AdminCalendar() {
             }}
             toolbar={false}
             formats={{
-              timeGutterFormat: 'h:mm A',
+              timeGutterFormat: 'h:mm a',
               eventTimeRangeFormat: ({ start, end }: any, culture: any, localizer: any) =>
-                `${localizer?.format(start, 'h:mm A', culture)} - ${localizer?.format(end, 'h:mm A', culture)}`,
+                `${localizer?.format(start, 'h:mm a', culture)} - ${localizer?.format(end, 'h:mm a', culture)}`,
             }}
           />
         </div>
