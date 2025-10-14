@@ -351,11 +351,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/bookings/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Extract services BEFORE Zod parsing (which strips unknown fields)
+      const services = req.body.services;
+      
       const validatedData = insertBookingSchema.partial().parse(req.body);
       const booking = await storage.updateBooking(id, validatedData);
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
+
+      // Update booking items if services are provided
+      if (services && Array.isArray(services)) {
+        // Delete existing booking items
+        const existingItems = await storage.getBookingItemsByBookingId(id);
+        for (const item of existingItems) {
+          await storage.deleteBookingItem(item.id);
+        }
+
+        // Create new booking items
+        for (const service of services) {
+          const serviceDetails = await storage.getService(service.serviceId);
+          const validatedItem = insertBookingItemSchema.parse({
+            bookingId: id,
+            serviceId: service.serviceId,
+            staffId: validatedData.staffId || null,
+            price: serviceDetails?.price || "0",
+            duration: service.duration,
+          });
+          await storage.createBookingItem(validatedItem);
+        }
+      }
+
       res.json(booking);
     } catch (error: any) {
       if (error.name === "ZodError") {

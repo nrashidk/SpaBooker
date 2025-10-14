@@ -57,6 +57,7 @@ export interface IStorage {
 
   // Service operations
   getAllServices(): Promise<Service[]>;
+  getService(id: number): Promise<Service | undefined>;
   getServicesByCategory(categoryId: number): Promise<Service[]>;
   createService(service: InsertService): Promise<Service>;
   updateService(id: number, service: Partial<InsertService>): Promise<Service | undefined>;
@@ -99,6 +100,7 @@ export interface IStorage {
   getAllBookingItems(): Promise<BookingItem[]>;
   getBookingItemsByBookingId(bookingId: number): Promise<BookingItem[]>;
   createBookingItem(item: InsertBookingItem): Promise<BookingItem>;
+  deleteBookingItem(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -171,6 +173,11 @@ export class DatabaseStorage implements IStorage {
   // Service operations
   async getAllServices(): Promise<Service[]> {
     return db.select().from(services).orderBy(services.categoryId, services.name);
+  }
+
+  async getService(id: number): Promise<Service | undefined> {
+    const [service] = await db.select().from(services).where(eq(services.id, id));
+    return service;
   }
 
   async getServicesByCategory(categoryId: number): Promise<Service[]> {
@@ -339,6 +346,11 @@ export class DatabaseStorage implements IStorage {
   async createBookingItem(item: InsertBookingItem): Promise<BookingItem> {
     const [newItem] = await db.insert(bookingItems).values(item).returning();
     return newItem;
+  }
+
+  async deleteBookingItem(id: number): Promise<boolean> {
+    const result = await db.delete(bookingItems).where(eq(bookingItems.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 
