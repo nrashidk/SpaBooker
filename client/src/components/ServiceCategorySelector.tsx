@@ -11,6 +11,7 @@ export interface Service {
   duration: number;
   price: number;
   category: string;
+  featured?: boolean;
   discount?: number;
   package?: {
     description: string;
@@ -35,7 +36,7 @@ export default function ServiceCategorySelector({
   const [activeCategory, setActiveCategory] = useState("Featured");
 
   const filteredServices = activeCategory === "Featured" 
-    ? services.filter(s => s.discount || s.package)
+    ? services.filter(s => s.featured)
     : services.filter(s => s.category === activeCategory);
 
   return (

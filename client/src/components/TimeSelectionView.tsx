@@ -55,37 +55,40 @@ export default function TimeSelectionView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1">
-          {selectedProfessional && (
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={selectedProfessional.imageUrl} />
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {selectedProfessional.name.split(' ').map(n => n[0]).join('')}
-              </AvatarFallback>
-            </Avatar>
-          )}
-          <Select
-            value={selectedProfessional?.id}
-            onValueChange={onProfessionalChange}
-          >
-            <SelectTrigger className="w-full" data-testid="professional-dropdown">
-              <SelectValue placeholder="Select professional" />
-            </SelectTrigger>
-            <SelectContent>
-              {professionals.map((prof) => (
-                <SelectItem key={prof.id} value={prof.id}>
-                  {prof.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {professionals.length > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            {selectedProfessional && (
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedProfessional.imageUrl} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {selectedProfessional.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <Select
+              value={selectedProfessional?.id || "any"}
+              onValueChange={onProfessionalChange}
+            >
+              <SelectTrigger className="w-full" data-testid="professional-dropdown">
+                <SelectValue placeholder="Any professional" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any professional</SelectItem>
+                {professionals.map((prof) => (
+                  <SelectItem key={prof.id} value={prof.id}>
+                    {prof.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <Button variant="outline" size="icon" data-testid="button-calendar">
-          <Calendar className="h-4 w-4" />
-        </Button>
-      </div>
+          <Button variant="outline" size="icon" data-testid="button-calendar">
+            <Calendar className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-4">

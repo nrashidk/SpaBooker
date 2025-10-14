@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import ServiceCategorySelector, { type Service } from "@/components/ServiceCategorySelector";
-import ProfessionalSelector, { type Professional } from "@/components/ProfessionalSelector";
+import ProfessionalSelector, { type Professional, type ServiceProfessionalMap } from "@/components/ProfessionalSelector";
 import TimeSelectionView from "@/components/TimeSelectionView";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import BookingSteps from "@/components/BookingSteps";
@@ -15,6 +15,7 @@ const mockServices: Service[] = [
     duration: 25,
     price: 50,
     category: "Hair Services",
+    featured: true,
     package: {
       description: "Get 6 sessions for AED 250 with 5 Haircuts + 1 Free Haircut ✨",
       originalPrice: 300,
@@ -26,6 +27,7 @@ const mockServices: Service[] = [
     duration: 25,
     price: 50,
     category: "Shave Services",
+    featured: true,
   },
   {
     id: "3",
@@ -47,6 +49,7 @@ const mockServices: Service[] = [
     duration: 40,
     price: 80,
     category: "Nails",
+    featured: true,
     discount: 33,
   },
   {
@@ -101,6 +104,7 @@ export default function BookingPage() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [professionalMode, setProfessionalMode] = useState<'any' | 'per-service' | 'specific' | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
+  const [serviceProfessionalMap, setServiceProfessionalMap] = useState<ServiceProfessionalMap>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -137,6 +141,7 @@ export default function BookingPage() {
     setSelectedServiceIds([]);
     setProfessionalMode(null);
     setSelectedProfessionalId(null);
+    setServiceProfessionalMap({});
     setSelectedDate(null);
     setSelectedTime(null);
     setIsConfirmed(false);
@@ -144,6 +149,18 @@ export default function BookingPage() {
 
   const selectedServices = mockServices.filter(s => selectedServiceIds.includes(s.id));
   const selectedProfessional = mockProfessionals.find(p => p.id === selectedProfessionalId) || null;
+  
+  const getStaffName = () => {
+    if (professionalMode === 'any') return "Any Available";
+    if (professionalMode === 'specific' && selectedProfessional) return selectedProfessional.name;
+    if (professionalMode === 'per-service') {
+      const professionals = Object.values(serviceProfessionalMap)
+        .map(id => mockProfessionals.find(p => p.id === id)?.name)
+        .filter(Boolean);
+      return professionals.length > 0 ? professionals.join(', ') : "Per Service";
+    }
+    return "Not Selected";
+  };
 
   if (isConfirmed) {
     return (
@@ -165,7 +182,7 @@ export default function BookingPage() {
             services={selectedServices}
             date={selectedDate!}
             time={selectedTime!}
-            staffName={selectedProfessional?.name || "Any Available"}
+            staffName={getStaffName()}
             customerName="Customer"
             customerPhone="+1234567890"
             customerEmail=""
@@ -242,8 +259,11 @@ export default function BookingPage() {
                 onProfessionalSelect={setSelectedProfessionalId}
                 professionals={mockProfessionals}
                 onContinue={handleContinueToTime}
-                mode={professionalMode || 'any'}
+                mode={professionalMode}
                 onModeChange={setProfessionalMode}
+                services={selectedServices.map(s => ({ id: s.id, name: s.name }))}
+                serviceProfessionalMap={serviceProfessionalMap}
+                onServiceProfessionalMapChange={setServiceProfessionalMap}
               />
             </div>
           )}
@@ -257,9 +277,17 @@ export default function BookingPage() {
                 selectedProfessional={selectedProfessional}
                 onDateSelect={setSelectedDate}
                 onTimeSelect={setSelectedTime}
-                onProfessionalChange={setSelectedProfessionalId}
+                onProfessionalChange={(id) => {
+                  if (id === 'any') {
+                    setProfessionalMode('any');
+                    setSelectedProfessionalId(null);
+                  } else {
+                    setProfessionalMode('specific');
+                    setSelectedProfessionalId(id);
+                  }
+                }}
                 timeSlots={mockTimeSlots}
-                professionals={mockProfessionals}
+                professionals={professionalMode === 'any' ? mockProfessionals : []}
                 onContinue={handleContinueToConfirm}
               />
             </div>
