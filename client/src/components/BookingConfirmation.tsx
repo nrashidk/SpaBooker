@@ -16,6 +16,7 @@ interface BookingConfirmationProps {
   smsNotificationSent: boolean;
   emailNotificationSent: boolean;
   onNewBooking: () => void;
+  spaName?: string;
 }
 
 export default function BookingConfirmation({
@@ -29,6 +30,7 @@ export default function BookingConfirmation({
   smsNotificationSent,
   emailNotificationSent,
   onNewBooking,
+  spaName = "Serene Spa",
 }: BookingConfirmationProps) {
   const handleAddToCalendar = () => {
     console.log("Add to calendar clicked");
@@ -49,18 +51,18 @@ export default function BookingConfirmation({
           Booking Confirmed!
         </h2>
         <p className="text-muted-foreground mb-6">
-          Your spa appointment has been successfully scheduled
+          Your appointment at {spaName} has been successfully scheduled
         </p>
 
         <div className="flex justify-center gap-2 mb-6">
           {smsNotificationSent && (
-            <Badge variant="default" className="gap-1">
+            <Badge variant="default" className="gap-1" data-testid="badge-sms-sent">
               <Phone className="h-3 w-3" />
-              SMS Sent
+              WhatsApp/SMS Sent
             </Badge>
           )}
           {emailNotificationSent && (
-            <Badge variant="default" className="gap-1">
+            <Badge variant="default" className="gap-1" data-testid="badge-email-sent">
               <Mail className="h-3 w-3" />
               Email Sent
             </Badge>

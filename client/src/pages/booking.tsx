@@ -4,6 +4,8 @@ import ServiceCategorySelector, { type Service } from "@/components/ServiceCateg
 import ProfessionalSelector, { type Professional, type ServiceProfessionalMap } from "@/components/ProfessionalSelector";
 import TimeSelectionView from "@/components/TimeSelectionView";
 import BookingConfirmation from "@/components/BookingConfirmation";
+import CustomerDetailsForm, { type CustomerFormData } from "@/components/CustomerDetailsForm";
+import BookingSummary from "@/components/BookingSummary";
 import BookingSteps from "@/components/BookingSteps";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -107,7 +109,9 @@ export default function BookingPage() {
   const [serviceProfessionalMap, setServiceProfessionalMap] = useState<ServiceProfessionalMap>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [customerDetails, setCustomerDetails] = useState<CustomerFormData | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [spaName] = useState("Serene Spa"); // TODO: Make this configurable by admin
 
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServiceIds(prev =>
@@ -129,11 +133,20 @@ export default function BookingPage() {
     }
   };
 
-  const handleContinueToConfirm = () => {
+  const handleContinueToDetails = () => {
     if (selectedTime) {
       setStep(4);
-      setIsConfirmed(true);
     }
+  };
+
+  const handleCustomerDetailsSubmit = async (data: CustomerFormData) => {
+    setCustomerDetails(data);
+    
+    // TODO: Send to backend to save booking and send notifications
+    // For now, just simulate success
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setIsConfirmed(true);
   };
 
   const handleNewBooking = () => {
@@ -144,6 +157,7 @@ export default function BookingPage() {
     setServiceProfessionalMap({});
     setSelectedDate(null);
     setSelectedTime(null);
+    setCustomerDetails(null);
     setIsConfirmed(false);
   };
 
@@ -171,7 +185,7 @@ export default function BookingPage() {
               <div className="bg-primary/10 p-2 rounded-lg">
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
-              <h1 className="text-2xl font-bold">Serene Spa</h1>
+              <h1 className="text-2xl font-bold" data-testid="spa-name">{spaName}</h1>
             </div>
             <ThemeToggle />
           </div>
@@ -183,19 +197,20 @@ export default function BookingPage() {
             date={selectedDate!}
             time={selectedTime!}
             staffName={getStaffName()}
-            customerName="Customer"
-            customerPhone="+1234567890"
-            customerEmail=""
-            smsNotificationSent={true}
-            emailNotificationSent={false}
+            customerName={customerDetails?.name || "Customer"}
+            customerPhone={customerDetails?.mobile || ""}
+            customerEmail={customerDetails?.email || ""}
+            smsNotificationSent={!!customerDetails?.mobile}
+            emailNotificationSent={!!customerDetails?.email}
             onNewBooking={handleNewBooking}
+            spaName={spaName}
           />
         </main>
       </div>
     );
   }
 
-  const breadcrumbItems = ["Services", "Professional", "Time", "Confirm"];
+  const breadcrumbItems = ["Services", "Professional", "Time", "Details"];
   const currentBreadcrumb = breadcrumbItems[step - 1];
 
   return (
@@ -206,7 +221,7 @@ export default function BookingPage() {
             <div className="bg-primary/10 p-2 rounded-lg">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold">Serene Spa</h1>
+            <h1 className="text-2xl font-bold" data-testid="spa-name">{spaName}</h1>
           </div>
           <ThemeToggle />
         </div>
@@ -238,7 +253,7 @@ export default function BookingPage() {
       </div>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {step === 1 && (
             <div>
               <h2 className="text-4xl font-bold mb-8">Services</h2>
@@ -288,8 +303,25 @@ export default function BookingPage() {
                 }}
                 timeSlots={mockTimeSlots}
                 professionals={professionalMode === 'any' ? mockProfessionals : []}
-                onContinue={handleContinueToConfirm}
+                onContinue={handleContinueToDetails}
               />
+            </div>
+          )}
+
+          {step === 4 && (
+            <div>
+              <h2 className="text-4xl font-bold mb-8">Confirm booking</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <CustomerDetailsForm
+                  onSubmit={handleCustomerDetailsSubmit}
+                />
+                <BookingSummary
+                  services={selectedServices}
+                  date={selectedDate}
+                  time={selectedTime}
+                  professionalName={getStaffName()}
+                />
+              </div>
             </div>
           )}
         </div>

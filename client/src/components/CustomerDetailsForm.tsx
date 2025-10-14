@@ -10,11 +10,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 const customerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number"),
+  mobile: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
-});
+}).refine(
+  (data) => data.mobile || data.email,
+  {
+    message: "Please provide either a mobile number or email address",
+    path: ["mobile"],
+  }
+);
 
-type CustomerFormData = z.infer<typeof customerSchema>;
+export type CustomerFormData = z.infer<typeof customerSchema>;
 
 interface CustomerDetailsFormProps {
   onSubmit: (data: CustomerFormData) => void;
@@ -26,7 +32,7 @@ export default function CustomerDetailsForm({ onSubmit, isLoading = false }: Cus
     resolver: zodResolver(customerSchema),
     defaultValues: {
       name: "",
-      phone: "",
+      mobile: "",
       email: "",
     },
   });
@@ -57,15 +63,18 @@ export default function CustomerDetailsForm({ onSubmit, isLoading = false }: Cus
 
           <FormField
             control={form.control}
-            name="phone"
+            name="mobile"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Phone Number</FormLabel>
+                <div className="flex items-center gap-2">
+                  <FormLabel>Mobile Number</FormLabel>
+                  <Badge variant="secondary" className="text-xs">Optional</Badge>
+                </div>
                 <FormControl>
                   <Input
                     type="tel"
-                    placeholder="+1234567890"
-                    data-testid="input-customer-phone"
+                    placeholder="+971 50 123 4567"
+                    data-testid="input-customer-mobile"
                     {...field}
                   />
                 </FormControl>
@@ -96,11 +105,15 @@ export default function CustomerDetailsForm({ onSubmit, isLoading = false }: Cus
             )}
           />
 
+          <p className="text-sm text-muted-foreground">
+            * Provide at least one contact method to receive your booking confirmation
+          </p>
+
           <Button
             type="submit"
             className="w-full"
             disabled={isLoading}
-            data-testid="button-submit-booking"
+            data-testid="button-confirm-booking"
           >
             {isLoading ? "Confirming..." : "Confirm Booking"}
           </Button>
