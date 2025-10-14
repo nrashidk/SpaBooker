@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import BookingPage from "@/pages/booking";
+import AdminLanding from "@/pages/AdminLanding";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -25,7 +26,8 @@ import AdminAddOns from "@/pages/admin/AddOns";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={BookingPage} />
+      <Route path="/" component={AdminLanding} />
+      <Route path="/booking" component={BookingPage} />
       
       {/* Admin Routes - Protected with admin role requirement */}
       <Route path="/admin">
