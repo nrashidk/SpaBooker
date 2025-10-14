@@ -1,156 +1,740 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Download, TrendingUp, Users, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { 
+  BarChart3, TrendingUp, TrendingDown, Users, Star, FolderPlus, 
+  Database, Search, Filter, Plus, FileText, Award, Target, 
+  Heart, Settings, Activity, ArrowUp, ArrowDown
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, Legend, ResponsiveContainer, Area, AreaChart
+} from "recharts";
+
+type ReportCategory = "all" | "favourites" | "dashboards" | "standard" | "premium" | "custom" | "targets";
 
 export default function AdminReports() {
-  const reports = [
-    {
-      title: "Sales Report",
-      description: "Daily, weekly, and monthly sales performance",
-      icon: TrendingUp,
-      lastGenerated: "Today at 9:00 AM",
+  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>("dashboards");
+  const [selectedDashboard, setSelectedDashboard] = useState<string | null>(null);
+
+  // Fetch bookings data for metrics
+  const { data: bookings = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/bookings"],
+  });
+
+  const { data: staff = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/staff"],
+  });
+
+  // Calculate metrics
+  const totalSales = bookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || 0), 0);
+  const completedBookings = bookings.filter(b => b.status === "completed").length;
+  const cancelledBookings = bookings.filter(b => b.status === "cancelled").length;
+  const totalBookings = bookings.length;
+  
+  // Mock data for demonstration
+  const salesByChannel = [
+    { channel: "Offline", amount: 18733, percentage: 14.3, color: "#94a3b8" },
+    { channel: "Fresha marketplace", amount: 17867, percentage: 13.6, color: "#f97316" },
+    { channel: "Social", amount: 4080, percentage: 15.9, color: "#3b82f6" },
+    { channel: "Book now link", amount: 3020, percentage: 26.6, color: "#8b5cf6" },
+    { channel: "Marketing", amount: 0, percentage: 100, color: "#6366f1" },
+  ];
+
+  const salesOverTimeData = [
+    { date: "14 Sep", value: 1200, comparison: 1100 },
+    { date: "17 Sep", value: 1800, comparison: 1600 },
+    { date: "20 Sep", value: 2100, comparison: 1900 },
+    { date: "23 Sep", value: 2500, comparison: 2800 },
+    { date: "26 Sep", value: 2000, comparison: 1700 },
+    { date: "29 Sep", value: 2300, comparison: 2100 },
+    { date: "2 Oct", value: 1900, comparison: 2000 },
+    { date: "5 Oct", value: 2200, comparison: 2400 },
+    { date: "8 Oct", value: 2400, comparison: 2200 },
+    { date: "11 Oct", value: 2100, comparison: 1800 },
+  ];
+
+  const occupancyRateData = [
+    { date: "14 Sep", current: 42, comparison: 45 },
+    { date: "18 Sep", current: 48, comparison: 40 },
+    { date: "22 Sep", current: 38, comparison: 52 },
+    { date: "26 Sep", current: 51, comparison: 43 },
+    { date: "30 Sep", current: 44, comparison: 48 },
+    { date: "4 Oct", current: 47, comparison: 41 },
+    { date: "8 Oct", current: 42, comparison: 46 },
+    { date: "13 Oct", current: 46, comparison: 44 },
+  ];
+
+  const returningClientData = [
+    { date: "14 Sep", current: 84.6, comparison: 87.5 },
+    { date: "18 Sep", current: 86.2, comparison: 85.0 },
+    { date: "22 Sep", current: 85.1, comparison: 86.8 },
+    { date: "26 Sep", current: 87.3, comparison: 84.2 },
+    { date: "30 Sep", current: 84.9, comparison: 88.1 },
+    { date: "4 Oct", current: 86.5, comparison: 85.9 },
+    { date: "8 Oct", current: 85.2, comparison: 87.2 },
+    { date: "13 Oct", current: 85.7, comparison: 85.5 },
+  ];
+
+  const topTeamMembers = [
+    { 
+      name: "Mohamed", 
+      avatar: "/api/placeholder/40/40",
+      sales: 14671.85, 
+      salesChange: 2.9, 
+      occupancy: 60, 
+      occupancyChange: 7.2,
+      returningClients: 84.5,
+      returningChange: 4.9,
+      rating: 5,
+      ratingChange: 0
     },
-    {
-      title: "Staff Performance",
-      description: "Service completion, revenue, and customer ratings",
-      icon: Users,
-      lastGenerated: "Yesterday",
+    { 
+      name: "Nour", 
+      avatar: "/api/placeholder/40/40",
+      sales: 13475.61, 
+      salesChange: -4, 
+      occupancy: 57.4, 
+      occupancyChange: -0.5,
+      returningClients: 79.6,
+      returningChange: 1.2,
+      rating: 5,
+      ratingChange: 0
     },
-    {
-      title: "Service Analytics",
-      description: "Most popular services and booking trends",
-      icon: BarChart3,
-      lastGenerated: "2 days ago",
-    },
-    {
-      title: "Financial Summary",
-      description: "Revenue, expenses, profit & loss statements",
-      icon: TrendingUp,
-      lastGenerated: "Today at 8:00 AM",
-    },
-    {
-      title: "Customer Insights",
-      description: "Customer retention, loyalty points, and spending patterns",
-      icon: Users,
-      lastGenerated: "3 days ago",
-    },
-    {
-      title: "Tax Reports",
-      description: "Sales tax, VAT calculations, and compliance reports",
-      icon: BarChart3,
-      lastGenerated: "Last week",
+    { 
+      name: "Fahad", 
+      avatar: "/api/placeholder/40/40",
+      sales: 6691.98, 
+      salesChange: -0.7, 
+      occupancy: 30.9, 
+      occupancyChange: 2.3,
+      returningClients: 56.2,
+      returningChange: 13.5,
+      rating: 5,
+      ratingChange: 0
     },
   ];
 
-  const quickStats = [
-    { label: "Avg. Daily Revenue", value: "AED 1,508", change: "+12%" },
-    { label: "Customer Retention", value: "78%", change: "+5%" },
-    { label: "Staff Utilization", value: "85%", change: "+3%" },
-    { label: "Product Sales", value: "AED 8,420", change: "+18%" },
+  const categories = [
+    { id: "all", label: "All reports", count: 52, icon: FileText },
+    { id: "favourites", label: "Favourites", count: 1, icon: Heart },
+    { id: "dashboards", label: "Dashboards", count: 2, icon: BarChart3 },
+    { id: "standard", label: "Standard", count: 44, icon: FileText },
+    { id: "premium", label: "Premium", count: 8, icon: Award },
+    { id: "custom", label: "Custom", count: 0, icon: Settings },
+    { id: "targets", label: "Targets", count: null, icon: Target },
   ];
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="reports-title">Reports & Analytics</h1>
-        <p className="text-muted-foreground">Generate insights and export business reports</p>
-      </div>
+  const dashboards = [
+    {
+      id: "performance",
+      name: "Performance dashboard",
+      description: "Dashboard of your business performance",
+      icon: BarChart3,
+    },
+    {
+      id: "online-presence",
+      name: "Online presence dashboard",
+      description: "Online sales and online client performance",
+      icon: Activity,
+    },
+  ];
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {quickStats.map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <div className="flex items-end justify-between mt-2">
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <span className="text-sm text-green-600 dark:text-green-400">{stat.change}</span>
+  if (selectedDashboard === "performance") {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedDashboard(null)} data-testid="button-back">
+            ← Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">All reports</span>
+            <span className="text-muted-foreground">›</span>
+            <span>Performance dashboard</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold" data-testid="performance-dashboard-title">Performance dashboard</h1>
+            <Button variant="ghost" size="icon" data-testid="button-favourite">
+              <Star className="h-5 w-5" />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Data from 22 mins ago</p>
+        </div>
+
+        <p className="text-muted-foreground">Dashboard of your business performance</p>
+
+        {/* Filters */}
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm" data-testid="button-date-filter">
+            Last 30 days
+          </Button>
+          <Button variant="outline" size="sm">
+            Compare to: 15 Aug - 13 Sep 2025
+          </Button>
+          <Button variant="outline" size="sm" data-testid="button-filters">
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+          </Button>
+        </div>
+
+        {/* Total Sales and Sales Over Time */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total sales</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">AED {totalSales.toFixed(2)}</p>
+              <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                <TrendingDown className="h-3 w-3" />
+                <span>3.7% vs comp period</span>
+              </div>
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Services</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">AED 38,745.00</span>
+                    <span className="text-red-600">↓ 71%</span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Products</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">AED 3,485.00</span>
+                    <span className="text-green-600">↑ 5%</span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Memberships</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">AED 1,470.00</span>
+                    <span className="text-green-600">↑ 880%</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {reports.map((report) => (
-          <Card key={report.title} className="hover-elevate">
+          <Card className="lg:col-span-2">
             <CardHeader>
-              <div className="flex items-start gap-3">
-                <div className="bg-primary/10 p-2 rounded-lg">
-                  <report.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-lg">{report.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">{report.description}</p>
-                </div>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total sales over time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={salesOverTimeData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={false} name="14 Sep - 13 Oct 2025" />
+                  <Line type="monotone" dataKey="comparison" stroke="#d1d5db" strokeWidth={2} dot={false} name="15 Aug - 13 Sep 2025 (Comparison)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Key Metrics */}
+        <div className="grid gap-4 md:grid-cols-5">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Average sale value</p>
+              <p className="text-2xl font-bold mt-1">AED 63.98</p>
+              <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                <TrendingDown className="h-3 w-3" />
+                <span>10.8% vs comp period</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Online sales</p>
+              <p className="text-2xl font-bold mt-1">AED 24,967.00</p>
+              <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                <TrendingUp className="h-3 w-3" />
+                <span>6.1% vs comp period</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Appointments</p>
+              <p className="text-2xl font-bold mt-1">{totalBookings}</p>
+              <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                <TrendingUp className="h-3 w-3" />
+                <span>4.5% vs comp period</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Occupancy rate</p>
+              <p className="text-2xl font-bold mt-1">46.2%</p>
+              <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                <TrendingUp className="h-3 w-3" />
+                <span>2.2% vs comp period</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Returning client rate</p>
+              <p className="text-2xl font-bold mt-1">85.7%</p>
+              <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                <TrendingUp className="h-3 w-3" />
+                <span>2.7% vs comp period</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sales by Channel & Appointments */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Sales by channel</CardTitle>
+                <Button variant="link" size="sm">View report</Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Last generated: {report.lastGenerated}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  data-testid={`button-generate-${report.title.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  Generate
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  data-testid={`button-download-${report.title.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Export
-                </Button>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-3xl font-bold">AED 43,700.00</p>
+                  <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                    <TrendingDown className="h-3 w-3" />
+                    <span>3.7% vs comp period</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {salesByChannel.map((channel) => (
+                    <div key={channel.channel} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: channel.color }} />
+                        <span>{channel.channel}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium">AED {channel.amount.toLocaleString()}</span>
+                        <span className={channel.percentage > 50 ? "text-red-600" : "text-green-600"}>
+                          {channel.percentage > 50 ? "↓" : "↑"} {channel.percentage}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={salesOverTimeData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" stackId="a" fill="#94a3b8" />
+                    <Bar dataKey="comparison" stackId="a" fill="#f97316" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
-        ))}
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Appointments</CardTitle>
+                <Button variant="link" size="sm">View report</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-3xl font-bold">{totalBookings}</p>
+                  <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>4.5% vs comp period</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Completed</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{completedBookings}</span>
+                      <span className="text-green-600">↑ 7%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Cancelled</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{cancelledBookings}</span>
+                      <span className="text-red-600">↑ 11.2%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Not completed</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">0</span>
+                      <span className="text-muted-foreground">↑ 0%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">No shows</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">0</span>
+                      <span className="text-muted-foreground">↑ 0%</span>
+                    </div>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={150}>
+                  <LineChart data={salesOverTimeData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="comparison" stroke="#d1d5db" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Occupancy Rate & Returning Client Rate */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Occupancy rate</CardTitle>
+                <Button variant="link" size="sm">View report</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-3xl font-bold">46.2%</p>
+                  <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>2.2% vs comp period</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={150}>
+                  <AreaChart data={occupancyRateData}>
+                    <defs>
+                      <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="current" stroke="#3b82f6" fillOpacity={1} fill="url(#colorCurrent)" />
+                    <Area type="monotone" dataKey="comparison" stroke="#d1d5db" fillOpacity={0.3} fill="#d1d5db" />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <div className="space-y-2 pt-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Working hours</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">1,233h 25m</span>
+                      <span className="text-red-600">↑ 0.2%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Unbooked hours</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">663h 5m</span>
+                      <span className="text-green-600">↑ 4.2%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Booked hours</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">570h 20m</span>
+                      <span className="text-green-600">↑ 4.8%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Returning client rate</CardTitle>
+                <Button variant="link" size="sm">View report</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-3xl font-bold">85.7%</p>
+                  <div className="flex items-center gap-1 text-sm text-green-600 mt-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>2.7% vs comp period</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={150}>
+                  <AreaChart data={returningClientData}>
+                    <defs>
+                      <linearGradient id="colorReturning" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="current" stroke="#3b82f6" fillOpacity={1} fill="url(#colorReturning)" />
+                    <Area type="monotone" dataKey="comparison" stroke="#d1d5db" fillOpacity={0.3} fill="#d1d5db" />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <div className="space-y-2 pt-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Returning customers</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">245</span>
+                      <span className="text-green-600">↑ 2.5%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">New customers</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">41</span>
+                      <span className="text-red-600">↓ 10.3%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Walk-ins</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">6</span>
+                      <span className="text-red-600">↓ 33.3%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Top Team Members */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Top team members</CardTitle>
+              <Button variant="link" size="sm">View report</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 font-medium text-sm text-muted-foreground">Team member</th>
+                    <th className="text-left py-3 font-medium text-sm text-muted-foreground">Sales</th>
+                    <th className="text-left py-3 font-medium text-sm text-muted-foreground">Occupancy</th>
+                    <th className="text-left py-3 font-medium text-sm text-muted-foreground">% returning clients</th>
+                    <th className="text-left py-3 font-medium text-sm text-muted-foreground">Rating</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topTeamMembers.map((member, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="font-medium">{member.name[0]}</span>
+                          </div>
+                          <span className="font-medium">{member.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">AED {member.sales.toLocaleString()}</span>
+                          <Badge variant={member.salesChange > 0 ? "default" : "destructive"} className="text-xs">
+                            {member.salesChange > 0 ? "↑" : "↓"} {Math.abs(member.salesChange)}%
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{member.occupancy}%</span>
+                          <Badge variant={member.occupancyChange > 0 ? "default" : "destructive"} className="text-xs">
+                            {member.occupancyChange > 0 ? "↑" : "↓"} {Math.abs(member.occupancyChange)}%
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{member.returningClients}%</span>
+                          <Badge variant={member.returningChange > 0 ? "default" : "destructive"} className="text-xs">
+                            {member.returningChange > 0 ? "↑" : "↓"} {Math.abs(member.returningChange)}%
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`h-4 w-4 ${i < member.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`} />
+                            ))}
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            ↑ {member.ratingChange}%
+                          </Badge>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full gap-6">
+      {/* Sidebar */}
+      <div className="w-64 flex-shrink-0 space-y-6">
+        <h1 className="text-xl font-bold">Reports</h1>
+        
+        <div className="space-y-1">
+          {categories.map((category) => {
+            const Icon = category.icon;
+            return (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id as ReportCategory)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
+                  selectedCategory === category.id ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
+                }`}
+                data-testid={`category-${category.id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  <span>{category.label}</span>
+                </div>
+                {category.count !== null && (
+                  <span className="text-xs text-muted-foreground">{category.count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="pt-4 border-t">
+          <h3 className="text-sm font-medium mb-2">Folders</h3>
+          <Button variant="ghost" size="sm" className="w-full justify-start" data-testid="button-add-folder">
+            <Plus className="h-4 w-4 mr-2" />
+            Add folder
+          </Button>
+        </div>
+
+        <div className="pt-4 border-t">
+          <Button variant="ghost" size="sm" className="w-full justify-start text-green-600" data-testid="button-data-connector">
+            <Database className="h-4 w-4 mr-2" />
+            Data connector
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Export Options</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Export to PDF</p>
-                <p className="text-sm text-muted-foreground">Professional formatted reports</p>
-              </div>
-              <Button variant="outline" size="sm" data-testid="button-export-pdf">
-                <Download className="h-3 w-3 mr-1" />
-                PDF
-              </Button>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Export to CSV</p>
-                <p className="text-sm text-muted-foreground">Data for Excel and spreadsheets</p>
-              </div>
-              <Button variant="outline" size="sm" data-testid="button-export-csv">
-                <Download className="h-3 w-3 mr-1" />
-                CSV
-              </Button>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Schedule Reports</p>
-                <p className="text-sm text-muted-foreground">Automated email delivery</p>
-              </div>
-              <Button variant="outline" size="sm" data-testid="button-schedule-reports">
-                Configure
-              </Button>
-            </div>
+      {/* Main Content */}
+      <div className="flex-1 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold capitalize">{selectedCategory}</h2>
+            <p className="text-muted-foreground text-sm">
+              {selectedCategory === "dashboards" ? "2" : categories.find(c => c.id === selectedCategory)?.count || 0}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <Button data-testid="button-add-dashboard">
+            <Plus className="h-4 w-4 mr-2" />
+            Add
+          </Button>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by report name or description"
+            className="pl-10"
+            data-testid="input-search-reports"
+          />
+        </div>
+
+        {selectedCategory === "dashboards" && (
+          <div className="space-y-4">
+            {dashboards.map((dashboard) => {
+              const Icon = dashboard.icon;
+              return (
+                <Card 
+                  key={dashboard.id} 
+                  className="hover-elevate cursor-pointer"
+                  onClick={() => setSelectedDashboard(dashboard.id)}
+                  data-testid={`dashboard-${dashboard.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Icon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{dashboard.name}</h3>
+                          <p className="text-sm text-muted-foreground">{dashboard.description}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" data-testid={`button-favourite-${dashboard.id}`}>
+                        <Star className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedCategory === "all" && (
+          <div className="text-center py-12 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>52 reports available</p>
+            <p className="text-sm">Select a category to view specific reports</p>
+          </div>
+        )}
+
+        {selectedCategory === "favourites" && (
+          <div className="text-center py-12 text-muted-foreground">
+            <Heart className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>1 favourite report</p>
+          </div>
+        )}
+
+        {selectedCategory === "standard" && (
+          <div className="text-center py-12 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>44 standard reports available</p>
+          </div>
+        )}
+
+        {selectedCategory === "premium" && (
+          <div className="text-center py-12 text-muted-foreground">
+            <Award className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>8 premium reports available</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
