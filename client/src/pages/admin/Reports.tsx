@@ -93,27 +93,46 @@ export default function AdminReports() {
     };
   }).sort((a, b) => b.sales - a.sales).slice(0, 3);
   
-  // Mock data for demonstration
+  /* 
+   * MOCK DATA NOTE: The following datasets are placeholders because they require data
+   * not currently tracked in the database:
+   * 
+   * - salesByChannel: Requires booking source tracking (added to bookings table)
+   * - salesOverTimeData/occupancyRateData/returningClientData: Require historical/comparison data
+   * - Staff occupancy/rating changes: Require time tracking and ratings system
+   * 
+   * To make these real:
+   * 1. Add 'bookingSource' field to bookings table
+   * 2. Implement historical data snapshots or date-range aggregation endpoints
+   * 3. Add staff time tracking and ratings system
+   */
+  
   const salesByChannel = [
-    { channel: "Offline", amount: 18733, percentage: 14.3, color: "#94a3b8" },
-    { channel: "Fresha marketplace", amount: 17867, percentage: 13.6, color: "#f97316" },
-    { channel: "Social", amount: 4080, percentage: 15.9, color: "#3b82f6" },
-    { channel: "Book now link", amount: 3020, percentage: 26.6, color: "#8b5cf6" },
+    { channel: "Offline", amount: totalSales * 0.43, percentage: 14.3, color: "#94a3b8" },
+    { channel: "Online", amount: totalSales * 0.41, percentage: 13.6, color: "#f97316" },
+    { channel: "Social", amount: totalSales * 0.09, percentage: 15.9, color: "#3b82f6" },
+    { channel: "Direct", amount: totalSales * 0.07, percentage: 26.6, color: "#8b5cf6" },
     { channel: "Marketing", amount: 0, percentage: 100, color: "#6366f1" },
   ];
 
-  const salesOverTimeData = [
-    { date: "14 Sep", value: 1200, comparison: 1100 },
-    { date: "17 Sep", value: 1800, comparison: 1600 },
-    { date: "20 Sep", value: 2100, comparison: 1900 },
-    { date: "23 Sep", value: 2500, comparison: 2800 },
-    { date: "26 Sep", value: 2000, comparison: 1700 },
-    { date: "29 Sep", value: 2300, comparison: 2100 },
-    { date: "2 Oct", value: 1900, comparison: 2000 },
-    { date: "5 Oct", value: 2200, comparison: 2400 },
-    { date: "8 Oct", value: 2400, comparison: 2200 },
-    { date: "11 Oct", value: 2100, comparison: 1800 },
-  ];
+  // Generate sales over time from real bookings data (grouped by date)
+  const salesOverTimeData = (() => {
+    const last30Days = Array.from({ length: 10 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (9 - i) * 3);
+      return date;
+    });
+
+    return last30Days.map(date => {
+      const dateStr = date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+      const dayBookings = bookings.filter((b: any) => {
+        const bookingDate = new Date(b.bookingDate);
+        return bookingDate.toDateString() === date.toDateString();
+      });
+      const value = dayBookings.reduce((sum: number, b: any) => sum + parseFloat(b.totalAmount || 0), 0);
+      return { date: dateStr, value, comparison: value * 0.9 }; // Mock comparison
+    });
+  })();
 
   const occupancyRateData = [
     { date: "14 Sep", current: 42, comparison: 45 },
@@ -127,14 +146,14 @@ export default function AdminReports() {
   ];
 
   const returningClientData = [
-    { date: "14 Sep", current: 84.6, comparison: 87.5 },
-    { date: "18 Sep", current: 86.2, comparison: 85.0 },
-    { date: "22 Sep", current: 85.1, comparison: 86.8 },
-    { date: "26 Sep", current: 87.3, comparison: 84.2 },
-    { date: "30 Sep", current: 84.9, comparison: 88.1 },
-    { date: "4 Oct", current: 86.5, comparison: 85.9 },
-    { date: "8 Oct", current: 85.2, comparison: 87.2 },
-    { date: "13 Oct", current: 85.7, comparison: 85.5 },
+    { date: "14 Sep", current: returningClientRate, comparison: returningClientRate * 1.02 },
+    { date: "18 Sep", current: returningClientRate, comparison: returningClientRate * 0.99 },
+    { date: "22 Sep", current: returningClientRate, comparison: returningClientRate * 1.01 },
+    { date: "26 Sep", current: returningClientRate, comparison: returningClientRate * 0.98 },
+    { date: "30 Sep", current: returningClientRate, comparison: returningClientRate * 1.03 },
+    { date: "4 Oct", current: returningClientRate, comparison: returningClientRate * 1.00 },
+    { date: "8 Oct", current: returningClientRate, comparison: returningClientRate * 0.99 },
+    { date: "13 Oct", current: returningClientRate, comparison: returningClientRate * 1.00 },
   ];
 
   // Use calculated staff performance (already defined above)
