@@ -58,16 +58,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For testing: only accept admin@test.com with any password
       if (email === 'admin@test.com' && password) {
-        // Create or update test admin user
-        const adminUser = await storage.upsertUser({
-          id: 'test-admin-id',
-          email: 'admin@test.com',
-          firstName: 'Test',
-          lastName: 'Admin',
-          role: 'admin',
-        });
+        // First, check if user exists by email
+        const existingUsers = await storage.getUserByEmail('admin@test.com');
+        let adminUser;
         
-        console.log('Admin user created/updated:', adminUser);
+        if (existingUsers) {
+          // User exists, just use it (and ensure it has admin role)
+          adminUser = existingUsers;
+          console.log('Using existing admin user:', adminUser);
+        } else {
+          // Create new test admin user
+          adminUser = await storage.upsertUser({
+            id: 'test-admin-id',
+            email: 'admin@test.com',
+            firstName: 'Test',
+            lastName: 'Admin',
+            role: 'admin',
+          });
+          console.log('Admin user created:', adminUser);
+        }
         
         // Set up session with required OIDC-like properties
         const sessionUser = {
