@@ -1,12 +1,56 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subDays, isToday, isSameDay } from "date-fns";
-import { Calendar, Clock } from "lucide-react";
+import { format, subDays, isToday, isSameDay, subMonths } from "date-fns";
+import { Calendar, Clock, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
 import type { Booking, BookingItem, Service, Staff, Customer } from "@shared/schema";
+import { useState } from "react";
+
+type WidgetType = "sales" | "appointments" | "activity" | "upcoming" | "services" | "team";
+type PeriodType = "7days" | "30days" | "thisMonth" | "lastMonth" | "thisYear";
+
+const availableWidgets: { type: WidgetType; label: string }[] = [
+  { type: "sales", label: "Recent Sales" },
+  { type: "appointments", label: "Upcoming Appointments" },
+  { type: "activity", label: "Appointments Activity" },
+  { type: "upcoming", label: "Today's Next Appointments" },
+  { type: "services", label: "Top Services" },
+  { type: "team", label: "Top Team Member" },
+];
+
+const periodOptions: { value: PeriodType; label: string }[] = [
+  { value: "7days", label: "Last 7 days" },
+  { value: "30days", label: "Last 30 days" },
+  { value: "thisMonth", label: "This month" },
+  { value: "lastMonth", label: "Last month" },
+  { value: "thisYear", label: "This year" },
+];
 
 export default function AdminDashboard() {
+  const [activeWidgets, setActiveWidgets] = useState<WidgetType[]>([
+    "sales", "appointments", "activity", "upcoming", "services", "team"
+  ]);
+  const [widgetPeriods, setWidgetPeriods] = useState<Record<WidgetType, PeriodType>>({
+    sales: "7days",
+    appointments: "7days",
+    activity: "7days",
+    upcoming: "7days",
+    services: "thisMonth",
+    team: "thisMonth",
+  });
   // Fetch all required data
   const { data: bookings = [], isLoading: loadingBookings } = useQuery<Booking[]>({
     queryKey: ["/api/admin/bookings"],
@@ -171,6 +215,67 @@ export default function AdminDashboard() {
       return sum + totalAmount;
     }, 0);
 
+  // Helper functions for widget management
+  const handlePeriodChange = (widgetType: WidgetType, period: PeriodType) => {
+    setWidgetPeriods(prev => ({ ...prev, [widgetType]: period }));
+  };
+
+  const handleReplaceWidget = (currentWidget: WidgetType, newWidget: WidgetType) => {
+    setActiveWidgets(prev => prev.map(w => w === currentWidget ? newWidget : w));
+  };
+
+  const getAvailableWidgetsForReplacement = (currentWidget: WidgetType) => {
+    return availableWidgets.filter(w => w.type !== currentWidget && !activeWidgets.includes(w.type));
+  };
+
+  // Widget menu component
+  const WidgetMenu = ({ widgetType }: { widgetType: WidgetType }) => {
+    const availableForReplacement = getAvailableWidgetsForReplacement(widgetType);
+    const currentPeriod = widgetPeriods[widgetType];
+    const currentPeriodLabel = periodOptions.find(p => p.value === currentPeriod)?.label || "Last 7 days";
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`menu-${widgetType}`}>
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56" data-testid={`menu-content-${widgetType}`}>
+          <DropdownMenuLabel>Period: {currentPeriodLabel}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          
+          {periodOptions.map((period) => (
+            <DropdownMenuItem
+              key={period.value}
+              onSelect={() => handlePeriodChange(widgetType, period.value)}
+              data-testid={`period-${widgetType}-${period.value}`}
+              className={currentPeriod === period.value ? "bg-accent" : ""}
+            >
+              {period.label}
+            </DropdownMenuItem>
+          ))}
+
+          {availableForReplacement.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Replace with</DropdownMenuLabel>
+              {availableForReplacement.map((widget) => (
+                <DropdownMenuItem
+                  key={widget.type}
+                  onSelect={() => handleReplaceWidget(widgetType, widget.type)}
+                  data-testid={`replace-${widgetType}-${widget.type}`}
+                >
+                  {widget.label}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   if (loadingBookings) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -189,19 +294,21 @@ export default function AdminDashboard() {
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Recent Sales Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-semibold">Recent sales</h3>
-                <p className="text-2xl font-bold mt-1">AED {totalRevenue.toFixed(0)}</p>
-                <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                  <span>Appointments <span className="font-semibold text-foreground">{bookings.length}</span></span>
-                  <span>Appointments cost <span className="font-semibold text-foreground">AED {totalRevenue.toFixed(0)}</span></span>
+        {activeWidgets.includes("sales") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold">Recent sales</h3>
+                  <p className="text-2xl font-bold mt-1">AED {totalRevenue.toFixed(0)}</p>
+                  <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                    <span>Appointments <span className="font-semibold text-foreground">{bookings.length}</span></span>
+                    <span>Appointments cost <span className="font-semibold text-foreground">AED {totalRevenue.toFixed(0)}</span></span>
+                  </div>
                 </div>
-              </div>
-            </CardTitle>
-          </CardHeader>
+                <WidgetMenu widgetType="sales" />
+              </CardTitle>
+            </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={salesData}>
@@ -241,21 +348,24 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+          )}
 
         {/* Upcoming Appointments Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-semibold">Upcoming appointments</h3>
-                <p className="text-2xl font-bold mt-1">{totalBookings} booked</p>
-                <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                  <span>Confirmed appointments <span className="font-semibold text-foreground">{confirmedCount}</span></span>
-                  <span>Cancelled appointments <span className="font-semibold text-foreground">{cancelledCount}</span></span>
+        {activeWidgets.includes("appointments") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold">Upcoming appointments</h3>
+                  <p className="text-2xl font-bold mt-1">{totalBookings} booked</p>
+                  <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                    <span>Confirmed appointments <span className="font-semibold text-foreground">{confirmedCount}</span></span>
+                    <span>Cancelled appointments <span className="font-semibold text-foreground">{cancelledCount}</span></span>
+                  </div>
                 </div>
-              </div>
-            </CardTitle>
-          </CardHeader>
+                <WidgetMenu widgetType="appointments" />
+              </CardTitle>
+            </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={appointmentsData}>
@@ -281,15 +391,20 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+          )}
       </div>
 
       {/* Activity and Appointments Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Appointments Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Appointments activity</CardTitle>
-          </CardHeader>
+        {activeWidgets.includes("activity") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Appointments activity</span>
+                <WidgetMenu widgetType="activity" />
+              </CardTitle>
+            </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {recentActivity.length > 0 ? (
@@ -327,12 +442,17 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+          )}
 
         {/* Today's Next Appointments */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Today's next appointments</CardTitle>
-          </CardHeader>
+        {activeWidgets.includes("upcoming") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Today's next appointments</span>
+                <WidgetMenu widgetType="upcoming" />
+              </CardTitle>
+            </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {upcomingToday.length > 0 ? (
@@ -370,15 +490,20 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+          )}
       </div>
 
       {/* Tables Row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Top Services */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top services</CardTitle>
-          </CardHeader>
+        {activeWidgets.includes("services") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Top services</span>
+                <WidgetMenu widgetType="services" />
+              </CardTitle>
+            </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="grid grid-cols-3 gap-4 pb-2 border-b text-sm font-medium text-muted-foreground">
@@ -400,12 +525,17 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+          )}
 
         {/* Top Team Members */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top team member</CardTitle>
-          </CardHeader>
+        {activeWidgets.includes("team") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Top team member</span>
+                <WidgetMenu widgetType="team" />
+              </CardTitle>
+            </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="grid grid-cols-3 gap-4 pb-2 border-b text-sm font-medium text-muted-foreground">
@@ -427,6 +557,7 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+          )}
       </div>
     </div>
   );
