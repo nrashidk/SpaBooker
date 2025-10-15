@@ -24,22 +24,84 @@ import {
   FolderOpen, Settings as SettingsIcon, DollarSign, FileText,
   Clock
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Service } from "@shared/schema";
 
 type ServicesSection = "catalog" | "service-menu" | "memberships" | "products" | "stock-takes" | "stock-orders" | "suppliers";
 type ServiceCategory = "all" | "hair" | "coloring" | "shave-beard" | "facial" | "hand-foot-care";
 
 export default function AdminServices() {
+  const { toast } = useToast();
   const [selectedSection, setSelectedSection] = useState<ServicesSection>("service-menu");
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory>("all");
   const [showNewService, setShowNewService] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [newServiceStep, setNewServiceStep] = useState("basic-details");
+  const [serviceForm, setServiceForm] = useState({
+    name: "",
+    category: "",
+    treatmentType: "",
+    description: "",
+    priceType: "fixed",
+    price: "",
+    duration: "60",
+  });
 
   const { data: services = [], isLoading } = useQuery<Service[]>({
     queryKey: ["/api/admin/services"],
   });
+
+  const createServiceMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/admin/services', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/services'] });
+      setShowNewService(false);
+      setServiceForm({
+        name: "",
+        category: "",
+        treatmentType: "",
+        description: "",
+        priceType: "fixed",
+        price: "",
+        duration: "60",
+      });
+      toast({
+        title: "Service created",
+        description: "The service has been added successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create service. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveService = () => {
+    if (!serviceForm.name || !serviceForm.category || !serviceForm.price) {
+      toast({
+        title: "Validation error",
+        description: "Please fill in all required fields (name, category, price).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createServiceMutation.mutate({
+      spaId: 1, // TODO: Get from auth context
+      name: serviceForm.name,
+      category: serviceForm.category,
+      description: serviceForm.description || null,
+      price: serviceForm.price,
+      duration: parseInt(serviceForm.duration),
+    });
+  };
 
   const menuSections = [
     {
@@ -230,7 +292,7 @@ export default function AdminServices() {
             <Button variant="outline" onClick={() => setShowNewService(false)} data-testid="button-close-service">
               Close
             </Button>
-            <Button data-testid="button-save-service">
+            <Button onClick={handleSaveService} disabled={createServiceMutation.isPending} data-testid="button-save-service">
               Save
             </Button>
           </div>
@@ -283,6 +345,8 @@ export default function AdminServices() {
                 </div>
                 <Input
                   id="treatment-name"
+                  value={serviceForm.name}
+                  onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
                   placeholder="Add a treatment name, e.g. Men's Haircut"
                   data-testid="input-treatment-name"
                 />
@@ -291,7 +355,7 @@ export default function AdminServices() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="menu-category">Menu category</Label>
-                  <Select>
+                  <Select value={serviceForm.category} onValueChange={(value) => setServiceForm({ ...serviceForm, category: value })}>
                     <SelectTrigger id="menu-category" data-testid="select-menu-category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -331,6 +395,8 @@ export default function AdminServices() {
                 </div>
                 <Textarea
                   id="description"
+                  value={serviceForm.description}
+                  onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
                   placeholder="Add a short description"
                   rows={4}
                   data-testid="input-description"
@@ -366,6 +432,8 @@ export default function AdminServices() {
                     <Input
                       id="price"
                       type="number"
+                      value={serviceForm.price}
+                      onChange={(e) => setServiceForm({ ...serviceForm, price: e.target.value })}
                       placeholder="0.00"
                       className="pl-12"
                       data-testid="input-price"
@@ -375,28 +443,38 @@ export default function AdminServices() {
 
                 <div className="space-y-2">
                   <Label htmlFor="duration">Duration</Label>
-                  <Select defaultValue="1h">
+                  <Select value={serviceForm.duration} onValueChange={(value) => setServiceForm({ ...serviceForm, duration: value })}>
                     <SelectTrigger id="duration" data-testid="select-duration">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="15m">15 min</SelectItem>
-                      <SelectItem value="30m">30 min</SelectItem>
-                      <SelectItem value="45m">45 min</SelectItem>
-                      <SelectItem value="1h">1 hour</SelectItem>
-                      <SelectItem value="1h30m">1.5 hours</SelectItem>
-                      <SelectItem value="2h">2 hours</SelectItem>
+                      <SelectItem value="15">15 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                      <SelectItem value="45">45 min</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="90">1.5 hours</SelectItem>
+                      <SelectItem value="120">2 hours</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" data-testid="button-add-extra-time">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => toast({ title: "Coming soon", description: "Extra time configuration will be available soon." })}
+                  data-testid="button-add-extra-time"
+                >
                   <Clock className="h-4 w-4 mr-2" />
                   Add extra time
                 </Button>
-                <Button variant="outline" size="sm" data-testid="button-pricing-options">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => toast({ title: "Coming soon", description: "Pricing options will be available soon." })}
+                  data-testid="button-pricing-options"
+                >
                   Options
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
