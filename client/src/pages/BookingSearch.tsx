@@ -19,24 +19,32 @@ export default function BookingSearch() {
   const [timeQuery, setTimeQuery] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Build query params for API
-  const queryParams = new URLSearchParams();
-  if (searchQuery.trim()) queryParams.set("search", searchQuery.trim());
-  if (locationQuery.trim()) queryParams.set("location", locationQuery.trim());
-  if (dateQuery.trim()) queryParams.set("date", dateQuery.trim());
-  if (timeQuery.trim()) queryParams.set("time", timeQuery.trim());
+  // Build query URL for API
+  const buildQueryUrl = () => {
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set("search", searchQuery.trim());
+    if (locationQuery.trim()) params.set("location", locationQuery.trim());
+    if (dateQuery.trim()) params.set("date", dateQuery.trim());
+    if (timeQuery.trim()) params.set("time", timeQuery.trim());
+    const queryString = params.toString();
+    return `/api/search/spas${queryString ? `?${queryString}` : ''}`;
+  };
 
   // Fetch search results
   const { data: searchResults, isLoading } = useQuery<SearchResult[]>({
-    queryKey: ["/api/search/spas", queryParams.toString()],
+    queryKey: [buildQueryUrl()],
     enabled: hasSearched,
   });
 
   const handleSearch = (overrideSearch?: string) => {
     if (overrideSearch) {
+      // Set search query and trigger search in next render
       setSearchQuery(overrideSearch);
+      // Use setTimeout to ensure state update completes before enabling query
+      setTimeout(() => setHasSearched(true), 0);
+    } else {
+      setHasSearched(true);
     }
-    setHasSearched(true);
   };
 
   const handleBookSpa = (spaId: number) => {
@@ -186,7 +194,7 @@ export default function BookingSearch() {
                               {spa.rating && (
                                 <span className="flex items-center gap-1">
                                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                  {spa.rating.toFixed(1)}
+                                  {typeof spa.rating === 'string' ? parseFloat(spa.rating).toFixed(1) : spa.rating.toFixed(1)}
                                 </span>
                               )}
                             </CardDescription>
@@ -216,7 +224,7 @@ export default function BookingSearch() {
                               <div className="flex flex-wrap gap-2">
                                 {spa.services.slice(0, 6).map((service) => (
                                   <Badge key={service.id} variant="secondary" data-testid={`service-${service.id}`}>
-                                    {service.name} - ${service.price}
+                                    {service.name} - ${typeof service.price === 'string' ? parseFloat(service.price).toFixed(2) : service.price.toFixed(2)}
                                   </Badge>
                                 ))}
                                 {spa.services.length > 6 && (
