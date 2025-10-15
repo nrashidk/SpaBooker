@@ -16,6 +16,12 @@ export default function AdminSales() {
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isAddSaleOpen, setIsAddSaleOpen] = useState(false);
+  
+  // Add sale form state
+  const [saleType, setSaleType] = useState("");
+  const [saleAmount, setSaleAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [saleNotes, setSaleNotes] = useState("");
 
   // Fetch data
   const { data: bookings = [] } = useQuery<Booking[]>({
@@ -28,6 +34,39 @@ export default function AdminSales() {
 
   const { data: services = [] } = useQuery<Service[]>({
     queryKey: ['/api/admin/services'],
+  });
+
+  // Mutation to create a sale
+  const createSaleMutation = useMutation({
+    mutationFn: async (saleData: {
+      transactionType: string;
+      amount: string;
+      paymentMethod: string;
+      notes?: string;
+    }) => {
+      return await apiRequest('POST', '/api/admin/sales', saleData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/transactions'] });
+      toast({
+        title: "Sale added",
+        description: "The sale has been recorded successfully.",
+      });
+      setIsAddSaleOpen(false);
+      // Reset form
+      setSaleType("");
+      setSaleAmount("");
+      setPaymentMethod("");
+      setSaleNotes("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create sale",
+        variant: "destructive",
+      });
+    },
   });
 
   // Filter bookings for selected date
@@ -366,7 +405,7 @@ export default function AdminSales() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="sale-type">Sale Type</Label>
-              <Select>
+              <Select value={saleType} onValueChange={setSaleType}>
                 <SelectTrigger id="sale-type" data-testid="select-sale-type">
                   <SelectValue placeholder="Select sale type" />
                 </SelectTrigger>
@@ -384,12 +423,14 @@ export default function AdminSales() {
                 id="sale-amount"
                 type="number"
                 placeholder="0.00"
+                value={saleAmount}
+                onChange={(e) => setSaleAmount(e.target.value)}
                 data-testid="input-sale-amount"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="payment-method">Payment Method</Label>
-              <Select>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger id="payment-method" data-testid="select-payment-method">
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
@@ -405,6 +446,8 @@ export default function AdminSales() {
               <Input
                 id="sale-notes"
                 placeholder="Add any notes"
+                value={saleNotes}
+                onChange={(e) => setSaleNotes(e.target.value)}
                 data-testid="input-sale-notes"
               />
             </div>
@@ -413,14 +456,27 @@ export default function AdminSales() {
             <Button variant="outline" onClick={() => setIsAddSaleOpen(false)} data-testid="button-cancel-sale">
               Cancel
             </Button>
-            <Button onClick={() => {
-              toast({
-                title: "Sale added",
-                description: "The sale has been recorded successfully.",
-              });
-              setIsAddSaleOpen(false);
-            }} data-testid="button-save-sale">
-              Save Sale
+            <Button 
+              onClick={() => {
+                if (!saleType || !saleAmount || !paymentMethod) {
+                  toast({
+                    title: "Missing fields",
+                    description: "Please fill in all required fields",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                createSaleMutation.mutate({
+                  transactionType: saleType,
+                  amount: saleAmount,
+                  paymentMethod,
+                  notes: saleNotes || undefined,
+                });
+              }}
+              disabled={createSaleMutation.isPending}
+              data-testid="button-save-sale"
+            >
+              {createSaleMutation.isPending ? "Saving..." : "Save Sale"}
             </Button>
           </DialogFooter>
         </DialogContent>
