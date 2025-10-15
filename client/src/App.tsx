@@ -4,7 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import BookingPage from "@/pages/booking";
+import BookingSearch from "@/pages/BookingSearch";
+import BookingFlow from "@/pages/BookingFlow";
 import AdminLanding from "@/pages/AdminLanding";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -27,7 +28,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={AdminLanding} />
-      <Route path="/booking" component={BookingPage} />
+      <Route path="/booking" component={BookingSearch} />
+      <Route path="/booking/flow" component={BookingFlow} />
       
       {/* Admin Routes - Protected with admin role requirement */}
       <Route path="/admin">
