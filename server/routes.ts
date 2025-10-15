@@ -130,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Find or create customer
       let customer;
-      const userId = (req.user as any)?.id; // Get userId from Replit Auth if available
+      const userId = (req.user as any)?.claims?.sub; // Get userId from Replit Auth if available
 
       if (userId) {
         customer = await storage.getCustomerByUserId(userId);
@@ -200,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get customer's bookings (requires authentication)
   app.get("/api/my-bookings", async (req, res) => {
     try {
-      const userId = (req.user as any)?.id;
+      const userId = (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ message: "Authentication required" });
       }
@@ -254,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this booking
-      const userId = (req.user as any)?.id;
+      const userId = (req.user as any)?.claims?.sub;
       if (userId) {
         const customer = await storage.getCustomerByUserId(userId);
         if (customer && customer.id !== booking.customerId) {
@@ -303,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this booking
-      const userId = (req.user as any)?.id;
+      const userId = (req.user as any)?.claims?.sub;
       if (userId) {
         const customer = await storage.getCustomerByUserId(userId);
         if (customer && customer.id !== booking.customerId) {
