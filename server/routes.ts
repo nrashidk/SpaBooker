@@ -130,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Find or create customer
       let customer;
-      const userId = req.user?.id; // Get userId from Replit Auth if available
+      const userId = (req.user as any)?.id; // Get userId from Replit Auth if available
 
       if (userId) {
         customer = await storage.getCustomerByUserId(userId);
@@ -200,11 +200,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get customer's bookings (requires authentication)
   app.get("/api/my-bookings", async (req, res) => {
     try {
-      if (!req.user?.id) {
+      const userId = (req.user as any)?.id;
+      if (!userId) {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      const customer = await storage.getCustomerByUserId(req.user.id);
+      const customer = await storage.getCustomerByUserId(userId);
       if (!customer) {
         return res.json([]);
       }
@@ -218,18 +219,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const spa = await storage.getSpaById(booking.spaId);
           const staff = booking.staffId ? await storage.getStaffById(booking.staffId) : null;
           
-          const servicesData = await Promise.all(
-            bookingItems.map(async (item) => {
-              const service = await storage.getServiceById(item.serviceId);
-              return service;
-            })
-          );
+          const allServices = await storage.getAllServices();
+          const servicesData = bookingItems.map((item) => {
+            return allServices.find((s: any) => s.id === item.serviceId);
+          });
 
           return {
             ...booking,
             spa,
             staff,
-            services: servicesData.filter(s => s !== undefined),
+            services: servicesData.filter((s: any) => s !== undefined),
             bookingItems,
           };
         })
@@ -255,8 +254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this booking
-      if (req.user?.id) {
-        const customer = await storage.getCustomerByUserId(req.user.id);
+      const userId = (req.user as any)?.id;
+      if (userId) {
+        const customer = await storage.getCustomerByUserId(userId);
         if (customer && customer.id !== booking.customerId) {
           return res.status(403).json({ message: "Unauthorized" });
         }
@@ -303,8 +303,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this booking
-      if (req.user?.id) {
-        const customer = await storage.getCustomerByUserId(req.user.id);
+      const userId = (req.user as any)?.id;
+      if (userId) {
+        const customer = await storage.getCustomerByUserId(userId);
         if (customer && customer.id !== booking.customerId) {
           return res.status(403).json({ message: "Unauthorized" });
         }

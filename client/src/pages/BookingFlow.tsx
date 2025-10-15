@@ -193,11 +193,43 @@ export default function BookingPage() {
   const handleCustomerDetailsSubmit = async (data: CustomerFormData) => {
     setCustomerDetails(data);
     
-    // TODO: Send to backend to save booking and send notifications
-    // For now, just simulate success
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsConfirmed(true);
+    try {
+      // Prepare booking data
+      const bookingData = {
+        spaId: parseInt(spaId!),
+        customerName: data.name,
+        customerEmail: data.email || undefined,
+        customerPhone: data.mobile || undefined,
+        services: selectedServices.map(s => s.id),
+        date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
+        time: selectedTime || '',
+        staffId: professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : null,
+        notes: '',
+      };
+
+      // Send to backend to save booking
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create booking');
+      }
+
+      const result = await response.json();
+      console.log('Booking created:', result);
+      
+      setIsConfirmed(true);
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      // Show error toast or message
+      alert('Failed to create booking. Please try again.');
+    }
   };
 
   const handleNewBooking = () => {
