@@ -11,13 +11,17 @@ export default function BookingSearch() {
   const [dateQuery, setDateQuery] = useState("");
   const [timeQuery, setTimeQuery] = useState("");
 
-  const handleSearch = () => {
+  const handleSearch = (overrideSearch?: string) => {
     // Navigate to booking flow with search parameters
     const params = new URLSearchParams();
-    if (searchQuery) params.set("search", searchQuery);
-    if (locationQuery) params.set("location", locationQuery);
-    if (dateQuery) params.set("date", dateQuery);
-    if (timeQuery) params.set("time", timeQuery);
+    const search = String(overrideSearch ?? searchQuery ?? '').trim();
+    if (search) params.set("search", search);
+    const location = String(locationQuery ?? '').trim();
+    if (location) params.set("location", location);
+    const date = String(dateQuery ?? '').trim();
+    if (date) params.set("date", date);
+    const time = String(timeQuery ?? '').trim();
+    if (time) params.set("time", time);
     
     setLocation(`/booking/flow?${params.toString()}`);
   };
@@ -95,7 +99,7 @@ export default function BookingSearch() {
                   data-testid="input-search-time"
                 />
                 <Button 
-                  onClick={handleSearch}
+                  onClick={() => handleSearch()}
                   className="ml-2 h-12 px-8 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 rounded-xl font-semibold"
                   data-testid="button-search"
                 >
@@ -128,10 +132,7 @@ export default function BookingSearch() {
               ].map((service) => (
                 <button
                   key={service.name}
-                  onClick={() => {
-                    setSearchQuery(service.name);
-                    handleSearch();
-                  }}
+                  onClick={() => handleSearch(service.name)}
                   className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md hover-elevate active-elevate-2 text-center transition-all"
                   data-testid={`quick-service-${service.name.toLowerCase().replace(" ", "-")}`}
                 >
