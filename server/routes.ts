@@ -48,24 +48,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin login route (password-based for testing)
-  // WARNING: This is for TESTING ONLY - accepts any email/password!
+  // WARNING: This is for TESTING ONLY - accepts admin@test.com with any password!
   app.post('/api/admin/login', async (req, res) => {
     try {
       const { email, password } = req.body;
       
-      // For testing: accept ANY email with any password
-      if (email && password) {
-        // Extract name from email
-        const emailName = email.split('@')[0];
-        const firstName = emailName.split('.')[0] || 'Admin';
-        const lastName = emailName.split('.')[1] || 'User';
-        
-        // Create or update admin user with provided email
+      // For testing: only accept admin@test.com with any password
+      if (email === 'admin@test.com' && password) {
+        // Create or update test admin user
         const adminUser = await storage.upsertUser({
-          id: `admin-${email.replace(/[^a-zA-Z0-9]/g, '-')}`,
-          email,
-          firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-          lastName: lastName.charAt(0).toUpperCase() + lastName.slice(1),
+          id: 'test-admin-id',
+          email: 'admin@test.com',
+          firstName: 'Test',
+          lastName: 'Admin',
           role: 'admin',
         });
         
