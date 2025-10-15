@@ -34,13 +34,26 @@ Serene Spa is an online booking system, inspired by Fresha, designed to offer cu
   - Separate authentication flow from customer accounts
 - **Routing Updates**: Updated App.tsx with new page routes
 
-### Calendar Logic Audit - Critical Gaps Identified
-- ❌ **No Time Slot Generation**: System lacks logic to generate available slots from staff schedules and business hours
-- ❌ **No Double-Booking Prevention**: No validation to prevent concurrent bookings for same staff
-- ❌ **No Staff Availability Checking**: Bookings accepted without verifying staff work hours
-- ❌ **No Business Hours Validation**: Can book outside spa operating hours
-- **Impact**: Current booking system accepts any date/time without conflict checking
-- **Priority**: HIGH - Must implement before production launch
+### Calendar Validation System - COMPLETED ✅
+- ✅ **Time Slot Generation**: Implemented service that generates available slots based on:
+  - Business hours per day of week (supports string format "9:00-21:00" and object format)
+  - Actual booking durations calculated from booking items (not hardcoded)
+  - 30-minute interval slots
+  - Proper date parsing (local time, not UTC) using `date + 'T00:00:00'`
+- ✅ **Double-Booking Prevention**: Full validation before booking creation:
+  - Checks for overlapping bookings using actual service durations
+  - Returns 409 error with clear message when slot unavailable
+  - Validated working: 75-min booking at 10:00 correctly blocks 09:30-11:00
+- ✅ **Business Hours Validation**: Ensures bookings fall within operating hours
+  - Time comparison using minutes conversion (not string comparison)
+  - Day-specific hours support
+- ✅ **Staff Availability**: Per-staff booking conflict checking
+  - Different staff can book same time slot (no conflict)
+  - Same staff cannot double-book
+- **API Endpoints**:
+  - `GET /api/spas/:id/available-slots?date=YYYY-MM-DD&duration=X&staffId=Y`
+  - Returns array of `{ time, available, staffId }` objects
+- **Integration**: BookingFlow.tsx now fetches real available slots from API
 
 ### Booking Search UI Redesign
 - **Modern Dropdown Design**: Replaced text inputs with interactive popover dropdowns for all search fields
