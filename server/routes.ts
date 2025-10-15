@@ -54,6 +54,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, password } = req.body;
       
+      console.log('Admin login attempt:', { email, hasPassword: !!password });
+      
       // For testing: only accept admin@test.com with any password
       if (email === 'admin@test.com' && password) {
         // Create or update test admin user
@@ -65,6 +67,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: 'admin',
         });
         
+        console.log('Admin user created/updated:', adminUser);
+        
         // Set up session with required OIDC-like properties
         const sessionUser = {
           claims: { sub: adminUser.id },
@@ -74,11 +78,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         req.login(sessionUser, (err) => {
           if (err) {
+            console.error('req.login error:', err);
             return res.status(500).json({ message: "Login failed" });
           }
+          console.log('Login successful, session created');
           return res.json({ success: true, user: adminUser });
         });
       } else {
+        console.log('Invalid credentials:', { email, hasPassword: !!password });
         return res.status(401).json({ message: "Invalid credentials" });
       }
     } catch (error) {
