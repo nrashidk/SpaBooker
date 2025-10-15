@@ -26,40 +26,37 @@ export async function generateAvailableTimeSlots(
   }
 
   // Parse the date and get day of week (0=Sunday, 6=Saturday)
-  const dateObj = new Date(date);
+  // Add time to ensure it's parsed as local date, not UTC
+  const dateObj = new Date(date + 'T00:00:00');
   const dayOfWeek = dateObj.getDay();
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayName = dayNames[dayOfWeek];
 
   // Get business hours for this day
-  const businessHours = spa.businessHours as BusinessHours;
-  const dayHours = businessHours[dayName];
+  const businessHours = spa.businessHours as any;
+  const dayHoursRaw = businessHours[dayName];
   
-  if (!dayHours || !dayHours.open || !dayHours.close) {
+  if (!dayHoursRaw) {
     // Spa is closed on this day
     return [];
   }
 
-  // Get staff schedule if staffId is provided
-  let staffSchedule = null;
-  if (staffId) {
-    const schedules = await storage.getStaffSchedules(staffId);
-    staffSchedule = schedules.find((s: any) => s.dayOfWeek === dayOfWeek && s.active);
-    
-    if (!staffSchedule) {
-      // Staff doesn't work on this day
-      return [];
-    }
-  }
-
-  // Determine working hours (intersection of business hours and staff schedule)
-  let workStartTime = dayHours.open;
-  let workEndTime = dayHours.close;
-
-  if (staffSchedule) {
-    // Use staff schedule if it's more restrictive
-    workStartTime = staffSchedule.startTime > workStartTime ? staffSchedule.startTime : workStartTime;
-    workEndTime = staffSchedule.endTime < workEndTime ? staffSchedule.endTime : workEndTime;
+  // Parse business hours - handle both string format "9:00-21:00" and object format { open, close }
+  let workStartTime: string;
+  let workEndTime: string;
+  
+  if (typeof dayHoursRaw === 'string') {
+    // Format: "9:00-21:00"
+    const [start, end] = dayHoursRaw.split('-');
+    workStartTime = start;
+    workEndTime = end;
+  } else if (dayHoursRaw.open && dayHoursRaw.close) {
+    // Format: { open: "9:00", close: "21:00" }
+    workStartTime = dayHoursRaw.open;
+    workEndTime = dayHoursRaw.close;
+  } else {
+    // Invalid format
+    return [];
   }
 
   // Get all bookings for this date and staff (or all staff if not specified)
@@ -176,37 +173,48 @@ export async function validateBooking(
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayName = dayNames[dayOfWeek];
   
-  const businessHours = spa.businessHours as BusinessHours;
-  const dayHours = businessHours?.[dayName];
+  const businessHours = spa.businessHours as any;
+  const dayHoursRaw = businessHours?.[dayName];
   
-  if (!dayHours || !dayHours.open || !dayHours.close) {
+  if (!dayHoursRaw) {
     return { valid: false, message: `Spa is closed on ${dayName}s` };
   }
   
+  // Parse business hours - handle both string format "9:00-21:00" and object format { open, close }
+  let workStartTime: string;
+  let workEndTime: string;
+  
+  if (typeof dayHoursRaw === 'string') {
+    const [start, end] = dayHoursRaw.split('-');
+    workStartTime = start;
+    workEndTime = end;
+  } else if (dayHoursRaw.open && dayHoursRaw.close) {
+    workStartTime = dayHoursRaw.open;
+    workEndTime = dayHoursRaw.close;
+  } else {
+    return { valid: false, message: `Invalid business hours format` };
+  }
+  
+  // Convert times to minutes for proper comparison
+  const timeToMinutes = (timeStr: string): number => {
+    const [hours, mins] = timeStr.split(':').map(Number);
+    return hours * 60 + mins;
+  };
+  
+  const timeMinutes = timeToMinutes(time);
+  const startMinutes = timeToMinutes(workStartTime);
+  const endMinutes = timeToMinutes(workEndTime);
+  
   // Check if time falls within business hours
-  if (time < dayHours.open || time >= dayHours.close) {
+  if (timeMinutes < startMinutes || timeMinutes >= endMinutes) {
     return { 
       valid: false, 
-      message: `Booking time must be between ${dayHours.open} and ${dayHours.close}` 
+      message: `Booking time must be between ${workStartTime} and ${workEndTime}` 
     };
   }
   
-  // Check staff schedule if staff is specified
-  if (staffId) {
-    const schedules = await storage.getStaffSchedules(staffId);
-    const staffSchedule = schedules.find((s: any) => s.dayOfWeek === dayOfWeek && s.active);
-    
-    if (!staffSchedule) {
-      return { valid: false, message: "Selected staff member is not available on this day" };
-    }
-    
-    if (time < staffSchedule.startTime || time >= staffSchedule.endTime) {
-      return { 
-        valid: false, 
-        message: `Staff is only available from ${staffSchedule.startTime} to ${staffSchedule.endTime}` 
-      };
-    }
-  }
+  // TODO: Check staff schedule when schedule column is added to staff table
+  // For now, assume staff works during business hours
   
   // Check for double booking
   const available = await isTimeSlotAvailable(spaId, date, time, serviceDuration, staffId);
