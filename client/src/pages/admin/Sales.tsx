@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { Calendar, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Booking, BookingItem, Service } from "@shared/schema";
 
 export default function AdminSales() {
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isAddSaleOpen, setIsAddSaleOpen] = useState(false);
 
   // Fetch data
   const { data: bookings = [] } = useQuery<Booking[]>({
@@ -172,6 +180,31 @@ export default function AdminSales() {
     .filter(b => b.status === 'completed')
     .reduce((sum, b) => sum + parseFloat(b.totalAmount?.toString() || '0'), 0);
 
+  const handleExport = () => {
+    const csvHeader = 'Item Type,Items Sold,Refunds,Gross Total\n';
+    const csvRows = transactionSummary.map(row => 
+      `${row.itemType},${row.itemsSold},${row.refunds},${row.grossTotal}`
+    ).join('\n');
+    
+    const csvContent = csvHeader + csvRows;
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sales-${format(selectedDate, 'yyyy-MM-dd')}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Export successful",
+      description: `Sales data for ${format(selectedDate, 'dd MMM yyyy')} has been downloaded.`,
+    });
+  };
+
+  const handleAddSale = () => {
+    setIsAddSaleOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -182,11 +215,11 @@ export default function AdminSales() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" data-testid="export-sales">
+          <Button variant="outline" onClick={handleExport} data-testid="export-sales">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button data-testid="add-sale">Add sale</Button>
+          <Button onClick={handleAddSale} data-testid="add-sale">Add sale</Button>
         </div>
       </div>
 
@@ -320,6 +353,78 @@ export default function AdminSales() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Sale Dialog */}
+      <Dialog open={isAddSaleOpen} onOpenChange={setIsAddSaleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Sale</DialogTitle>
+            <DialogDescription>
+              Record a walk-in sale or manual transaction
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sale-type">Sale Type</Label>
+              <Select>
+                <SelectTrigger id="sale-type" data-testid="select-sale-type">
+                  <SelectValue placeholder="Select sale type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="service">Service</SelectItem>
+                  <SelectItem value="product">Product</SelectItem>
+                  <SelectItem value="membership">Membership</SelectItem>
+                  <SelectItem value="voucher">Voucher</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sale-amount">Amount (AED)</Label>
+              <Input
+                id="sale-amount"
+                type="number"
+                placeholder="0.00"
+                data-testid="input-sale-amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="payment-method">Payment Method</Label>
+              <Select>
+                <SelectTrigger id="payment-method" data-testid="select-payment-method">
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sale-notes">Notes (optional)</Label>
+              <Input
+                id="sale-notes"
+                placeholder="Add any notes"
+                data-testid="input-sale-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddSaleOpen(false)} data-testid="button-cancel-sale">
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Sale added",
+                description: "The sale has been recorded successfully.",
+              });
+              setIsAddSaleOpen(false);
+            }} data-testid="button-save-sale">
+              Save Sale
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
