@@ -14,6 +14,7 @@ import {
   insertCustomerSchema,
   insertBookingSchema,
   insertBookingItemSchema,
+  insertTransactionSchema,
 } from "@shared/schema";
 
 // Helper function for consistent error handling
@@ -1104,6 +1105,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating customer:", error);
       res.status(500).json({ message: "Failed to create customer" });
+    }
+  });
+
+  // Transaction routes (for manual sales)
+  app.get("/api/admin/transactions", isAdmin, async (req, res) => {
+    try {
+      const transactions = await storage.getAllTransactions();
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  app.post("/api/admin/sales", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertTransactionSchema.parse(req.body);
+      const transaction = await storage.createTransaction(validatedData);
+      res.json(transaction);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid transaction data", errors: error.errors });
+      }
+      console.error("Error creating sale:", error);
+      res.status(500).json({ message: "Failed to create sale" });
     }
   });
 
