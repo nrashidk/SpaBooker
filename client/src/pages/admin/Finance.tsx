@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, TrendingUp, FileText, Download, Calendar, Plus, Receipt, Home, Zap, Package as PackageIcon, Users as UsersIcon, MoreHorizontal, Trash2, Building2, ShoppingCart } from "lucide-react";
+import { DollarSign, TrendingUp, FileText, Download, Calendar, Plus, Receipt, Home, Zap, Package as PackageIcon, Users as UsersIcon, MoreHorizontal, Trash2, Building2, ShoppingCart, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,10 +31,23 @@ const vendorFormSchema = z.object({
   notes: z.string().optional(),
 });
 
+const billFormSchema = z.object({
+  billNumber: z.string().min(1, "Bill number is required"),
+  vendorId: z.string().min(1, "Vendor is required"),
+  billDate: z.string().min(1, "Bill date is required"),
+  dueDate: z.string().min(1, "Due date is required"),
+  subtotal: z.string().min(1, "Subtotal is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, "Must be a valid number"),
+  taxAmount: z.string().optional(),
+  totalAmount: z.string().min(1, "Total amount is required").refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Must be a positive number"),
+  category: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 type VendorFormValues = z.infer<typeof vendorFormSchema>;
+type BillFormValues = z.infer<typeof billFormSchema>;
 
-interface Expense {
+interface LocalExpense {
   id: number;
   category: string;
   description: string;
@@ -43,7 +56,7 @@ interface Expense {
   status: string;
 }
 
-interface Vendor {
+interface LocalVendor {
   id: number;
   name: string;
   email?: string;
@@ -55,12 +68,30 @@ interface Vendor {
   active: boolean;
 }
 
+interface LocalBill {
+  id: number;
+  billNumber: string;
+  vendorId: number;
+  vendorName: string;
+  billDate: Date;
+  dueDate: Date;
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  status: string;
+  category?: string;
+  notes?: string;
+}
+
 export default function AdminFinance() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<LocalExpense | null>(null);
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [editingVendor, setEditingVendor] = useState<LocalVendor | null>(null);
+  const [isAddBillOpen, setIsAddBillOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<LocalBill | null>(null);
 
   const expenseCategories = [
     { value: "rent", label: "Rent", icon: Home },
@@ -88,7 +119,7 @@ export default function AdminFinance() {
     { value: "net_90", label: "Net 90" },
   ];
 
-  const [vendors, setVendors] = useState<Vendor[]>([
+  const [vendors, setVendors] = useState<LocalVendor[]>([
     {
       id: 1,
       name: "Spa Supplies Co.",
@@ -120,7 +151,7 @@ export default function AdminFinance() {
     },
   ]);
 
-  const [expenses, setExpenses] = useState<Expense[]>([
+  const [expenses, setExpenses] = useState<LocalExpense[]>([
     {
       id: 1,
       category: "rent",
@@ -163,6 +194,38 @@ export default function AdminFinance() {
     },
   ]);
 
+  const [bills, setBills] = useState<LocalBill[]>([
+    {
+      id: 1,
+      billNumber: "BILL-001",
+      vendorId: 1,
+      vendorName: "Spa Supplies Co.",
+      billDate: new Date(2025, 9, 1),
+      dueDate: new Date(2025, 9, 31),
+      subtotal: 3200,
+      taxAmount: 160,
+      totalAmount: 3360,
+      paidAmount: 0,
+      status: "unpaid",
+      category: "materials",
+      notes: "Monthly spa products order",
+    },
+    {
+      id: 2,
+      billNumber: "BILL-002",
+      vendorId: 2,
+      vendorName: "DEWA",
+      billDate: new Date(2025, 9, 10),
+      dueDate: new Date(2025, 9, 15),
+      subtotal: 1200,
+      taxAmount: 0,
+      totalAmount: 1200,
+      paidAmount: 1200,
+      status: "paid",
+      category: "utilities",
+    },
+  ]);
+
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
@@ -174,7 +237,7 @@ export default function AdminFinance() {
   });
 
   const handleAddExpense = (values: ExpenseFormValues) => {
-    const newExpense: Expense = {
+    const newExpense: LocalExpense = {
       id: expenses.length > 0 ? Math.max(...expenses.map(e => e.id)) + 1 : 1,
       category: values.category,
       description: values.description,
@@ -187,7 +250,7 @@ export default function AdminFinance() {
     setIsAddExpenseOpen(false);
   };
 
-  const handleEditExpense = (expense: Expense) => {
+  const handleEditExpense = (expense: LocalExpense) => {
     setEditingExpense(expense);
     form.reset({
       category: expense.category,
@@ -250,7 +313,7 @@ export default function AdminFinance() {
   });
 
   const handleAddVendor = (values: VendorFormValues) => {
-    const newVendor: Vendor = {
+    const newVendor: LocalVendor = {
       id: vendors.length > 0 ? Math.max(...vendors.map(v => v.id)) + 1 : 1,
       name: values.name,
       email: values.email,
@@ -266,7 +329,7 @@ export default function AdminFinance() {
     setIsAddVendorOpen(false);
   };
 
-  const handleEditVendor = (vendor: Vendor) => {
+  const handleEditVendor = (vendor: LocalVendor) => {
     setEditingVendor(vendor);
     vendorForm.reset({
       name: vendor.name,
@@ -320,6 +383,124 @@ export default function AdminFinance() {
         paymentTerms: "",
         notes: "",
       });
+    }
+  };
+
+  // Bill form and handlers
+  const billForm = useForm<BillFormValues>({
+    resolver: zodResolver(billFormSchema),
+    defaultValues: {
+      billNumber: "",
+      vendorId: "",
+      billDate: format(new Date(), "yyyy-MM-dd"),
+      dueDate: format(new Date(), "yyyy-MM-dd"),
+      subtotal: "",
+      taxAmount: "",
+      totalAmount: "",
+      category: "",
+      notes: "",
+    },
+  });
+
+  const handleAddBill = (values: BillFormValues) => {
+    const vendor = vendors.find(v => v.id === Number(values.vendorId));
+    const newBill: LocalBill = {
+      id: bills.length > 0 ? Math.max(...bills.map(b => b.id)) + 1 : 1,
+      billNumber: values.billNumber,
+      vendorId: Number(values.vendorId),
+      vendorName: vendor?.name || "Unknown Vendor",
+      billDate: new Date(values.billDate),
+      dueDate: new Date(values.dueDate),
+      subtotal: Number(values.subtotal),
+      taxAmount: values.taxAmount ? Number(values.taxAmount) : 0,
+      totalAmount: Number(values.totalAmount),
+      paidAmount: 0,
+      status: "unpaid",
+      category: values.category,
+      notes: values.notes,
+    };
+    setBills([...bills, newBill]);
+    billForm.reset();
+    setIsAddBillOpen(false);
+  };
+
+  const handleEditBill = (bill: LocalBill) => {
+    setEditingBill(bill);
+    billForm.reset({
+      billNumber: bill.billNumber,
+      vendorId: bill.vendorId.toString(),
+      billDate: format(bill.billDate, "yyyy-MM-dd"),
+      dueDate: format(bill.dueDate, "yyyy-MM-dd"),
+      subtotal: bill.subtotal.toString(),
+      taxAmount: bill.taxAmount.toString(),
+      totalAmount: bill.totalAmount.toString(),
+      category: bill.category || "",
+      notes: bill.notes || "",
+    });
+    setIsAddBillOpen(true);
+  };
+
+  const handleUpdateBill = (values: BillFormValues) => {
+    if (!editingBill) return;
+    
+    const vendor = vendors.find(v => v.id === Number(values.vendorId));
+    const updatedBills = bills.map(b =>
+      b.id === editingBill.id
+        ? {
+            ...b,
+            billNumber: values.billNumber,
+            vendorId: Number(values.vendorId),
+            vendorName: vendor?.name || "Unknown Vendor",
+            billDate: new Date(values.billDate),
+            dueDate: new Date(values.dueDate),
+            subtotal: Number(values.subtotal),
+            taxAmount: values.taxAmount ? Number(values.taxAmount) : 0,
+            totalAmount: Number(values.totalAmount),
+            category: values.category,
+            notes: values.notes,
+          }
+        : b
+    );
+    setBills(updatedBills);
+    billForm.reset();
+    setEditingBill(null);
+    setIsAddBillOpen(false);
+  };
+
+  const handleDeleteBill = (id: number) => {
+    setBills(bills.filter(b => b.id !== id));
+  };
+
+  const handleBillDialogClose = (open: boolean) => {
+    setIsAddBillOpen(open);
+    if (!open) {
+      setEditingBill(null);
+      billForm.reset({
+        billNumber: "",
+        vendorId: "",
+        billDate: format(new Date(), "yyyy-MM-dd"),
+        dueDate: format(new Date(), "yyyy-MM-dd"),
+        subtotal: "",
+        taxAmount: "",
+        totalAmount: "",
+        category: "",
+        notes: "",
+      });
+    }
+  };
+
+  const getBillStatusColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400";
+      case "unpaid":
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400";
+      case "overdue":
+        return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
+      case "partial":
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
+      default:
+        return "bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400";
     }
   };
 
@@ -928,17 +1109,227 @@ export default function AdminFinance() {
           </Card>
         </TabsContent>
 
-        {/* Bills Tab - Placeholder */}
+        {/* Bills Tab */}
         <TabsContent value="bills" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Bills & Purchase Invoices</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Bills & Purchase Invoices</CardTitle>
+                <Dialog open={isAddBillOpen} onOpenChange={handleBillDialogClose}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-bill">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Bill
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>{editingBill ? "Edit Bill" : "Add New Bill"}</DialogTitle>
+                    </DialogHeader>
+                    <Form {...billForm}>
+                      <form onSubmit={billForm.handleSubmit(editingBill ? handleUpdateBill : handleAddBill)} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={billForm.control}
+                            name="billNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bill Number *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="BILL-001" data-testid="input-bill-number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="vendorId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Vendor *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-bill-vendor">
+                                      <SelectValue placeholder="Select vendor" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {vendors.map((vendor) => (
+                                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                                        {vendor.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="billDate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bill Date *</FormLabel>
+                                <FormControl>
+                                  <Input type="date" data-testid="input-bill-date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="dueDate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Due Date *</FormLabel>
+                                <FormControl>
+                                  <Input type="date" data-testid="input-bill-due-date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="subtotal"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Subtotal (AED) *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" data-testid="input-bill-subtotal" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="taxAmount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Tax Amount (AED)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" data-testid="input-bill-tax" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="totalAmount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Total Amount (AED) *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" data-testid="input-bill-total" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="category"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Category</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-bill-category">
+                                      <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {expenseCategories.map((cat) => (
+                                      <SelectItem key={cat.value} value={cat.value}>
+                                        {cat.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={billForm.control}
+                            name="notes"
+                            render={({ field }) => (
+                              <FormItem className="col-span-2">
+                                <FormLabel>Notes</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Additional notes" data-testid="textarea-bill-notes" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="submit" className="flex-1" data-testid="button-save-bill">
+                            {editingBill ? "Update Bill" : "Save Bill"}
+                          </Button>
+                          <Button type="button" variant="outline" className="flex-1" onClick={() => handleBillDialogClose(false)} data-testid="button-cancel-bill">
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12">
-                <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Bills management coming soon</p>
-                <p className="text-sm text-muted-foreground mt-2">Track and manage purchase invoices from vendors</p>
+              <div className="space-y-4">
+                {bills.map((bill) => (
+                  <div
+                    key={bill.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                    data-testid={`bill-${bill.id}`}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{bill.billNumber}</p>
+                        <p className="text-sm text-muted-foreground">{bill.vendorName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Amount:</p>
+                        <p className="font-semibold">AED {bill.totalAmount.toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Due Date:</p>
+                        <p className="text-sm">{format(bill.dueDate, "MMM dd, yyyy")}</p>
+                      </div>
+                      <Badge className={getBillStatusColor(bill.status)}>{bill.status}</Badge>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEditBill(bill)}
+                        data-testid={`button-edit-bill-${bill.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteBill(bill.id)}
+                        data-testid={`button-delete-bill-${bill.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
