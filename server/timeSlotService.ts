@@ -59,17 +59,22 @@ export async function generateAvailableTimeSlots(
     return [];
   }
 
-  // Get all bookings for this date and staff (or all staff if not specified)
+  // Get all bookings for this date
   const allBookings = await storage.getAllBookings();
   const dateStr = date; // YYYY-MM-DD
   
+  // If staffId specified, filter for that staff only
+  // If no staffId, we'll check per-staff availability later
   const relevantBookings = allBookings.filter((booking: any) => {
     // Check if booking is on the same date
     const bookingDateStr = new Date(booking.bookingDate).toISOString().split('T')[0];
     if (bookingDateStr !== dateStr) return false;
     
-    // Check if booking is for the same staff (or if we're checking all staff)
+    // If checking specific staff, filter by staffId
     if (staffId && booking.staffId !== staffId) return false;
+    
+    // If no staffId specified, only include bookings for this spa
+    if (!staffId && booking.spaId !== spaId) return false;
     
     // Only consider confirmed bookings
     return booking.status === 'confirmed';
@@ -86,6 +91,12 @@ export async function generateAvailableTimeSlots(
       };
     })
   );
+
+  // If no specific staff requested, get all staff for this spa to check availability
+  let spaStaff: any[] = [];
+  if (!staffId) {
+    spaStaff = await storage.getStaffBySpaId(spaId);
+  }
 
   // Generate all possible time slots
   const slots: TimeSlot[] = [];
@@ -109,26 +120,58 @@ export async function generateAvailableTimeSlots(
       break; // Not enough time before closing
     }
     
-    // Check if this slot conflicts with any existing booking
-    const hasConflict = bookingDurations.some(({ booking, duration: bookingDuration }) => {
-      const bookingTime = new Date(booking.bookingDate);
-      const bookingMinutes = bookingTime.getHours() * 60 + bookingTime.getMinutes();
-      const bookingEndMinutes = bookingMinutes + bookingDuration;
+    // Check availability based on whether specific staff was requested
+    let available = true;
+    let assignedStaffId = staffId;
+    
+    if (staffId) {
+      // Specific staff requested - check if this staff has a conflict
+      const hasConflict = bookingDurations.some(({ booking, duration: bookingDuration }) => {
+        const bookingTime = new Date(booking.bookingDate);
+        const bookingMinutes = bookingTime.getHours() * 60 + bookingTime.getMinutes();
+        const bookingEndMinutes = bookingMinutes + bookingDuration;
+        
+        const slotStart = minutes;
+        const slotEnd = minutes + serviceDuration;
+        const bookingStart = bookingMinutes;
+        const bookingEnd = bookingEndMinutes;
+        
+        return slotStart < bookingEnd && bookingStart < slotEnd;
+      });
+      available = !hasConflict;
+    } else {
+      // "Any staff" mode - find if at least one staff member is available
+      const availableStaff = spaStaff.find((staff: any) => {
+        const staffBookings = bookingDurations.filter(({ booking }) => booking.staffId === staff.id);
+        
+        const hasConflict = staffBookings.some(({ booking, duration: bookingDuration }) => {
+          const bookingTime = new Date(booking.bookingDate);
+          const bookingMinutes = bookingTime.getHours() * 60 + bookingTime.getMinutes();
+          const bookingEndMinutes = bookingMinutes + bookingDuration;
+          
+          const slotStart = minutes;
+          const slotEnd = minutes + serviceDuration;
+          const bookingStart = bookingMinutes;
+          const bookingEnd = bookingEndMinutes;
+          
+          return slotStart < bookingEnd && bookingStart < slotEnd;
+        });
+        
+        return !hasConflict; // Staff is available if no conflict
+      });
       
-      // Check if slots overlap
-      const slotStart = minutes;
-      const slotEnd = minutes + serviceDuration;
-      const bookingStart = bookingMinutes;
-      const bookingEnd = bookingEndMinutes;
-      
-      // Two time ranges overlap if: start1 < end2 AND start2 < end1
-      return slotStart < bookingEnd && bookingStart < slotEnd;
-    });
+      if (availableStaff) {
+        available = true;
+        assignedStaffId = availableStaff.id;
+      } else {
+        available = false;
+      }
+    }
     
     slots.push({
       time: slotTime,
-      available: !hasConflict,
-      staffId: staffId,
+      available,
+      ...(assignedStaffId && { staffId: assignedStaffId })
     });
   }
   
