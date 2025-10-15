@@ -15,6 +15,18 @@ Serene Spa is an online booking system, inspired by Fresha, designed to offer cu
 
 ## Recent Changes (October 15, 2025)
 
+### Booking Search UI Redesign
+- **Modern Dropdown Design**: Replaced text inputs with interactive popover dropdowns for all search fields
+  - **Treatments Dropdown**: 14 treatment categories with icons (Hair & styling, Nails, Massage, Barbering, etc.)
+  - **Location Dropdown**: "Current location" option with manual location input
+  - **Date Dropdown**: "Any date", "Today", "Tomorrow" quick buttons with calendar picker
+  - **Time Dropdown**: "Any time", "Morning", "Afternoon", "Evening" buttons with From/To time selectors
+- **Visual Updates**:
+  - Purple/pink gradient background (from-purple-100/50 via-pink-100/50 to-purple-200/50)
+  - Rounded search bar with black search button
+  - Stats display showing "339,972 appointments booked today"
+- **Branding**: Changed website title from "Serene Spa" to "SpaBooker"
+
 ### Customer Account & Booking Management
 - **Customer Account Page (`/my-account`)**: Customers can view and manage their bookings
   - Lists upcoming and past bookings with spa, service, date/time details
