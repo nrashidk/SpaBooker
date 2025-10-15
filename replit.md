@@ -17,7 +17,12 @@ Serene Spa is an online booking system, inspired by Fresha, designed to offer cu
 
 ### Frontend
 The frontend is built with React and TypeScript, utilizing Shadcn components with Tailwind CSS for a responsive UI.
-- **Booking Flow:** A 4-step process:
+- **Booking Search Landing Page (/booking):** Fresha-inspired search interface featuring:
+  - Hero section with gradient background and tagline
+  - Unified search bar with 4 fields: treatments/venues, location, date, and time
+  - Popular services quick-access buttons with lucide-react icons
+  - Search results navigation to booking flow with query parameters
+- **Booking Flow (/booking/flow):** A 4-step process:
   - **Services:** Category tabs, multi-select service cards with duration and pricing.
   - **Professional:** Three selection modes: "Any professional", "Select professional per service", or "Specific professional", including staff ratings.
   - **Time:** Horizontal week calendar with navigation, list-style time slots showing pricing and discounts.
