@@ -120,7 +120,8 @@ export default function AdminClients() {
   };
 
   const handleSubmitClient = () => {
-    if (!clientForm.name) {
+    // Validate name
+    if (!clientForm.name.trim()) {
       toast({
         title: "Validation error",
         description: "Client name is required.",
@@ -129,13 +130,45 @@ export default function AdminClients() {
       return;
     }
 
+    // Validate email format if provided
+    if (clientForm.email && clientForm.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(clientForm.email)) {
+        toast({
+          title: "Validation error",
+          description: "Please enter a valid email address (e.g., sample@sample.com)",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate phone format if provided (10 digits only)
+    if (clientForm.phone && clientForm.phone.trim()) {
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(clientForm.phone)) {
+        toast({
+          title: "Validation error",
+          description: "Phone number must be exactly 10 digits (no spaces or special characters)",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const dataToSubmit = {
+      name: clientForm.name.trim(),
+      email: clientForm.email.trim() || undefined,
+      phone: clientForm.phone.trim() || undefined,
+    };
+
     if (editingClient) {
       updateClientMutation.mutate({
         id: editingClient.id,
-        data: clientForm,
+        data: dataToSubmit,
       });
     } else {
-      createClientMutation.mutate(clientForm);
+      createClientMutation.mutate(dataToSubmit);
     }
   };
 
@@ -150,7 +183,6 @@ export default function AdminClients() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" data-testid="options-btn">Options</Button>
           <Button onClick={handleAddClient} data-testid="add-client">
             <Plus className="h-4 w-4 mr-2" />
             Add
@@ -285,13 +317,18 @@ export default function AdminClients() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="client-phone">Phone Number</Label>
+              <Label htmlFor="client-phone">Phone Number (10 digits)</Label>
               <Input
                 id="client-phone"
                 type="tel"
                 value={clientForm.phone}
-                onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })}
-                placeholder="+971 50 123 4567"
+                onChange={(e) => {
+                  // Only allow numbers and limit to 10 digits
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setClientForm({ ...clientForm, phone: value });
+                }}
+                placeholder="1234567890"
+                maxLength={10}
                 data-testid="input-client-phone"
               />
             </div>
