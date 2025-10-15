@@ -49,6 +49,8 @@ import {
   type InsertBill,
   type BillItem,
   type InsertBillItem,
+  type Transaction,
+  type InsertTransaction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -157,6 +159,11 @@ export interface IStorage {
   getBillItemsByBillId(billId: number): Promise<BillItem[]>;
   createBillItem(item: InsertBillItem): Promise<BillItem>;
   deleteBillItem(id: number): Promise<boolean>;
+
+  // Transaction operations
+  getAllTransactions(): Promise<Transaction[]>;
+  getTransactionById(id: number): Promise<Transaction | undefined>;
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -599,6 +606,21 @@ export class DatabaseStorage implements IStorage {
   async deleteBillItem(id: number): Promise<boolean> {
     const result = await db.delete(billItems).where(eq(billItems.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Transaction operations
+  async getAllTransactions(): Promise<Transaction[]> {
+    return db.select().from(transactions).orderBy(desc(transactions.transactionDate));
+  }
+
+  async getTransactionById(id: number): Promise<Transaction | undefined> {
+    const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+    return transaction;
+  }
+
+  async createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
+    const [newTransaction] = await db.insert(transactions).values(transactionData).returning();
+    return newTransaction;
   }
 }
 
