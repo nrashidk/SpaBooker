@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
+import { notificationService } from "./notificationService";
 import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
@@ -277,6 +278,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send booking confirmation notification (async, non-blocking)
+      (async () => {
+        try {
+          const spa = await storage.getSpaById(spaId);
+          const staff = staffId ? await storage.getStaffById(staffId) : null;
+          
+          const templateData = {
+            customerName: customer.name,
+            spaName: spa?.name || 'Spa',
+            spaAddress: spa?.address || undefined,
+            spaPhone: spa?.contactPhone || undefined,
+            bookingDate: date,
+            bookingTime: time,
+            services: selectedServices.map(s => ({
+              name: s.name,
+              duration: s.duration,
+              price: String(s.price),
+              currency: spa?.currency || 'AED',
+            })),
+            staffName: staff?.name || undefined,
+            totalAmount: totalAmount.toFixed(2),
+            currency: spa?.currency || 'AED',
+            bookingId: booking.id,
+            cancellationPolicy: spa?.cancellationPolicy 
+              ? `${(spa.cancellationPolicy as any).description || 'Please check our cancellation policy.'}` 
+              : undefined,
+          };
+
+          await notificationService.sendNotification(
+            spaId,
+            'confirmation',
+            { email: customer.email || undefined, phone: customer.phone || undefined },
+            booking.id,
+            templateData
+          );
+        } catch (error) {
+          console.error('Failed to send booking confirmation:', error);
+        }
+      })();
+
       res.json({ 
         success: true, 
         booking,
@@ -373,6 +414,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cancellationReason: reason || null,
       });
 
+      // Send booking cancellation notification (async, non-blocking)
+      if (updated) {
+        (async () => {
+          try {
+            const customer = await storage.getCustomerById(booking.customerId);
+            const bookingItems = await storage.getBookingItemsByBookingId(id);
+            const allServices = await storage.getAllServices();
+
+            const servicesData = bookingItems.map((item) => {
+              const service = allServices.find((s) => s.id === item.serviceId);
+              return service ? {
+                name: service.name,
+                duration: item.duration,
+                price: String(item.price),
+                currency: spa?.currency || 'AED',
+              } : null;
+            }).filter(Boolean);
+
+            const templateData = {
+              customerName: customer?.name || 'Valued Customer',
+              spaName: spa?.name || 'Spa',
+              spaAddress: spa?.address || undefined,
+              spaPhone: spa?.contactPhone || undefined,
+              bookingDate: new Date(updated!.bookingDate).toISOString().split('T')[0],
+              bookingTime: new Date(updated!.bookingDate).toTimeString().substring(0, 5),
+              services: servicesData as any,
+              totalAmount: String(updated!.totalAmount),
+              currency: spa?.currency || 'AED',
+              bookingId: updated!.id,
+              notes: reason || undefined,
+              cancellationPolicy: cancellationPolicy?.description || undefined,
+            };
+
+            await notificationService.sendNotification(
+              booking.spaId,
+              'cancellation',
+              { email: customer?.email || undefined, phone: customer?.phone || undefined },
+              updated!.id,
+              templateData
+            );
+          } catch (error) {
+            console.error('Failed to send booking cancellation notification:', error);
+          }
+        })();
+      }
+
       res.json(updated);
     } catch (error) {
       handleRouteError(res, error, "Failed to cancel booking");
@@ -434,6 +521,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updated = await storage.updateBooking(id, updates);
+
+      // Send booking modification notification (async, non-blocking)
+      if (updated && Object.keys(updates).length > 0) {
+        (async () => {
+          try {
+            const customer = await storage.getCustomerById(booking.customerId);
+            const bookingItems = await storage.getBookingItemsByBookingId(id);
+            const allServices = await storage.getAllServices();
+            const staff = updated!.staffId ? await storage.getStaffById(updated!.staffId) : null;
+
+            const servicesData = bookingItems.map((item) => {
+              const service = allServices.find((s) => s.id === item.serviceId);
+              return service ? {
+                name: service.name,
+                duration: item.duration,
+                price: String(item.price),
+                currency: spa?.currency || 'AED',
+              } : null;
+            }).filter(Boolean);
+
+            const templateData = {
+              customerName: customer?.name || 'Valued Customer',
+              spaName: spa?.name || 'Spa',
+              spaAddress: spa?.address || undefined,
+              spaPhone: spa?.contactPhone || undefined,
+              bookingDate: date || new Date(updated!.bookingDate).toISOString().split('T')[0],
+              bookingTime: time || new Date(updated!.bookingDate).toTimeString().substring(0, 5),
+              services: servicesData as any,
+              staffName: staff?.name || undefined,
+              totalAmount: String(updated!.totalAmount),
+              currency: spa?.currency || 'AED',
+              bookingId: updated!.id,
+              notes: updated!.notes || undefined,
+            };
+
+            await notificationService.sendNotification(
+              booking.spaId,
+              'modification',
+              { email: customer?.email || undefined, phone: customer?.phone || undefined },
+              updated!.id,
+              templateData
+            );
+          } catch (error) {
+            console.error('Failed to send booking modification notification:', error);
+          }
+        })();
+      }
+
       res.json(updated);
     } catch (error) {
       handleRouteError(res, error, "Failed to modify booking");
