@@ -13,6 +13,32 @@ Serene Spa is an online booking system, inspired by Fresha, designed to offer cu
 - Email notifications when email is provided
 - Spa/barber name displayed throughout interface
 
+## Recent Changes (October 15, 2025)
+
+### Customer Account & Booking Management
+- **Customer Account Page (`/my-account`)**: Customers can view and manage their bookings
+  - Lists upcoming and past bookings with spa, service, date/time details
+  - Modify booking dialog allows changing date, time, and notes
+  - Cancel booking with optional reason and cancellation policy enforcement
+- **Database Schema Updates**:
+  - Added `cancellationPolicy` (jsonb) to spas table for flexible policy management
+  - Added `userId` to bookings table to link bookings to Replit Auth users
+  - `spaId` foreign key relationship between bookings and spas
+- **API Endpoints**:
+  - `GET /api/my-bookings` - Get authenticated user's bookings
+  - `PUT /api/bookings/:id/cancel` - Cancel booking with policy enforcement
+  - `PUT /api/bookings/:id` - Modify booking details
+  - `POST /api/bookings` - Create booking with proper user/customer linkage
+- **Critical Fixes**:
+  - Fixed authentication: Use `req.user.claims.sub` (not `req.user.id`) for Replit Auth user ID
+  - Fixed URL parameters: Use `window.location.search` instead of wouter's location (pathname only)
+  - Fixed time parsing: Convert 12-hour format (5:30PM) to 24-hour format (17:30) for database
+  - Type compatibility: Handle Postgres decimal fields as strings, use `parseFloat()` before `.toFixed()`
+- **Security & Validation**:
+  - Removed PII logging from booking endpoints (no customer email/phone in logs)
+  - Added spaId validation with user-friendly error messages
+  - Added comprehensive booking data validation before submission
+
 ## System Architecture
 
 ### Frontend

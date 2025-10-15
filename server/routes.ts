@@ -120,7 +120,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { spaId, customerName, customerEmail, customerPhone, services, date, time, staffId, notes } = req.body;
 
+      // Log booking request without PII
+      console.log('Booking request received:', { 
+        spaId, 
+        hasCustomerName: !!customerName,
+        hasEmail: !!customerEmail,
+        hasPhone: !!customerPhone,
+        servicesCount: services?.length || 0, 
+        date, 
+        time, 
+        hasStaffId: !!staffId 
+      });
+
       if (!spaId || !customerName || !services || !Array.isArray(services) || services.length === 0 || !date || !time) {
+        console.log('Booking validation failed - missing fields:', { 
+          spaId: !!spaId, 
+          customerName: !!customerName, 
+          services: !!services && Array.isArray(services) && services.length > 0,
+          date: !!date,
+          time: !!time 
+        });
         return res.status(400).json({ message: "Missing required fields" });
       }
 
@@ -161,8 +180,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sum + price;
       }, 0);
 
-      // Create booking
-      const bookingDate = new Date(`${date}T${time}:00`);
+      // Convert time to 24-hour format if needed and create booking date
+      let bookingDate: Date;
+      try {
+        // Check if time is in 12-hour format (contains AM/PM)
+        if (time.match(/[AP]M$/i)) {
+          // Convert 12-hour to 24-hour format
+          const timeParts = time.match(/(\d+):(\d+)\s*([AP]M)/i);
+          if (timeParts) {
+            let hours = parseInt(timeParts[1]);
+            const minutes = timeParts[2];
+            const period = timeParts[3].toUpperCase();
+            
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            
+            const hours24 = hours.toString().padStart(2, '0');
+            bookingDate = new Date(`${date}T${hours24}:${minutes}:00`);
+          } else {
+            throw new Error('Invalid time format');
+          }
+        } else {
+          // Already in 24-hour format
+          bookingDate = new Date(`${date}T${time}:00`);
+        }
+      } catch (error) {
+        console.error('Error parsing date/time:', error);
+        return res.status(400).json({ message: 'Invalid date or time format' });
+      }
+
       const booking = await storage.createBooking({
         spaId,
         customerId: customer.id,

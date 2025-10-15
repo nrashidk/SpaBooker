@@ -122,8 +122,8 @@ export default function BookingPage() {
   const [customerDetails, setCustomerDetails] = useState<CustomerFormData | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  // Get spaId from URL parameters
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  // Get spaId from URL parameters (wouter's useLocation only returns pathname, so use window.location.search)
+  const urlParams = new URLSearchParams(window.location.search);
   const spaId = urlParams.get('spaId');
 
   // Fetch spa details
@@ -194,15 +194,28 @@ export default function BookingPage() {
     setCustomerDetails(data);
     
     try {
+      // Validate required data
+      if (!spaId || isNaN(parseInt(spaId))) {
+        throw new Error('Invalid spa selection. Please try again.');
+      }
+
+      if (selectedServiceIds.length === 0) {
+        throw new Error('Please select at least one service');
+      }
+
+      if (!selectedDate || !selectedTime) {
+        throw new Error('Please select a date and time');
+      }
+
       // Prepare booking data
       const bookingData = {
-        spaId: parseInt(spaId!),
+        spaId: parseInt(spaId),
         customerName: data.name,
         customerEmail: data.email || undefined,
         customerPhone: data.mobile || undefined,
-        services: selectedServices.map(s => s.id),
-        date: selectedDate ? selectedDate.toISOString().split('T')[0] : '',
-        time: selectedTime || '',
+        services: selectedServiceIds,
+        date: selectedDate.toISOString().split('T')[0],
+        time: selectedTime,
         staffId: professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : null,
         notes: '',
       };
