@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import ServiceCategorySelector, { type Service } from "@/components/ServiceCategorySelector";
 import ProfessionalSelector, { type Professional, type ServiceProfessionalMap } from "@/components/ProfessionalSelector";
@@ -8,12 +10,14 @@ import CustomerDetailsForm, { type CustomerFormData } from "@/components/Custome
 import BookingSummary from "@/components/BookingSummary";
 import BookingSteps from "@/components/BookingSteps";
 import ThemeToggle from "@/components/ThemeToggle";
+import type { Spa, Service as DbService, Staff } from "@shared/schema";
 
 //todo: remove mock functionality
 const mockServices: Service[] = [
   {
     id: "1",
     name: "Express Haircut - اكسبريس قص الشعر - عادي",
+    description: "Quick and professional haircut service",
     duration: 25,
     price: 50,
     category: "Hair Services",
@@ -26,6 +30,7 @@ const mockServices: Service[] = [
   {
     id: "2",
     name: "Beard Styling- خط اللحية",
+    description: "Professional beard trim and styling",
     duration: 25,
     price: 50,
     category: "Shave Services",
@@ -34,6 +39,7 @@ const mockServices: Service[] = [
   {
     id: "3",
     name: "Headshave - حلق الرأس (على الصفر)",
+    description: "Complete head shave service",
     duration: 25,
     price: 50,
     category: "Hair Services",
@@ -41,6 +47,7 @@ const mockServices: Service[] = [
   {
     id: "4",
     name: "Little Master Haircut - قص الشعر|الأطفل",
+    description: "Haircut for children",
     duration: 25,
     price: 40,
     category: "Hair Services",
@@ -48,6 +55,7 @@ const mockServices: Service[] = [
   {
     id: "5",
     name: "Executive Pedicure - اكسيكيوتف بادكير - حامي (دقيقة)",
+    description: "Premium pedicure service",
     duration: 40,
     price: 80,
     category: "Nails",
@@ -57,6 +65,7 @@ const mockServices: Service[] = [
   {
     id: "6",
     name: "Executive Manicure - اكسيكيوتف مانيكير - حامي (دقيقة)",
+    description: "Premium manicure service",
     duration: 30,
     price: 65,
     category: "Nails",
@@ -102,6 +111,7 @@ const mockTimeSlots = [
 ];
 
 export default function BookingPage() {
+  const [location] = useLocation();
   const [step, setStep] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [professionalMode, setProfessionalMode] = useState<'any' | 'per-service' | 'specific' | null>(null);
@@ -111,7 +121,48 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [customerDetails, setCustomerDetails] = useState<CustomerFormData | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [spaName] = useState("Serene Spa"); // TODO: Make this configurable by admin
+
+  // Get spaId from URL parameters
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const spaId = urlParams.get('spaId');
+
+  // Fetch spa details
+  const { data: spa } = useQuery<Spa>({
+    queryKey: [`/api/spas/${spaId}`],
+    enabled: !!spaId,
+  });
+
+  // Fetch services for the spa
+  const { data: dbServices = [] } = useQuery<DbService[]>({
+    queryKey: [`/api/spas/${spaId}/services`],
+    enabled: !!spaId,
+  });
+
+  // Fetch staff for the spa
+  const { data: dbStaff = [] } = useQuery<Staff[]>({
+    queryKey: [`/api/spas/${spaId}/staff`],
+    enabled: !!spaId,
+  });
+
+  // Convert DB services to component format
+  const services: Service[] = dbServices.map(s => ({
+    id: s.id.toString(),
+    name: s.name,
+    description: s.description || '',
+    duration: s.duration,
+    price: typeof s.price === 'string' ? parseFloat(s.price) : s.price,
+    category: s.categoryId?.toString() || 'General',
+  }));
+
+  // Convert DB staff to component format
+  const professionals: Professional[] = dbStaff.map(s => ({
+    id: s.id.toString(),
+    name: s.name,
+    specialty: s.specialty || 'Staff Member',
+    rating: typeof s.rating === 'string' ? parseFloat(s.rating) : (s.rating || 5.0),
+  }));
+
+  const spaName = spa?.name || "Loading...";
 
   const handleServiceToggle = (serviceId: string) => {
     setSelectedServiceIds(prev =>
@@ -161,17 +212,17 @@ export default function BookingPage() {
     setIsConfirmed(false);
   };
 
-  const selectedServices = mockServices.filter(s => selectedServiceIds.includes(s.id));
-  const selectedProfessional = mockProfessionals.find(p => p.id === selectedProfessionalId) || null;
+  const selectedServices = services.filter(s => selectedServiceIds.includes(s.id));
+  const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId) || null;
   
   const getStaffName = () => {
     if (professionalMode === 'any') return "Any Available";
     if (professionalMode === 'specific' && selectedProfessional) return selectedProfessional.name;
     if (professionalMode === 'per-service') {
-      const professionals = Object.values(serviceProfessionalMap)
-        .map(id => mockProfessionals.find(p => p.id === id)?.name)
+      const professionalNames = Object.values(serviceProfessionalMap)
+        .map(id => professionals.find(p => p.id === id)?.name)
         .filter(Boolean);
-      return professionals.length > 0 ? professionals.join(', ') : "Per Service";
+      return professionalNames.length > 0 ? professionalNames.join(', ') : "Per Service";
     }
     return "Not Selected";
   };
@@ -319,7 +370,7 @@ export default function BookingPage() {
                   services={selectedServices}
                   date={selectedDate}
                   time={selectedTime}
-                  professionalName={getStaffName()}
+                  staffName={getStaffName()}
                 />
               </div>
             </div>

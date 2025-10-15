@@ -64,6 +64,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public spa details endpoint
+  app.get("/api/spas/:id", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+      
+      const spa = await storage.getSpaById(id);
+      if (!spa) {
+        return res.status(404).json({ message: "Spa not found" });
+      }
+      
+      res.json(spa);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch spa");
+    }
+  });
+
+  // Public spa services endpoint
+  app.get("/api/spas/:id/services", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+      
+      const services = await storage.getAllServices();
+      const spaServices = services.filter(s => s.spaId === id);
+      res.json(spaServices);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch spa services");
+    }
+  });
+
+  // Public spa staff endpoint
+  app.get("/api/spas/:id/staff", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+      
+      const staff = await storage.getAllStaff();
+      const spaStaff = staff.filter(s => s.spaId === id);
+      res.json(spaStaff);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch spa staff");
+    }
+  });
+
   // Admin-only routes (protected with isAdmin middleware)
   app.get("/api/admin/check", isAdmin, async (req, res) => {
     res.json({ message: "Admin access granted" });

@@ -1,7 +1,7 @@
 # Serene Spa - Booking System
 
 ## Overview
-Serene Spa is an online booking system, inspired by Fresha, designed to offer customers an intuitive 4-step booking process for spa treatments. It aims to boost customer satisfaction and operational efficiency for spas through features like categorized services, flexible professional selection, and real-time availability. The platform also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance. Future goals include integrating with growth and analytics tools to maximize spa revenue and customer engagement.
+Serene Spa is an online booking system, inspired by Fresha, designed to offer customers an intuitive 4-step booking process for spa treatments. The platform supports **multiple spas/venues** using the same system, allowing customers to search across all spas and book services. It aims to boost customer satisfaction and operational efficiency for spas through features like categorized services, flexible professional selection, and real-time availability. The platform also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance. Future goals include integrating with growth and analytics tools to maximize spa revenue and customer engagement.
 
 ## User Preferences
 - 4-step booking sequence (Services → Professional → Time → Details)
@@ -21,7 +21,8 @@ The frontend is built with React and TypeScript, utilizing Shadcn components wit
   - Hero section with gradient background and tagline
   - Unified search bar with 4 fields: treatments/venues, location, date, and time
   - Popular services quick-access buttons with lucide-react icons
-  - Search results navigation to booking flow with query parameters
+  - **Search Results Display:** Shows spa cards with name, location, rating, services, and staff
+  - Each spa card has a "Book Now" button that navigates to booking flow with selected spa
 - **Booking Flow (/booking/flow):** A 4-step process:
   - **Services:** Category tabs, multi-select service cards with duration and pricing.
   - **Professional:** Three selection modes: "Any professional", "Select professional per service", or "Specific professional", including staff ratings.
@@ -41,9 +42,18 @@ The frontend is built with React and TypeScript, utilizing Shadcn components wit
 - **Design Guidelines:** Uses a specific color palette (Deep ocean blue, Soft mint, Lighter blue accent) and typography (Inter, DM Sans).
 
 ### Backend
-Currently uses in-memory storage with mock data, with plans for a robust backend.
-- **Database:** PostgreSQL (Neon-backed via Replit) for persistent storage.
-- **API:** Express-based API for booking, management, and authentication.
+Currently uses PostgreSQL database with comprehensive data model.
+- **Database:** PostgreSQL (Neon-backed via Replit) for persistent storage with tables for:
+  - **Spas:** Multiple venue support with location, business hours, ratings, and featured status
+  - **Services:** Linked to specific spas with pricing, duration, and category
+  - **Staff:** Linked to specific spas with specialty, ratings, and availability
+  - **Bookings, Customers, Invoices, Expenses, Vendors, Bills** for complete business management
+- **API:** Express-based REST API with endpoints:
+  - `/api/search/spas` - Search across all spas by treatment, location, date, time
+  - `/api/spas/:id` - Get spa details
+  - `/api/spas/:id/services` - Get services for a specific spa
+  - `/api/spas/:id/staff` - Get staff for a specific spa
+  - Admin routes for managing all resources
 - **Authentication:** Replit Auth for user authentication with role-based access control (customer, staff, admin) and protected routes.
 
 ## External Dependencies
