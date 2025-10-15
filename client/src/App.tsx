@@ -23,6 +23,7 @@ import AdminSettings from "@/pages/admin/Settings";
 import AdminMarketplace from "@/pages/admin/Marketplace";
 import AdminMarketing from "@/pages/admin/Marketing";
 import AdminAddOns from "@/pages/admin/AddOns";
+import MyAccount from "@/pages/MyAccount";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/" component={AdminLanding} />
       <Route path="/booking" component={BookingSearch} />
       <Route path="/booking/flow" component={BookingFlow} />
+      <Route path="/my-account" component={MyAccount} />
       
       {/* Admin Routes - Protected with admin role requirement */}
       <Route path="/admin">

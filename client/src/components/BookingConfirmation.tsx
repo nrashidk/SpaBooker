@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Calendar, Clock, User, Phone, Mail, Download, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { Link } from "wouter";
 import { type Service } from "./ServiceSelector";
 
 interface BookingConfirmationProps {
@@ -162,6 +163,16 @@ export default function BookingConfirmation({
           <Download className="h-4 w-4 mr-2" />
           Add to Calendar
         </Button>
+        <Link href="/my-account" className="flex-1">
+          <Button
+            variant="outline"
+            className="w-full"
+            data-testid="button-view-bookings"
+          >
+            <User className="h-4 w-4 mr-2" />
+            View My Bookings
+          </Button>
+        </Link>
         <Button
           className="flex-1"
           onClick={onNewBooking}
