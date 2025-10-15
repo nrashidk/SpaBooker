@@ -310,7 +310,10 @@ export const insertServiceSchema = createInsertSchema(services).omit({ id: true,
 export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, createdAt: true });
 export const insertStaffScheduleSchema = createInsertSchema(staffSchedules).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
-export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true }).extend({
+  email: z.string().email("Please enter a valid email address (e.g., sample@sample.com)").optional().or(z.literal('')),
+  phone: z.string().regex(/^\d{10}$/, "Phone number must be exactly 10 digits").optional().or(z.literal('')),
+});
 export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true });
 export const insertBookingItemSchema = createInsertSchema(bookingItems).omit({ id: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true });
