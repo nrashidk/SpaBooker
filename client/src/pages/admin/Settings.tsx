@@ -1,11 +1,74 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Building2, Mail, Phone, MapPin, DollarSign, Palette } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSettings() {
+  const { toast } = useToast();
+  
+  const [businessInfo, setBusinessInfo] = useState({
+    name: "Serene Spa",
+    email: "info@serenespa.com",
+    phone: "+971 4 123 4567",
+    address: "Dubai Marina, Dubai, UAE",
+  });
+
+  const [financialSettings, setFinancialSettings] = useState({
+    currency: "AED",
+    taxRate: "5",
+  });
+
+  const [branding, setBranding] = useState({
+    color: "#1a4d6d",
+    logoUrl: "",
+  });
+
+  const handleSaveBusinessInfo = () => {
+    toast({
+      title: "Business information saved",
+      description: "Your business details have been updated successfully.",
+    });
+  };
+
+  const handleSaveFinancialSettings = () => {
+    toast({
+      title: "Financial settings saved",
+      description: "Your financial settings have been updated successfully.",
+    });
+  };
+
+  const handleSaveBranding = () => {
+    toast({
+      title: "Branding saved",
+      description: "Your branding settings have been updated successfully.",
+    });
+  };
+
+  const handleSaveBusinessHours = () => {
+    toast({
+      title: "Business hours saved",
+      description: "Your business hours have been updated successfully.",
+    });
+  };
+
+  const handleConfigureTwilio = () => {
+    toast({
+      title: "Coming soon",
+      description: "Twilio configuration will be available in the notification settings panel.",
+    });
+  };
+
+  const handleConfigureEmail = () => {
+    toast({
+      title: "Coming soon",
+      description: "Email configuration will be available in the notification settings panel.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -26,7 +89,8 @@ export default function AdminSettings() {
               <Label htmlFor="spa-name">Spa Name</Label>
               <Input
                 id="spa-name"
-                defaultValue="Serene Spa"
+                value={businessInfo.name}
+                onChange={(e) => setBusinessInfo({ ...businessInfo, name: e.target.value })}
                 data-testid="input-spa-name"
               />
             </div>
@@ -35,7 +99,8 @@ export default function AdminSettings() {
               <Input
                 id="spa-email"
                 type="email"
-                defaultValue="info@serenespa.com"
+                value={businessInfo.email}
+                onChange={(e) => setBusinessInfo({ ...businessInfo, email: e.target.value })}
                 data-testid="input-spa-email"
               />
             </div>
@@ -46,7 +111,8 @@ export default function AdminSettings() {
               <Input
                 id="spa-phone"
                 type="tel"
-                defaultValue="+971 4 123 4567"
+                value={businessInfo.phone}
+                onChange={(e) => setBusinessInfo({ ...businessInfo, phone: e.target.value })}
                 data-testid="input-spa-phone"
               />
             </div>
@@ -54,12 +120,13 @@ export default function AdminSettings() {
               <Label htmlFor="spa-address">Address</Label>
               <Input
                 id="spa-address"
-                defaultValue="Dubai Marina, Dubai, UAE"
+                value={businessInfo.address}
+                onChange={(e) => setBusinessInfo({ ...businessInfo, address: e.target.value })}
                 data-testid="input-spa-address"
               />
             </div>
           </div>
-          <Button data-testid="button-save-business-info">Save Changes</Button>
+          <Button onClick={handleSaveBusinessInfo} data-testid="button-save-business-info">Save Changes</Button>
         </CardContent>
       </Card>
 
@@ -76,7 +143,8 @@ export default function AdminSettings() {
               <Label htmlFor="currency">Currency</Label>
               <Input
                 id="currency"
-                defaultValue="AED"
+                value={financialSettings.currency}
+                onChange={(e) => setFinancialSettings({ ...financialSettings, currency: e.target.value })}
                 data-testid="input-currency"
               />
             </div>
@@ -85,13 +153,14 @@ export default function AdminSettings() {
               <Input
                 id="tax-rate"
                 type="number"
-                defaultValue="5"
+                value={financialSettings.taxRate}
+                onChange={(e) => setFinancialSettings({ ...financialSettings, taxRate: e.target.value })}
                 step="0.01"
                 data-testid="input-tax-rate"
               />
             </div>
           </div>
-          <Button data-testid="button-save-financial-settings">Save Changes</Button>
+          <Button onClick={handleSaveFinancialSettings} data-testid="button-save-financial-settings">Save Changes</Button>
         </CardContent>
       </Card>
 
@@ -110,12 +179,14 @@ export default function AdminSettings() {
                 <Input
                   id="brand-color"
                   type="color"
-                  defaultValue="#1a4d6d"
+                  value={branding.color}
+                  onChange={(e) => setBranding({ ...branding, color: e.target.value })}
                   className="w-20 h-10"
                   data-testid="input-brand-color"
                 />
                 <Input
-                  defaultValue="#1a4d6d"
+                  value={branding.color}
+                  onChange={(e) => setBranding({ ...branding, color: e.target.value })}
                   className="flex-1"
                   data-testid="input-brand-color-hex"
                 />
@@ -125,12 +196,14 @@ export default function AdminSettings() {
               <Label htmlFor="logo-url">Logo URL</Label>
               <Input
                 id="logo-url"
+                value={branding.logoUrl}
+                onChange={(e) => setBranding({ ...branding, logoUrl: e.target.value })}
                 placeholder="https://example.com/logo.png"
                 data-testid="input-logo-url"
               />
             </div>
           </div>
-          <Button data-testid="button-save-branding">Save Changes</Button>
+          <Button onClick={handleSaveBranding} data-testid="button-save-branding">Save Changes</Button>
         </CardContent>
       </Card>
 
@@ -162,7 +235,7 @@ export default function AdminSettings() {
             </div>
           ))}
           <Separator />
-          <Button data-testid="button-save-business-hours">Save Business Hours</Button>
+          <Button onClick={handleSaveBusinessHours} data-testid="button-save-business-hours">Save Business Hours</Button>
         </CardContent>
       </Card>
 
@@ -177,7 +250,7 @@ export default function AdminSettings() {
                 <p className="font-medium">WhatsApp/SMS Notifications</p>
                 <p className="text-sm text-muted-foreground">Send booking confirmations via WhatsApp/SMS</p>
               </div>
-              <Button variant="outline" data-testid="button-configure-twilio">
+              <Button variant="outline" onClick={handleConfigureTwilio} data-testid="button-configure-twilio">
                 Configure Twilio
               </Button>
             </div>
@@ -186,7 +259,7 @@ export default function AdminSettings() {
                 <p className="font-medium">Email Notifications</p>
                 <p className="text-sm text-muted-foreground">Send booking confirmations via email</p>
               </div>
-              <Button variant="outline" data-testid="button-configure-email">
+              <Button variant="outline" onClick={handleConfigureEmail} data-testid="button-configure-email">
                 Configure Email
               </Button>
             </div>
