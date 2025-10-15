@@ -30,7 +30,33 @@ export const insertUserSchema = createInsertSchema(users);
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
-// Spa settings (single row configuration)
+// Spas/Venues table (multiple spas using the system)
+export const spas = pgTable("spas", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(), // URL-friendly identifier
+  description: text("description"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  address: text("address"),
+  city: text("city"),
+  area: text("area"), // neighborhood/area for better search
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  businessHours: jsonb("business_hours"), // { monday: { open: "09:00", close: "20:00" }, ... }
+  currency: text("currency").notNull().default("AED"),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("5.00"),
+  logoUrl: text("logo_url"),
+  coverImageUrl: text("cover_image_url"),
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("5.00"),
+  reviewCount: integer("review_count").default(0),
+  active: boolean("active").default(true),
+  featured: boolean("featured").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Spa settings (system-wide configuration - kept for backward compatibility)
 export const spaSettings = pgTable("spa_settings", {
   id: serial("id").primaryKey(),
   spaName: text("spa_name").notNull().default("Serene Spa"),
@@ -48,6 +74,7 @@ export const spaSettings = pgTable("spa_settings", {
 // Service categories
 export const serviceCategories = pgTable("service_categories", {
   id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id),
   name: text("name").notNull(),
   displayOrder: integer("display_order").default(0),
   active: boolean("active").default(true),
@@ -56,6 +83,7 @@ export const serviceCategories = pgTable("service_categories", {
 // Services
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
   categoryId: integer("category_id").references(() => serviceCategories.id),
   name: text("name").notNull(),
   description: text("description"),
@@ -71,6 +99,7 @@ export const services = pgTable("services", {
 // Staff members
 export const staff = pgTable("staff", {
   id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
   userId: varchar("user_id").references(() => users.id),
   name: text("name").notNull(),
   specialty: text("specialty"),
@@ -80,6 +109,8 @@ export const staff = pgTable("staff", {
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
   active: boolean("active").default(true),
   avatarUrl: text("avatar_url"),
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("5.00"),
+  reviewCount: integer("review_count").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -268,6 +299,7 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
 });
 
 // Zod schemas for validation
+export const insertSpaSchema = createInsertSchema(spas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSpaSettingsSchema = createInsertSchema(spaSettings).omit({ id: true, updatedAt: true });
 export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({ id: true });
 export const insertServiceSchema = createInsertSchema(services).omit({ id: true, createdAt: true });
@@ -288,6 +320,7 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true,
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true });
 
 // Insert Types (for creating new records)
+export type InsertSpa = z.infer<typeof insertSpaSchema>;
 export type InsertSpaSettings = z.infer<typeof insertSpaSettingsSchema>;
 export type InsertServiceCategory = z.infer<typeof insertServiceCategorySchema>;
 export type InsertService = z.infer<typeof insertServiceSchema>;
@@ -308,6 +341,7 @@ export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
 
 // Select Types (for reading records)
+export type Spa = typeof spas.$inferSelect;
 export type SpaSettings = typeof spaSettings.$inferSelect;
 export type ServiceCategory = typeof serviceCategories.$inferSelect;
 export type Service = typeof services.$inferSelect;
