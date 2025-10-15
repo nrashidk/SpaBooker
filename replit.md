@@ -15,6 +15,33 @@ Serene Spa is an online booking system, inspired by Fresha, designed to offer cu
 
 ## Recent Changes (October 15, 2025)
 
+### Home Page & Dual Login System (Latest)
+- **New Home Page (/)**: Fresha-inspired landing page with centered booking search
+  - Purple/pink gradient background matching brand aesthetic
+  - Prominent headline: "Book local beauty and wellness services"
+  - Integrated search bar with dropdown controls (treatments, location, date, time)
+  - Stats display: "339,972 appointments booked today"
+  - Header with "Customer Login" and "Admin Login" buttons
+- **Customer Login Page (`/login/customer`)**: Social authentication for customers
+  - Google OAuth integration ("Continue with Google" button)
+  - Email input option for traditional login
+  - Clean, modern design matching Fresha UX patterns
+  - Automatic account creation on first login
+- **Admin Login Page (`/login/admin`)**: Professional credentials system
+  - Tabbed interface: Login and Register
+  - Login form: Email and password fields
+  - Registration form: Name, spa/business name, email, password, confirmation
+  - Separate authentication flow from customer accounts
+- **Routing Updates**: Updated App.tsx with new page routes
+
+### Calendar Logic Audit - Critical Gaps Identified
+- ❌ **No Time Slot Generation**: System lacks logic to generate available slots from staff schedules and business hours
+- ❌ **No Double-Booking Prevention**: No validation to prevent concurrent bookings for same staff
+- ❌ **No Staff Availability Checking**: Bookings accepted without verifying staff work hours
+- ❌ **No Business Hours Validation**: Can book outside spa operating hours
+- **Impact**: Current booking system accepts any date/time without conflict checking
+- **Priority**: HIGH - Must implement before production launch
+
 ### Booking Search UI Redesign
 - **Modern Dropdown Design**: Replaced text inputs with interactive popover dropdowns for all search fields
   - **Treatments Dropdown**: 14 treatment categories with icons (Hair & styling, Nails, Massage, Barbering, etc.)
@@ -55,6 +82,20 @@ Serene Spa is an online booking system, inspired by Fresha, designed to offer cu
 
 ### Frontend
 The frontend is built with React and TypeScript, utilizing Shadcn components with Tailwind CSS for a responsive UI.
+- **Home Page (/):** Main landing page with centered booking search feature
+  - Hero section with "Book local beauty and wellness services" headline
+  - Integrated search bar with dropdown controls (treatments, location, date, time)
+  - Customer Login and Admin Login buttons in header
+  - Stats display showing appointments booked today
+  - Routes to /booking with search parameters
+- **Customer Login (/login/customer):** Social authentication page
+  - Google OAuth integration
+  - Email input option for traditional login
+  - Automatic routing to Replit Auth
+- **Admin Login (/login/admin):** Professional authentication portal
+  - Login tab with email/password credentials
+  - Registration tab for new spa businesses (name, spa name, email, password)
+  - Routes to admin panel on successful authentication
 - **Booking Search Landing Page (/booking):** Fresha-inspired search interface featuring:
   - Hero section with gradient background and tagline
   - Unified search bar with 4 fields: treatments/venues, location, date, and time
