@@ -181,6 +181,12 @@ export default function AdminLogin() {
                   >
                     Sign In
                   </Button>
+
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Password reset will be available after authentication system update
+                    </p>
+                  </div>
                 </form>
               </TabsContent>
 

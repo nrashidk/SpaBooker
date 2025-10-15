@@ -48,24 +48,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin login route (password-based for testing)
+  // WARNING: This is for TESTING ONLY - accepts any email/password!
   app.post('/api/admin/login', async (req, res) => {
     try {
       const { email, password } = req.body;
       
-      // For testing: accept test@admin.com with any password
-      if (email === 'test@admin.com') {
-        // Create or update test admin user
-        const testAdmin = await storage.upsertUser({
-          id: 'test-admin-id',
-          email: 'test@admin.com',
-          firstName: 'Test',
-          lastName: 'Admin',
+      // For testing: accept ANY email with any password
+      if (email && password) {
+        // Extract name from email
+        const emailName = email.split('@')[0];
+        const firstName = emailName.split('.')[0] || 'Admin';
+        const lastName = emailName.split('.')[1] || 'User';
+        
+        // Create or update admin user with provided email
+        const adminUser = await storage.upsertUser({
+          id: `admin-${email.replace(/[^a-zA-Z0-9]/g, '-')}`,
+          email,
+          firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
+          lastName: lastName.charAt(0).toUpperCase() + lastName.slice(1),
           role: 'admin',
         });
         
         // Set up session with required OIDC-like properties
         const sessionUser = {
-          claims: { sub: testAdmin.id },
+          claims: { sub: adminUser.id },
           expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
           refresh_token: 'test-refresh-token', // Dummy refresh token
         };
@@ -74,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (err) {
             return res.status(500).json({ message: "Login failed" });
           }
-          return res.json({ success: true, user: testAdmin });
+          return res.json({ success: true, user: adminUser });
         });
       } else {
         return res.status(401).json({ message: "Invalid credentials" });

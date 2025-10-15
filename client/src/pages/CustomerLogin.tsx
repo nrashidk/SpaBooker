@@ -9,12 +9,12 @@ export default function CustomerLogin() {
   const [email, setEmail] = useState("");
 
   const handleGoogleLogin = () => {
-    window.location.href = "/api/auth/login";
+    window.location.href = "/api/login";
   };
 
   const handleEmailContinue = () => {
     if (email.trim()) {
-      window.location.href = `/api/auth/login?email=${encodeURIComponent(email)}`;
+      window.location.href = `/api/login?email=${encodeURIComponent(email)}`;
     }
   };
 
