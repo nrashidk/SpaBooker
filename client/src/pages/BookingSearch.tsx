@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Calendar, Clock } from "lucide-react";
+import { Search, MapPin, Calendar, Clock, Sparkles, Hand, Scissors, Flower2, Star, Droplet } from "lucide-react";
 
 export default function BookingSearch() {
   const [, setLocation] = useLocation();
@@ -100,7 +100,7 @@ export default function BookingSearch() {
                 />
                 <Button 
                   onClick={() => handleSearch()}
-                  className="ml-2 h-12 px-8 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 rounded-xl font-semibold"
+                  className="ml-2 h-12 px-8 rounded-xl font-semibold"
                   data-testid="button-search"
                 >
                   Search
@@ -121,14 +121,14 @@ export default function BookingSearch() {
             <h2 className="text-2xl font-bold mb-6 text-center">Popular Services</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { name: "Massage", icon: "💆" },
-                { name: "Facial", icon: "✨" },
-                { name: "Manicure", icon: "💅" },
-                { name: "Hair Styling", icon: "💇" },
-                { name: "Waxing", icon: "🌟" },
-                { name: "Spa Package", icon: "🧖" },
-                { name: "Body Treatment", icon: "🌺" },
-                { name: "Makeup", icon: "💄" },
+                { name: "Massage", Icon: Hand },
+                { name: "Facial", Icon: Sparkles },
+                { name: "Manicure", Icon: Hand },
+                { name: "Hair Styling", Icon: Scissors },
+                { name: "Waxing", Icon: Star },
+                { name: "Spa Package", Icon: Droplet },
+                { name: "Body Treatment", Icon: Flower2 },
+                { name: "Makeup", Icon: Sparkles },
               ].map((service) => (
                 <button
                   key={service.name}
@@ -136,7 +136,7 @@ export default function BookingSearch() {
                   className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md hover-elevate active-elevate-2 text-center transition-all"
                   data-testid={`quick-service-${service.name.toLowerCase().replace(" ", "-")}`}
                 >
-                  <div className="text-4xl mb-2">{service.icon}</div>
+                  <service.Icon className="w-10 h-10 mx-auto mb-3 text-primary" />
                   <p className="font-medium text-gray-900 dark:text-white">{service.name}</p>
                 </button>
               ))}
