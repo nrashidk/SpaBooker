@@ -197,7 +197,51 @@ export const staffTimeEntries = pgTable("staff_time_entries", {
   notes: text("notes"),
 });
 
-// Expenses
+// Vendors (for accounts payable)
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  category: text("category"), // supplier, utility_provider, landlord, service_provider, etc.
+  paymentTerms: text("payment_terms"), // net_15, net_30, net_60, immediate
+  taxId: text("tax_id"),
+  notes: text("notes"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bills (Purchase invoices - accounts payable)
+export const bills = pgTable("bills", {
+  id: serial("id").primaryKey(),
+  billNumber: text("bill_number").notNull().unique(),
+  vendorId: integer("vendor_id").references(() => vendors.id).notNull(),
+  billDate: timestamp("bill_date").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0.00"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0.00"),
+  status: text("status").notNull().default("unpaid"), // unpaid, partial, paid, overdue
+  category: text("category"), // rent, utilities, materials, services, etc.
+  notes: text("notes"),
+  attachmentUrl: text("attachment_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bill line items
+export const billItems = pgTable("bill_items", {
+  id: serial("id").primaryKey(),
+  billId: integer("bill_id").references(() => bills.id).notNull(),
+  description: text("description").notNull(),
+  quantity: integer("quantity").default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  category: text("category"), // for expense categorization
+});
+
+// Expenses (updated to link with bills)
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   category: text("category").notNull(), // supplies, utilities, salary, marketing, etc.
@@ -205,6 +249,8 @@ export const expenses = pgTable("expenses", {
   description: text("description").notNull(),
   expenseDate: timestamp("expense_date").defaultNow().notNull(),
   vendor: text("vendor"),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  billId: integer("bill_id").references(() => bills.id),
   receiptUrl: text("receipt_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -235,6 +281,9 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true,
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({ id: true });
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true });
 export const insertStaffTimeEntrySchema = createInsertSchema(staffTimeEntries).omit({ id: true });
+export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true });
+export const insertBillSchema = createInsertSchema(bills).omit({ id: true, createdAt: true });
+export const insertBillItemSchema = createInsertSchema(billItems).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true });
 
@@ -252,6 +301,9 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type InsertStaffTimeEntry = z.infer<typeof insertStaffTimeEntrySchema>;
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type InsertBill = z.infer<typeof insertBillSchema>;
+export type InsertBillItem = z.infer<typeof insertBillItemSchema>;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
 
@@ -269,5 +321,8 @@ export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type StaffTimeEntry = typeof staffTimeEntries.$inferSelect;
+export type Vendor = typeof vendors.$inferSelect;
+export type Bill = typeof bills.$inferSelect;
+export type BillItem = typeof billItems.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;

@@ -5,8 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, TrendingUp, FileText, Download, Calendar, Plus, Receipt, Home, Zap, Package as PackageIcon, Users as UsersIcon, MoreHorizontal, Trash2 } from "lucide-react";
+import { DollarSign, TrendingUp, FileText, Download, Calendar, Plus, Receipt, Home, Zap, Package as PackageIcon, Users as UsersIcon, MoreHorizontal, Trash2, Building2, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +21,18 @@ const expenseFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
 });
 
+const vendorFormSchema = z.object({
+  name: z.string().min(1, "Vendor name is required"),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  category: z.string().min(1, "Category is required"),
+  paymentTerms: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+type VendorFormValues = z.infer<typeof vendorFormSchema>;
 
 interface Expense {
   id: number;
@@ -30,9 +43,24 @@ interface Expense {
   status: string;
 }
 
+interface Vendor {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  category: string;
+  paymentTerms?: string;
+  notes?: string;
+  active: boolean;
+}
+
 export default function AdminFinance() {
+  const [activeTab, setActiveTab] = useState("overview");
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
 
   const expenseCategories = [
     { value: "rent", label: "Rent", icon: Home },
@@ -42,6 +70,55 @@ export default function AdminFinance() {
     { value: "marketing", label: "Marketing", icon: FileText },
     { value: "other", label: "Other", icon: MoreHorizontal },
   ];
+
+  const vendorCategories = [
+    { value: "supplier", label: "Supplier" },
+    { value: "utility_provider", label: "Utility Provider" },
+    { value: "landlord", label: "Landlord" },
+    { value: "service_provider", label: "Service Provider" },
+    { value: "contractor", label: "Contractor" },
+    { value: "other", label: "Other" },
+  ];
+
+  const paymentTermOptions = [
+    { value: "immediate", label: "Immediate" },
+    { value: "net_15", label: "Net 15" },
+    { value: "net_30", label: "Net 30" },
+    { value: "net_60", label: "Net 60" },
+    { value: "net_90", label: "Net 90" },
+  ];
+
+  const [vendors, setVendors] = useState<Vendor[]>([
+    {
+      id: 1,
+      name: "Spa Supplies Co.",
+      email: "sales@spasupplies.ae",
+      phone: "+971 50 123 4567",
+      address: "Dubai, UAE",
+      category: "supplier",
+      paymentTerms: "net_30",
+      notes: "Premium spa products supplier",
+      active: true,
+    },
+    {
+      id: 2,
+      name: "DEWA",
+      email: "support@dewa.gov.ae",
+      phone: "+971 4 601 9999",
+      category: "utility_provider",
+      paymentTerms: "immediate",
+      active: true,
+    },
+    {
+      id: 3,
+      name: "Al Barsha Properties",
+      email: "info@albarsha.ae",
+      phone: "+971 4 555 1234",
+      category: "landlord",
+      paymentTerms: "net_15",
+      active: true,
+    },
+  ]);
 
   const [expenses, setExpenses] = useState<Expense[]>([
     {
@@ -158,6 +235,94 @@ export default function AdminFinance() {
     }
   };
 
+  // Vendor form and handlers
+  const vendorForm = useForm<VendorFormValues>({
+    resolver: zodResolver(vendorFormSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      category: "",
+      paymentTerms: "",
+      notes: "",
+    },
+  });
+
+  const handleAddVendor = (values: VendorFormValues) => {
+    const newVendor: Vendor = {
+      id: vendors.length > 0 ? Math.max(...vendors.map(v => v.id)) + 1 : 1,
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      address: values.address,
+      category: values.category,
+      paymentTerms: values.paymentTerms,
+      notes: values.notes,
+      active: true,
+    };
+    setVendors([...vendors, newVendor]);
+    vendorForm.reset();
+    setIsAddVendorOpen(false);
+  };
+
+  const handleEditVendor = (vendor: Vendor) => {
+    setEditingVendor(vendor);
+    vendorForm.reset({
+      name: vendor.name,
+      email: vendor.email || "",
+      phone: vendor.phone || "",
+      address: vendor.address || "",
+      category: vendor.category,
+      paymentTerms: vendor.paymentTerms || "",
+      notes: vendor.notes || "",
+    });
+    setIsAddVendorOpen(true);
+  };
+
+  const handleUpdateVendor = (values: VendorFormValues) => {
+    if (!editingVendor) return;
+    
+    const updatedVendors = vendors.map(v =>
+      v.id === editingVendor.id
+        ? {
+            ...v,
+            name: values.name,
+            email: values.email,
+            phone: values.phone,
+            address: values.address,
+            category: values.category,
+            paymentTerms: values.paymentTerms,
+            notes: values.notes,
+          }
+        : v
+    );
+    setVendors(updatedVendors);
+    vendorForm.reset();
+    setEditingVendor(null);
+    setIsAddVendorOpen(false);
+  };
+
+  const handleDeleteVendor = (id: number) => {
+    setVendors(vendors.filter(v => v.id !== id));
+  };
+
+  const handleVendorDialogClose = (open: boolean) => {
+    setIsAddVendorOpen(open);
+    if (!open) {
+      setEditingVendor(null);
+      vendorForm.reset({
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        category: "",
+        paymentTerms: "",
+        notes: "",
+      });
+    }
+  };
+
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const totalRevenue = 45230;
   const netProfit = totalRevenue - totalExpenses;
@@ -254,18 +419,35 @@ export default function AdminFinance() {
     }
   };
 
+  const getVendorCategoryLabel = (category: string) => {
+    const cat = vendorCategories.find(c => c.value === category);
+    return cat?.label || category;
+  };
+
+  const getPaymentTermsLabel = (terms?: string) => {
+    const term = paymentTermOptions.find(t => t.value === terms);
+    return term?.label || terms || "N/A";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold" data-testid="finance-title">Finance & Accounting</h1>
-          <p className="text-muted-foreground">Manage invoices, payments, and financial reports</p>
+          <p className="text-muted-foreground">Manage expenses, vendors, bills and financial reports</p>
         </div>
-        <Button data-testid="button-create-invoice">
-          <FileText className="h-4 w-4 mr-2" />
-          Create Invoice
-        </Button>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+          <TabsTrigger value="expenses" data-testid="tab-expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="vendors" data-testid="tab-vendors">Vendors</TabsTrigger>
+          <TabsTrigger value="bills" data-testid="tab-bills">Bills</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4">
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {financialStats.map((stat) => (
@@ -331,8 +513,10 @@ export default function AdminFinance() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* Expense Tracking Section */}
+        {/* Expenses Tab */}
+        <TabsContent value="expenses" className="space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -541,6 +725,225 @@ export default function AdminFinance() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        {/* Vendors Tab */}
+        <TabsContent value="vendors" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Vendor Management</CardTitle>
+                <Dialog open={isAddVendorOpen} onOpenChange={handleVendorDialogClose}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-vendor">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Vendor
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>{editingVendor ? "Edit Vendor" : "Add New Vendor"}</DialogTitle>
+                    </DialogHeader>
+                    <Form {...vendorForm}>
+                      <form onSubmit={vendorForm.handleSubmit(editingVendor ? handleUpdateVendor : handleAddVendor)} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={vendorForm.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem className="col-span-2">
+                                <FormLabel>Vendor Name *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter vendor name" data-testid="input-vendor-name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={vendorForm.control}
+                            name="category"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Category *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-vendor-category">
+                                      <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {vendorCategories.map((cat) => (
+                                      <SelectItem key={cat.value} value={cat.value}>
+                                        {cat.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={vendorForm.control}
+                            name="paymentTerms"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Payment Terms</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-vendor-payment-terms">
+                                      <SelectValue placeholder="Select terms" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {paymentTermOptions.map((term) => (
+                                      <SelectItem key={term.value} value={term.value}>
+                                        {term.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={vendorForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                  <Input type="email" placeholder="vendor@example.com" data-testid="input-vendor-email" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={vendorForm.control}
+                            name="phone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="+971 50 123 4567" data-testid="input-vendor-phone" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={vendorForm.control}
+                            name="address"
+                            render={({ field }) => (
+                              <FormItem className="col-span-2">
+                                <FormLabel>Address</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter address" data-testid="input-vendor-address" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={vendorForm.control}
+                            name="notes"
+                            render={({ field }) => (
+                              <FormItem className="col-span-2">
+                                <FormLabel>Notes</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Additional notes about the vendor" data-testid="textarea-vendor-notes" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="submit" className="flex-1" data-testid="button-save-vendor">
+                            {editingVendor ? "Update Vendor" : "Save Vendor"}
+                          </Button>
+                          <Button type="button" variant="outline" className="flex-1" onClick={() => handleVendorDialogClose(false)} data-testid="button-cancel-vendor">
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {vendors.map((vendor) => (
+                  <div
+                    key={vendor.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                    data-testid={`vendor-${vendor.id}`}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Building2 className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{vendor.name}</p>
+                        <p className="text-sm text-muted-foreground">{getVendorCategoryLabel(vendor.category)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Payment Terms:</p>
+                        <p className="text-sm font-medium">{getPaymentTermsLabel(vendor.paymentTerms)}</p>
+                      </div>
+                      {vendor.email && (
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Email:</p>
+                          <p className="text-sm">{vendor.email}</p>
+                        </div>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEditVendor(vendor)}
+                        data-testid={`button-edit-vendor-${vendor.id}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteVendor(vendor.id)}
+                        data-testid={`button-delete-vendor-${vendor.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Bills Tab - Placeholder */}
+        <TabsContent value="bills" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bills & Purchase Invoices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Bills management coming soon</p>
+                <p className="text-sm text-muted-foreground mt-2">Track and manage purchase invoices from vendors</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

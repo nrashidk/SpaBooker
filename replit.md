@@ -27,6 +27,11 @@ The frontend is built with React and TypeScript, utilizing Shadcn components wit
   - **Dashboard:** Real-time charts for revenue, appointments, top services/team (using Recharts).
   - **Calendar:** Interactive drag-and-drop booking management (react-big-calendar) with add/edit functionalities and various booking types.
   - **Sales Sidebar (POS):** Quick sales, product lookup, cart management, and checkout.
+  - **Finance & Accounting:** Tab-based interface for financial management:
+    - **Overview:** Financial stats (Total Revenue, Pending Payments, Expenses, Net Profit) and recent invoices
+    - **Expenses:** Full CRUD expense tracking with 6 categories (Rent, Utilities, Raw Materials, Salaries, Marketing, Other) and real-time calculations
+    - **Vendors:** Complete vendor management system with categories (Supplies & Equipment, Professional Services, Utilities, etc.) and payment terms (Net 7/15/30/45/60/90, Due on Receipt, COD)
+    - **Bills:** Placeholder for purchase invoices/bills tracking (coming soon)
   - **Management Pages:** Sections for Clients, Services, Staff, Marketplace, Marketing, Add-ons, Settings, and Reports, using React Query for data.
 - **Design Guidelines:** Uses a specific color palette (Deep ocean blue, Soft mint, Lighter blue accent) and typography (Inter, DM Sans).
 
