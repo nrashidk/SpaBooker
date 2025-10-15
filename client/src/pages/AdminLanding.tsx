@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Calendar, Users, TrendingUp, Settings, ArrowRight, Sparkles } from "lucide-react";
+import { Calendar, Users, TrendingUp, DollarSign, Megaphone, Plug, Package, UserCog, ArrowRight, Sparkles } from "lucide-react";
 
 export default function AdminLanding() {
   const [, setLocation] = useLocation();
@@ -43,9 +43,29 @@ export default function AdminLanding() {
       description: "Revenue tracking, performance metrics, and insights to grow your spa business",
     },
     {
-      icon: Settings,
-      title: "Complete Control",
-      description: "Services, staff, inventory, marketing, and financial management in one place",
+      icon: DollarSign,
+      title: "Finance & Accounting",
+      description: "Complete financial management with expense tracking, invoicing, and profit analysis",
+    },
+    {
+      icon: Megaphone,
+      title: "Marketing Tools",
+      description: "Email campaigns, SMS automation, promotions, and customer engagement tools",
+    },
+    {
+      icon: Plug,
+      title: "Seamless Integration",
+      description: "Connect with payment gateways, social media, and third-party platforms effortlessly",
+    },
+    {
+      icon: Package,
+      title: "Inventory Management",
+      description: "Track stock levels, manage suppliers, and automate reordering for your products",
+    },
+    {
+      icon: UserCog,
+      title: "Staff Management",
+      description: "Schedule shifts, track performance, manage commissions, and optimize team productivity",
     },
   ];
 
