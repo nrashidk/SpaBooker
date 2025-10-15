@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,15 +6,23 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Building2, Mail, Phone, MapPin, DollarSign, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { SpaSettings } from "@shared/schema";
 
 export default function AdminSettings() {
   const { toast } = useToast();
   
+  // Fetch existing settings
+  const { data: settings, isLoading } = useQuery<SpaSettings>({
+    queryKey: ["/api/admin/settings"],
+  });
+
   const [businessInfo, setBusinessInfo] = useState({
-    name: "Serene Spa",
-    email: "info@serenespa.com",
-    phone: "+971 4 123 4567",
-    address: "Dubai Marina, Dubai, UAE",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
   });
 
   const [financialSettings, setFinancialSettings] = useState({
@@ -27,32 +35,139 @@ export default function AdminSettings() {
     logoUrl: "",
   });
 
+  const [businessHours, setBusinessHours] = useState<Record<string, { open: string; close: string }>>({});
+
+  // Update state when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      setBusinessInfo({
+        name: settings.spaName || "",
+        email: settings.contactEmail || "",
+        phone: settings.contactPhone || "",
+        address: settings.address || "",
+      });
+      setFinancialSettings({
+        currency: settings.currency || "AED",
+        taxRate: settings.taxRate || "5",
+      });
+      setBranding({
+        color: settings.brandColor || "#1a4d6d",
+        logoUrl: settings.logoUrl || "",
+      });
+      if (settings.businessHours) {
+        setBusinessHours(settings.businessHours as Record<string, { open: string; close: string }>);
+      }
+    }
+  }, [settings]);
+
+  // Mutation to update settings
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<SpaSettings>) => {
+      return await apiRequest("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+    },
+  });
+
   const handleSaveBusinessInfo = () => {
-    toast({
-      title: "Business information saved",
-      description: "Your business details have been updated successfully.",
-    });
+    updateSettingsMutation.mutate(
+      {
+        spaName: businessInfo.name,
+        contactEmail: businessInfo.email,
+        contactPhone: businessInfo.phone,
+        address: businessInfo.address,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Business information saved",
+            description: "Your business details have been updated successfully.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to save business information.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const handleSaveFinancialSettings = () => {
-    toast({
-      title: "Financial settings saved",
-      description: "Your financial settings have been updated successfully.",
-    });
+    updateSettingsMutation.mutate(
+      {
+        currency: financialSettings.currency,
+        taxRate: financialSettings.taxRate,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Financial settings saved",
+            description: "Your financial settings have been updated successfully.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to save financial settings.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const handleSaveBranding = () => {
-    toast({
-      title: "Branding saved",
-      description: "Your branding settings have been updated successfully.",
-    });
+    updateSettingsMutation.mutate(
+      {
+        brandColor: branding.color,
+        logoUrl: branding.logoUrl,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Branding saved",
+            description: "Your branding settings have been updated successfully.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to save branding.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const handleSaveBusinessHours = () => {
-    toast({
-      title: "Business hours saved",
-      description: "Your business hours have been updated successfully.",
-    });
+    updateSettingsMutation.mutate(
+      {
+        businessHours: businessHours,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Business hours saved",
+            description: "Your business hours have been updated successfully.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to save business hours.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const handleConfigureTwilio = () => {
@@ -68,6 +183,10 @@ export default function AdminSettings() {
       description: "Email configuration will be available in the notification settings panel.",
     });
   };
+
+  if (isLoading) {
+    return <div className="p-6">Loading settings...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -212,28 +331,35 @@ export default function AdminSettings() {
           <CardTitle>Business Hours</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-            <div key={day} className="flex items-center gap-4">
-              <div className="w-24">
-                <Label>{day}</Label>
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => {
+            const dayKey = day.toLowerCase();
+            const hours = businessHours[dayKey] || { open: "09:00", close: "20:00" };
+            
+            return (
+              <div key={day} className="flex items-center gap-4">
+                <div className="w-24">
+                  <Label>{day}</Label>
+                </div>
+                <div className="flex-1 flex gap-2">
+                  <Input
+                    type="time"
+                    value={hours.open}
+                    onChange={(e) => setBusinessHours({ ...businessHours, [dayKey]: { ...hours, open: e.target.value } })}
+                    className="flex-1"
+                    data-testid={`input-${dayKey}-open`}
+                  />
+                  <span className="flex items-center px-2">to</span>
+                  <Input
+                    type="time"
+                    value={hours.close}
+                    onChange={(e) => setBusinessHours({ ...businessHours, [dayKey]: { ...hours, close: e.target.value } })}
+                    className="flex-1"
+                    data-testid={`input-${dayKey}-close`}
+                  />
+                </div>
               </div>
-              <div className="flex-1 flex gap-2">
-                <Input
-                  type="time"
-                  defaultValue="09:00"
-                  className="flex-1"
-                  data-testid={`input-${day.toLowerCase()}-open`}
-                />
-                <span className="flex items-center px-2">to</span>
-                <Input
-                  type="time"
-                  defaultValue="20:00"
-                  className="flex-1"
-                  data-testid={`input-${day.toLowerCase()}-close`}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <Separator />
           <Button onClick={handleSaveBusinessHours} data-testid="button-save-business-hours">Save Business Hours</Button>
         </CardContent>

@@ -47,6 +47,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin login route (password-based for testing)
+  app.post('/api/admin/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      // For testing: accept test@admin.com with any password
+      if (email === 'test@admin.com') {
+        // Create or update test admin user
+        const testAdmin = await storage.upsertUser({
+          id: 'test-admin-id',
+          email: 'test@admin.com',
+          firstName: 'Test',
+          lastName: 'Admin',
+          role: 'admin',
+        });
+        
+        // Set up session with required OIDC-like properties
+        const sessionUser = {
+          claims: { sub: testAdmin.id },
+          expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
+          refresh_token: 'test-refresh-token', // Dummy refresh token
+        };
+        
+        req.login(sessionUser, (err) => {
+          if (err) {
+            return res.status(500).json({ message: "Login failed" });
+          }
+          return res.json({ success: true, user: testAdmin });
+        });
+      } else {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Admin register route (for testing)
+  app.post('/api/admin/register', async (req, res) => {
+    try {
+      const { name, email, password, spaName } = req.body;
+      
+      // Create admin user
+      const adminUser = await storage.upsertUser({
+        id: `admin-${Date.now()}`,
+        email,
+        firstName: name.split(' ')[0],
+        lastName: name.split(' ').slice(1).join(' ') || '',
+        role: 'admin',
+      });
+      
+      // Set up session with required OIDC-like properties
+      const sessionUser = {
+        claims: { sub: adminUser.id },
+        expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
+        refresh_token: 'test-refresh-token', // Dummy refresh token
+      };
+      
+      req.login(sessionUser, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Registration failed" });
+        }
+        return res.json({ success: true, user: adminUser });
+      });
+    } catch (error) {
+      console.error("Admin register error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
   // Public search endpoint for finding spas
   app.get("/api/search/spas", async (req, res) => {
     try {
@@ -593,11 +664,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/settings", isAdmin, async (req, res) => {
     try {
-      const validatedData = insertSpaSettingsSchema.parse(req.body);
-      const settings = await storage.updateSpaSettings(validatedData);
+      console.log("PUT /api/admin/settings - Request body:", JSON.stringify(req.body, null, 2));
+      // Use partial schema for updates to allow partial updates
+      const validatedData = insertSpaSettingsSchema.partial().parse(req.body);
+      console.log("PUT /api/admin/settings - Validated data:", JSON.stringify(validatedData, null, 2));
+      const settings = await storage.updateSpaSettings(validatedData as any);
+      console.log("PUT /api/admin/settings - Updated settings:", JSON.stringify(settings, null, 2));
       res.json(settings);
     } catch (error) {
-      console.error("Error updating spa settings:", error);
+      console.error("PUT /api/admin/settings - Error:", error);
       res.status(500).json({ message: "Failed to update spa settings" });
     }
   });
