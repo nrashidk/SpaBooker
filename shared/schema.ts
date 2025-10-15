@@ -442,3 +442,82 @@ export const billItemFormSchema = z.object({
   unitPrice: z.number().min(0, "Unit price must be positive"),
   category: z.enum(expenseCategories).optional(),
 });
+
+// Notification channel types
+export const notificationChannels = ["email", "sms", "whatsapp"] as const;
+export const notificationProviders = ["sendgrid", "resend", "twilio", "whatsapp_business"] as const;
+
+// Spa notification settings (per-spa notification configuration)
+export const spaNotificationSettings = pgTable("spa_notification_settings", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull().unique(),
+  emailEnabled: boolean("email_enabled").default(false),
+  smsEnabled: boolean("sms_enabled").default(false),
+  whatsappEnabled: boolean("whatsapp_enabled").default(false),
+  fallbackOrder: text("fallback_order").array().default(sql`ARRAY[]::text[]`), // e.g., ["email", "sms", "whatsapp"]
+  sendConfirmation: boolean("send_confirmation").default(true),
+  sendModification: boolean("send_modification").default(true),
+  sendCancellation: boolean("send_cancellation").default(true),
+  sendReminder: boolean("send_reminder").default(false),
+  reminderHoursBefore: integer("reminder_hours_before").default(24),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Spa notification credentials (encrypted storage for API keys)
+export const spaNotificationCredentials = pgTable("spa_notification_credentials", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  provider: text("provider").notNull(), // sendgrid, resend, twilio, whatsapp_business
+  channel: text("channel").notNull(), // email, sms, whatsapp
+  encryptedCredentials: text("encrypted_credentials").notNull(), // JSON encrypted with app key
+  fromEmail: text("from_email"), // for email providers
+  fromPhone: text("from_phone"), // for SMS/WhatsApp providers
+  status: text("status").notNull().default("active"), // active, error, pending
+  lastTestedAt: timestamp("last_tested_at"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Notification events log (track all notification sends)
+export const notificationEvents = pgTable("notification_events", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  channel: text("channel").notNull(), // email, sms, whatsapp
+  provider: text("provider").notNull(), // sendgrid, resend, twilio, etc.
+  recipientEmail: text("recipient_email"),
+  recipientPhone: text("recipient_phone"),
+  notificationType: text("notification_type").notNull(), // confirmation, modification, cancellation, reminder
+  status: text("status").notNull(), // sent, failed, queued
+  errorMessage: text("error_message"),
+  externalId: text("external_id"), // ID from email/SMS provider
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Notification usage tracking (for billing/analytics)
+export const notificationUsage = pgTable("notification_usage", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  channel: text("channel").notNull(), // email, sms, whatsapp
+  date: text("date").notNull(), // YYYY-MM-DD
+  successCount: integer("success_count").default(0),
+  failureCount: integer("failure_count").default(0),
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 4 }).default("0.0000"), // in USD
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas
+export const insertSpaNotificationSettingsSchema = createInsertSchema(spaNotificationSettings);
+export const insertSpaNotificationCredentialsSchema = createInsertSchema(spaNotificationCredentials);
+export const insertNotificationEventSchema = createInsertSchema(notificationEvents);
+export const insertNotificationUsageSchema = createInsertSchema(notificationUsage);
+
+// Select types
+export type SpaNotificationSettings = typeof spaNotificationSettings.$inferSelect;
+export type SpaNotificationCredentials = typeof spaNotificationCredentials.$inferSelect;
+export type NotificationEvent = typeof notificationEvents.$inferSelect;
+export type NotificationUsage = typeof notificationUsage.$inferSelect;
