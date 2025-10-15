@@ -7,6 +7,11 @@ import {
 } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { decryptJSON } from "./encryptionService";
+import {
+  getBookingConfirmationEmail,
+  getBookingModificationEmail,
+  getBookingCancellationEmail,
+} from "./emailTemplates";
 
 interface NotificationPayload {
   to: string; // email or phone
@@ -397,25 +402,52 @@ export class NotificationService {
   }
 
   private getTemplate(type: string, data?: Record<string, any>) {
-    // Basic templates - will be enhanced later
+    // Use professional email templates
+    if (!data) {
+      return {
+        subject: 'Notification',
+        message: 'You have a new notification.',
+        html: '<p>You have a new notification.</p>',
+      };
+    }
+
+    const templateData = {
+      customerName: data.customerName || 'Valued Customer',
+      spaName: data.spaName || 'Spa',
+      spaAddress: data.spaAddress,
+      spaPhone: data.spaPhone,
+      bookingDate: data.bookingDate || data.date,
+      bookingTime: data.bookingTime || data.time,
+      services: data.services || [],
+      staffName: data.staffName,
+      totalAmount: data.totalAmount,
+      currency: data.currency || 'AED',
+      bookingId: data.bookingId,
+      cancellationPolicy: data.cancellationPolicy,
+      notes: data.notes,
+    };
+
     switch (type) {
       case 'confirmation':
+        const confirmEmail = getBookingConfirmationEmail(templateData);
         return {
-          subject: `Booking Confirmed - ${data?.spaName || 'Spa'}`,
-          message: `Your booking at ${data?.spaName} has been confirmed for ${data?.date} at ${data?.time}.`,
-          html: `<p>Your booking at <strong>${data?.spaName}</strong> has been confirmed for ${data?.date} at ${data?.time}.</p>`,
+          subject: confirmEmail.subject,
+          message: confirmEmail.text,
+          html: confirmEmail.html,
         };
       case 'modification':
+        const modifyEmail = getBookingModificationEmail(templateData);
         return {
-          subject: `Booking Modified - ${data?.spaName || 'Spa'}`,
-          message: `Your booking at ${data?.spaName} has been updated to ${data?.date} at ${data?.time}.`,
-          html: `<p>Your booking at <strong>${data?.spaName}</strong> has been updated to ${data?.date} at ${data?.time}.</p>`,
+          subject: modifyEmail.subject,
+          message: modifyEmail.text,
+          html: modifyEmail.html,
         };
       case 'cancellation':
+        const cancelEmail = getBookingCancellationEmail(templateData);
         return {
-          subject: `Booking Cancelled - ${data?.spaName || 'Spa'}`,
-          message: `Your booking at ${data?.spaName} has been cancelled.`,
-          html: `<p>Your booking at <strong>${data?.spaName}</strong> has been cancelled.</p>`,
+          subject: cancelEmail.subject,
+          message: cancelEmail.text,
+          html: cancelEmail.html,
         };
       default:
         return {
