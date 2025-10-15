@@ -115,6 +115,240 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public booking creation endpoint
+  app.post("/api/bookings", async (req, res) => {
+    try {
+      const { spaId, customerName, customerEmail, customerPhone, services, date, time, staffId, notes } = req.body;
+
+      if (!spaId || !customerName || !services || !Array.isArray(services) || services.length === 0 || !date || !time) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      if (!customerEmail && !customerPhone) {
+        return res.status(400).json({ message: "Either email or phone is required" });
+      }
+
+      // Find or create customer
+      let customer;
+      const userId = req.user?.id; // Get userId from Replit Auth if available
+
+      if (userId) {
+        customer = await storage.getCustomerByUserId(userId);
+      }
+
+      if (!customer && customerEmail) {
+        customer = await storage.getCustomerByEmail(customerEmail);
+      }
+
+      if (!customer && customerPhone) {
+        customer = await storage.getCustomerByPhone(customerPhone);
+      }
+
+      if (!customer) {
+        customer = await storage.createCustomer({
+          userId: userId || undefined,
+          name: customerName,
+          email: customerEmail || null,
+          phone: customerPhone || null,
+        });
+      }
+
+      // Calculate total amount
+      const serviceRecords = await storage.getAllServices();
+      const selectedServices = serviceRecords.filter(s => services.includes(s.id));
+      const totalAmount = selectedServices.reduce((sum, service) => {
+        const price = typeof service.price === 'string' ? parseFloat(service.price) : service.price;
+        return sum + price;
+      }, 0);
+
+      // Create booking
+      const bookingDate = new Date(`${date}T${time}:00`);
+      const booking = await storage.createBooking({
+        spaId,
+        customerId: customer.id,
+        staffId: staffId || null,
+        bookingDate,
+        totalAmount: totalAmount.toString(),
+        notes: notes || null,
+        status: 'confirmed',
+      });
+
+      // Create booking items
+      for (const serviceId of services) {
+        const service = selectedServices.find(s => s.id === serviceId);
+        if (service) {
+          await storage.createBookingItem({
+            bookingId: booking.id,
+            serviceId: service.id,
+            staffId: staffId || null,
+            price: service.price.toString(),
+            duration: service.duration,
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        booking,
+        customerId: customer.id 
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create booking");
+    }
+  });
+
+  // Get customer's bookings (requires authentication)
+  app.get("/api/my-bookings", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const customer = await storage.getCustomerByUserId(req.user.id);
+      if (!customer) {
+        return res.json([]);
+      }
+
+      const bookings = await storage.getBookingsByCustomerId(customer.id);
+      
+      // Fetch related data for each booking
+      const bookingsWithDetails = await Promise.all(
+        bookings.map(async (booking) => {
+          const bookingItems = await storage.getBookingItemsByBookingId(booking.id);
+          const spa = await storage.getSpaById(booking.spaId);
+          const staff = booking.staffId ? await storage.getStaffById(booking.staffId) : null;
+          
+          const servicesData = await Promise.all(
+            bookingItems.map(async (item) => {
+              const service = await storage.getServiceById(item.serviceId);
+              return service;
+            })
+          );
+
+          return {
+            ...booking,
+            spa,
+            staff,
+            services: servicesData.filter(s => s !== undefined),
+            bookingItems,
+          };
+        })
+      );
+
+      res.json(bookingsWithDetails);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch bookings");
+    }
+  });
+
+  // Cancel booking
+  app.put("/api/bookings/:id/cancel", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid booking ID" });
+      }
+
+      const booking = await storage.getBookingById(id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Check if user owns this booking
+      if (req.user?.id) {
+        const customer = await storage.getCustomerByUserId(req.user.id);
+        if (customer && customer.id !== booking.customerId) {
+          return res.status(403).json({ message: "Unauthorized" });
+        }
+      }
+
+      // Check cancellation policy
+      const spa = await storage.getSpaById(booking.spaId);
+      const cancellationPolicy = spa?.cancellationPolicy as { hoursBeforeBooking?: number; description?: string } | null;
+      
+      if (cancellationPolicy?.hoursBeforeBooking) {
+        const hoursUntilBooking = (new Date(booking.bookingDate).getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntilBooking < cancellationPolicy.hoursBeforeBooking) {
+          return res.status(400).json({ 
+            message: `Cannot cancel booking. Cancellation must be made at least ${cancellationPolicy.hoursBeforeBooking} hours before appointment.` 
+          });
+        }
+      }
+
+      const { reason } = req.body;
+      
+      const updated = await storage.updateBooking(id, {
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancellationReason: reason || null,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to cancel booking");
+    }
+  });
+
+  // Modify booking
+  app.put("/api/bookings/:id", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid booking ID" });
+      }
+
+      const booking = await storage.getBookingById(id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Check if user owns this booking
+      if (req.user?.id) {
+        const customer = await storage.getCustomerByUserId(req.user.id);
+        if (customer && customer.id !== booking.customerId) {
+          return res.status(403).json({ message: "Unauthorized" });
+        }
+      }
+
+      // Check cancellation policy for modifications
+      const spa = await storage.getSpaById(booking.spaId);
+      const cancellationPolicy = spa?.cancellationPolicy as { hoursBeforeBooking?: number; description?: string } | null;
+      
+      if (cancellationPolicy?.hoursBeforeBooking) {
+        const hoursUntilBooking = (new Date(booking.bookingDate).getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntilBooking < cancellationPolicy.hoursBeforeBooking) {
+          return res.status(400).json({ 
+            message: `Cannot modify booking. Changes must be made at least ${cancellationPolicy.hoursBeforeBooking} hours before appointment.` 
+          });
+        }
+      }
+
+      const { date, time, staffId, notes } = req.body;
+      const updates: any = {};
+
+      if (date && time) {
+        updates.bookingDate = new Date(`${date}T${time}:00`);
+      }
+
+      if (staffId !== undefined) {
+        updates.staffId = staffId || null;
+      }
+
+      if (notes !== undefined) {
+        updates.notes = notes;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updates.status = 'modified';
+      }
+
+      const updated = await storage.updateBooking(id, updates);
+      res.json(updated);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to modify booking");
+    }
+  });
+
   // Admin-only routes (protected with isAdmin middleware)
   app.get("/api/admin/check", isAdmin, async (req, res) => {
     res.json({ message: "Admin access granted" });

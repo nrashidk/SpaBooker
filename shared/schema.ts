@@ -44,6 +44,7 @@ export const spas = pgTable("spas", {
   latitude: decimal("latitude", { precision: 10, scale: 7 }),
   longitude: decimal("longitude", { precision: 10, scale: 7 }),
   businessHours: jsonb("business_hours"), // { monday: { open: "09:00", close: "20:00" }, ... }
+  cancellationPolicy: jsonb("cancellation_policy"), // { hoursBeforeBooking: 24, description: "Free cancellation up to 24 hours before appointment" }
   currency: text("currency").notNull().default("AED"),
   taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("5.00"),
   logoUrl: text("logo_url"),
@@ -156,13 +157,16 @@ export const customers = pgTable("customers", {
 // Bookings
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
   customerId: integer("customer_id").references(() => customers.id).notNull(),
   staffId: integer("staff_id").references(() => staff.id),
   bookingDate: timestamp("booking_date").notNull(),
-  status: text("status").notNull().default("pending"), // pending, confirmed, completed, cancelled, no-show
+  status: text("status").notNull().default("confirmed"), // confirmed, completed, cancelled, no-show, modified
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
   notes: text("notes"),
   notificationSent: boolean("notification_sent").default(false),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

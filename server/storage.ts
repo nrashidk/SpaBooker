@@ -111,6 +111,9 @@ export interface IStorage {
   // Customer operations
   getAllCustomers(): Promise<Customer[]>;
   getCustomerById(id: number): Promise<Customer | undefined>;
+  getCustomerByEmail(email: string): Promise<Customer | undefined>;
+  getCustomerByPhone(phone: string): Promise<Customer | undefined>;
+  getCustomerByUserId(userId: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: number): Promise<boolean>;
@@ -118,6 +121,7 @@ export interface IStorage {
   // Booking operations
   getAllBookings(): Promise<Booking[]>;
   getBookingById(id: number): Promise<Booking | undefined>;
+  getBookingsByCustomerId(customerId: number): Promise<Booking[]>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
   deleteBooking(id: number): Promise<boolean>;
@@ -407,6 +411,21 @@ export class DatabaseStorage implements IStorage {
     return customer;
   }
 
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+    return customer;
+  }
+
+  async getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.phone, phone));
+    return customer;
+  }
+
+  async getCustomerByUserId(userId: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.userId, userId));
+    return customer;
+  }
+
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
     const [newCustomer] = await db.insert(customers).values(customer).returning();
     return newCustomer;
@@ -434,6 +453,12 @@ export class DatabaseStorage implements IStorage {
   async getBookingById(id: number): Promise<Booking | undefined> {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
     return booking;
+  }
+
+  async getBookingsByCustomerId(customerId: number): Promise<Booking[]> {
+    return db.select().from(bookings)
+      .where(eq(bookings.customerId, customerId))
+      .orderBy(desc(bookings.bookingDate));
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
