@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Calendar, Clock, Sparkles, Hand, Scissors, Flower2, Star, Droplet } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Search, MapPin, Calendar, Clock, Sparkles, Hand, Scissors, Flower2, Star, Droplet, Users, DollarSign } from "lucide-react";
+import type { Spa, Service, Staff } from "@shared/schema";
+
+type SearchResult = Spa & { services: Service[]; staff: Staff[] };
 
 export default function BookingSearch() {
   const [, setLocation] = useLocation();
@@ -10,18 +17,35 @@ export default function BookingSearch() {
   const [locationQuery, setLocationQuery] = useState("");
   const [dateQuery, setDateQuery] = useState("");
   const [timeQuery, setTimeQuery] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Build query params for API
+  const queryParams = new URLSearchParams();
+  if (searchQuery.trim()) queryParams.set("search", searchQuery.trim());
+  if (locationQuery.trim()) queryParams.set("location", locationQuery.trim());
+  if (dateQuery.trim()) queryParams.set("date", dateQuery.trim());
+  if (timeQuery.trim()) queryParams.set("time", timeQuery.trim());
+
+  // Fetch search results
+  const { data: searchResults, isLoading } = useQuery<SearchResult[]>({
+    queryKey: ["/api/search/spas", queryParams.toString()],
+    enabled: hasSearched,
+  });
 
   const handleSearch = (overrideSearch?: string) => {
-    // Navigate to booking flow with search parameters
+    if (overrideSearch) {
+      setSearchQuery(overrideSearch);
+    }
+    setHasSearched(true);
+  };
+
+  const handleBookSpa = (spaId: number) => {
+    // Navigate to booking flow with selected spa
     const params = new URLSearchParams();
-    const search = String(overrideSearch ?? searchQuery ?? '').trim();
-    if (search) params.set("search", search);
-    const location = String(locationQuery ?? '').trim();
-    if (location) params.set("location", location);
-    const date = String(dateQuery ?? '').trim();
-    if (date) params.set("date", date);
-    const time = String(timeQuery ?? '').trim();
-    if (time) params.set("time", time);
+    params.set("spaId", spaId.toString());
+    if (searchQuery.trim()) params.set("search", searchQuery.trim());
+    if (dateQuery.trim()) params.set("date", dateQuery.trim());
+    if (timeQuery.trim()) params.set("time", timeQuery.trim());
     
     setLocation(`/booking/flow?${params.toString()}`);
   };
@@ -116,32 +140,156 @@ export default function BookingSearch() {
             </p>
           </div>
 
-          {/* Quick Browse Section */}
-          <div className="mt-16">
-            <h2 className="text-2xl font-bold mb-6 text-center">Popular Services</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { name: "Massage", Icon: Hand },
-                { name: "Facial", Icon: Sparkles },
-                { name: "Manicure", Icon: Hand },
-                { name: "Hair Styling", Icon: Scissors },
-                { name: "Waxing", Icon: Star },
-                { name: "Spa Package", Icon: Droplet },
-                { name: "Body Treatment", Icon: Flower2 },
-                { name: "Makeup", Icon: Sparkles },
-              ].map((service) => (
-                <button
-                  key={service.name}
-                  onClick={() => handleSearch(service.name)}
-                  className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md hover-elevate active-elevate-2 text-center transition-all"
-                  data-testid={`quick-service-${service.name.toLowerCase().replace(" ", "-")}`}
-                >
-                  <service.Icon className="w-10 h-10 mx-auto mb-3 text-primary" />
-                  <p className="font-medium text-gray-900 dark:text-white">{service.name}</p>
-                </button>
-              ))}
+          {/* Search Results Section */}
+          {hasSearched && (
+            <div className="mt-16">
+              <h2 className="text-2xl font-bold mb-6">
+                {isLoading ? "Searching..." : `Found ${searchResults?.length || 0} spas`}
+              </h2>
+              
+              {isLoading ? (
+                <div className="grid gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i}>
+                      <CardHeader>
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-4 w-32 mt-2" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-20 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : searchResults && searchResults.length > 0 ? (
+                <div className="grid gap-6" data-testid="search-results">
+                  {searchResults.map((spa) => (
+                    <Card key={spa.id} className="hover-elevate" data-testid={`spa-card-${spa.id}`}>
+                      <CardHeader>
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CardTitle className="text-2xl" data-testid={`spa-name-${spa.id}`}>
+                                {spa.name}
+                              </CardTitle>
+                              {spa.featured && (
+                                <Badge variant="default" data-testid={`spa-featured-${spa.id}`}>
+                                  Featured
+                                </Badge>
+                              )}
+                            </div>
+                            <CardDescription className="flex items-center gap-4">
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-4 w-4" />
+                                {spa.address}
+                              </span>
+                              {spa.rating && (
+                                <span className="flex items-center gap-1">
+                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                  {spa.rating.toFixed(1)}
+                                </span>
+                              )}
+                            </CardDescription>
+                          </div>
+                          <Button 
+                            onClick={() => handleBookSpa(spa.id)}
+                            size="lg"
+                            data-testid={`button-book-spa-${spa.id}`}
+                          >
+                            Book Now
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {spa.description && (
+                          <p className="text-muted-foreground mb-4">{spa.description}</p>
+                        )}
+                        
+                        <div className="space-y-4">
+                          {/* Services */}
+                          {spa.services.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <Sparkles className="h-4 w-4" />
+                                Services ({spa.services.length})
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {spa.services.slice(0, 6).map((service) => (
+                                  <Badge key={service.id} variant="secondary" data-testid={`service-${service.id}`}>
+                                    {service.name} - ${service.price}
+                                  </Badge>
+                                ))}
+                                {spa.services.length > 6 && (
+                                  <Badge variant="outline">+{spa.services.length - 6} more</Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Staff */}
+                          {spa.staff.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                Team ({spa.staff.length})
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {spa.staff.slice(0, 5).map((member) => (
+                                  <Badge key={member.id} variant="outline" data-testid={`staff-${member.id}`}>
+                                    {member.name}
+                                  </Badge>
+                                ))}
+                                {spa.staff.length > 5 && (
+                                  <Badge variant="outline">+{spa.staff.length - 5} more</Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground text-lg">
+                      No spas found. Try adjusting your search criteria.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Quick Browse Section */}
+          {!hasSearched && (
+            <div className="mt-16">
+              <h2 className="text-2xl font-bold mb-6 text-center">Popular Services</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { name: "Massage", Icon: Hand },
+                  { name: "Facial", Icon: Sparkles },
+                  { name: "Manicure", Icon: Hand },
+                  { name: "Hair Styling", Icon: Scissors },
+                  { name: "Waxing", Icon: Star },
+                  { name: "Spa Package", Icon: Droplet },
+                  { name: "Body Treatment", Icon: Flower2 },
+                  { name: "Makeup", Icon: Sparkles },
+                ].map((service) => (
+                  <button
+                    key={service.name}
+                    onClick={() => handleSearch(service.name)}
+                    className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md hover-elevate active-elevate-2 text-center transition-all"
+                    data-testid={`quick-service-${service.name.toLowerCase().replace(" ", "-")}`}
+                  >
+                    <service.Icon className="w-10 h-10 mx-auto mb-3 text-primary" />
+                    <p className="font-medium text-gray-900 dark:text-white">{service.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
