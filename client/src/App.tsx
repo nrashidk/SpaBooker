@@ -4,9 +4,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import Home from "@/pages/Home";
 import BookingSearch from "@/pages/BookingSearch";
 import BookingFlow from "@/pages/BookingFlow";
-import AdminLanding from "@/pages/AdminLanding";
+import CustomerLogin from "@/pages/CustomerLogin";
+import AdminLogin from "@/pages/AdminLogin";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -28,7 +30,9 @@ import MyAccount from "@/pages/MyAccount";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={AdminLanding} />
+      <Route path="/" component={Home} />
+      <Route path="/login/customer" component={CustomerLogin} />
+      <Route path="/login/admin" component={AdminLogin} />
       <Route path="/booking" component={BookingSearch} />
       <Route path="/booking/flow" component={BookingFlow} />
       <Route path="/my-account" component={MyAccount} />
