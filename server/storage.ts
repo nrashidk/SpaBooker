@@ -1,5 +1,6 @@
 import {
   users,
+  spas,
   spaSettings,
   serviceCategories,
   services,
@@ -20,6 +21,8 @@ import {
   staffTimeEntries,
   type User,
   type UpsertUser,
+  type Spa,
+  type InsertSpa,
   type SpaSettings,
   type InsertSpaSettings,
   type ServiceCategory,
@@ -55,6 +58,18 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+
+  // Spa operations
+  getAllSpas(): Promise<Spa[]>;
+  getSpaById(id: number): Promise<Spa | undefined>;
+  createSpa(spa: InsertSpa): Promise<Spa>;
+  updateSpa(id: number, spa: Partial<InsertSpa>): Promise<Spa | undefined>;
+  searchSpas(params: {
+    search?: string;
+    location?: string;
+    date?: string;
+    time?: string;
+  }): Promise<Array<Spa & { services: Service[]; staff: Staff[] }>>;
 
   // Spa Settings operations
   getSpaSettings(): Promise<SpaSettings | undefined>;
@@ -160,6 +175,75 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // Spa operations
+  async getAllSpas(): Promise<Spa[]> {
+    return db.select().from(spas).where(eq(spas.active, true)).orderBy(spas.featured, desc(spas.rating));
+  }
+
+  async getSpaById(id: number): Promise<Spa | undefined> {
+    const [spa] = await db.select().from(spas).where(eq(spas.id, id));
+    return spa;
+  }
+
+  async createSpa(spaData: InsertSpa): Promise<Spa> {
+    const [newSpa] = await db.insert(spas).values(spaData).returning();
+    return newSpa;
+  }
+
+  async updateSpa(id: number, spaData: Partial<InsertSpa>): Promise<Spa | undefined> {
+    const [updated] = await db
+      .update(spas)
+      .set({ ...spaData, updatedAt: new Date() })
+      .where(eq(spas.id, id))
+      .returning();
+    return updated;
+  }
+
+  async searchSpas(params: {
+    search?: string;
+    location?: string;
+    date?: string;
+    time?: string;
+  }): Promise<Array<Spa & { services: Service[]; staff: Staff[] }>> {
+    // For now, get all active spas
+    // In a production system, this would filter by search, location, and availability
+    const allSpas = await db.select().from(spas).where(eq(spas.active, true));
+    
+    const results = await Promise.all(
+      allSpas.map(async (spa) => {
+        // Get services for this spa
+        let spaServices = await db.select().from(services)
+          .where(eq(services.spaId, spa.id));
+        
+        // Filter by search term if provided
+        if (params.search) {
+          const searchLower = params.search.toLowerCase();
+          spaServices = spaServices.filter(s => 
+            s.name.toLowerCase().includes(searchLower) ||
+            (s.description && s.description.toLowerCase().includes(searchLower))
+          );
+        }
+        
+        // Get staff for this spa
+        const spaStaff = await db.select().from(staff)
+          .where(eq(staff.spaId, spa.id));
+        
+        return {
+          ...spa,
+          services: spaServices,
+          staff: spaStaff,
+        };
+      })
+    );
+    
+    // Filter out spas with no matching services if search is provided
+    if (params.search) {
+      return results.filter(r => r.services.length > 0);
+    }
+    
+    return results;
   }
 
   // Spa Settings operations

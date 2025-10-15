@@ -45,6 +45,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public search endpoint for finding spas
+  app.get("/api/search/spas", async (req, res) => {
+    try {
+      const { search, location, date, time } = req.query;
+      
+      const searchParams = {
+        search: search as string | undefined,
+        location: location as string | undefined,
+        date: date as string | undefined,
+        time: time as string | undefined,
+      };
+      
+      const results = await storage.searchSpas(searchParams);
+      res.json(results);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to search spas");
+    }
+  });
+
   // Admin-only routes (protected with isAdmin middleware)
   app.get("/api/admin/check", isAdmin, async (req, res) => {
     res.json({ message: "Admin access granted" });
