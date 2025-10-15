@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
@@ -115,6 +116,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available time slots for a spa
+  app.get("/api/spas/:id/available-slots", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+
+      const { date, duration, staffId } = req.query;
+      
+      if (!date || !duration) {
+        return res.status(400).json({ message: "Date and duration are required" });
+      }
+
+      const serviceDuration = parseInt(duration as string);
+      if (!Number.isFinite(serviceDuration) || serviceDuration <= 0) {
+        return res.status(400).json({ message: "Invalid duration" });
+      }
+
+      const staffIdNum = staffId ? parseNumericId(staffId as string) ?? undefined : undefined;
+      
+      const slots = await generateAvailableTimeSlots(
+        id,
+        date as string,
+        serviceDuration,
+        staffIdNum
+      );
+
+      res.json(slots);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch available time slots");
+    }
+  });
+
   // Public booking creation endpoint
   app.post("/api/bookings", async (req, res) => {
     try {
@@ -172,13 +207,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Calculate total amount
+      // Calculate total amount and duration
       const serviceRecords = await storage.getAllServices();
       const selectedServices = serviceRecords.filter(s => services.includes(s.id));
       const totalAmount = selectedServices.reduce((sum, service) => {
         const price = typeof service.price === 'string' ? parseFloat(service.price) : service.price;
         return sum + price;
       }, 0);
+      
+      // Calculate total service duration
+      const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0);
 
       // Convert time to 24-hour format if needed and create booking date
       let bookingDate: Date;
@@ -207,6 +245,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error('Error parsing date/time:', error);
         return res.status(400).json({ message: 'Invalid date or time format' });
+      }
+
+      // Validate booking against calendar rules
+      const validation = await validateBooking(spaId, bookingDate, totalDuration, staffId || undefined);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
       }
 
       const booking = await storage.createBooking({

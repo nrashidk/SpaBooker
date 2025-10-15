@@ -260,6 +260,33 @@ export default function BookingPage() {
   const selectedServices = services.filter(s => selectedServiceIds.includes(s.id));
   const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId) || null;
   
+  // Calculate total duration of selected services
+  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0);
+
+  // Fetch available time slots for selected date and services
+  const shouldFetchSlots = step === 3 && !!spaId && !!selectedDate && selectedServiceIds.length > 0;
+  const staffForSlots = professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : undefined;
+  
+  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery({
+    queryKey: [
+      `/api/spas/${spaId}/available-slots`,
+      selectedDate?.toISOString().split('T')[0],
+      totalDuration,
+      staffForSlots
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        date: selectedDate!.toISOString().split('T')[0],
+        duration: totalDuration.toString(),
+        ...(staffForSlots && { staffId: staffForSlots.toString() })
+      });
+      const response = await fetch(`/api/spas/${spaId}/available-slots?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch slots');
+      return response.json();
+    },
+    enabled: shouldFetchSlots,
+  });
+  
   const getStaffName = () => {
     if (professionalMode === 'any') return "Any Available";
     if (professionalMode === 'specific' && selectedProfessional) return selectedProfessional.name;
@@ -397,7 +424,7 @@ export default function BookingPage() {
                     setSelectedProfessionalId(id);
                   }
                 }}
-                timeSlots={mockTimeSlots}
+                timeSlots={availableSlots}
                 professionals={professionalMode === 'any' ? mockProfessionals : []}
                 onContinue={handleContinueToDetails}
               />
