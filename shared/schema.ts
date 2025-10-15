@@ -326,3 +326,81 @@ export type Bill = typeof bills.$inferSelect;
 export type BillItem = typeof billItems.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+
+// Enhanced validation schemas with specific enums and categories
+
+// Expense categories
+export const expenseCategories = [
+  "rent",
+  "utilities", 
+  "raw_materials",
+  "salaries",
+  "marketing",
+  "other"
+] as const;
+
+export const expenseFormSchema = insertExpenseSchema.extend({
+  category: z.enum(expenseCategories),
+  amount: z.string().min(1, "Amount is required").transform(val => parseFloat(val)),
+  description: z.string().min(1, "Description is required"),
+  expenseDate: z.string().transform(str => new Date(str)),
+}).omit({ vendorId: true, billId: true, vendor: true, receiptUrl: true });
+
+export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+
+// Vendor categories
+export const vendorCategories = [
+  "supplies_equipment",
+  "professional_services",
+  "utilities",
+  "rent_lease",
+  "marketing_advertising",
+  "other"
+] as const;
+
+// Payment terms
+export const paymentTerms = [
+  "net_7",
+  "net_15",
+  "net_30",
+  "net_45",
+  "net_60",
+  "net_90",
+  "due_on_receipt",
+  "cod"
+] as const;
+
+export const vendorFormSchema = insertVendorSchema.extend({
+  name: z.string().min(1, "Vendor name is required"),
+  category: z.enum(vendorCategories),
+  paymentTerms: z.enum(paymentTerms).optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type VendorFormValues = z.infer<typeof vendorFormSchema>;
+
+// Bill form schema
+export const billFormSchema = insertBillSchema.extend({
+  billNumber: z.string().min(1, "Bill number is required"),
+  vendorId: z.number().min(1, "Vendor is required"),
+  billDate: z.string().transform(str => new Date(str)),
+  dueDate: z.string().transform(str => new Date(str)),
+  subtotal: z.string().min(1, "Subtotal is required").transform(val => parseFloat(val)),
+  taxAmount: z.string().optional().transform(val => val ? parseFloat(val) : 0),
+  totalAmount: z.string().min(1, "Total amount is required").transform(val => parseFloat(val)),
+  category: z.enum(expenseCategories).optional(),
+  notes: z.string().optional(),
+});
+
+export type BillFormValues = z.infer<typeof billFormSchema>;
+
+// Bill item form schema
+export const billItemFormSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1").default(1),
+  unitPrice: z.number().min(0, "Unit price must be positive"),
+  category: z.enum(expenseCategories).optional(),
+});

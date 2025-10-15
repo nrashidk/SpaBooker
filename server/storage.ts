@@ -13,6 +13,9 @@ import {
   invoiceItems,
   transactions,
   expenses,
+  vendors,
+  bills,
+  billItems,
   inventoryTransactions,
   staffTimeEntries,
   type User,
@@ -35,6 +38,14 @@ import {
   type InsertBooking,
   type BookingItem,
   type InsertBookingItem,
+  type Vendor,
+  type InsertVendor,
+  type Expense,
+  type InsertExpense,
+  type Bill,
+  type InsertBill,
+  type BillItem,
+  type InsertBillItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -101,6 +112,32 @@ export interface IStorage {
   getBookingItemsByBookingId(bookingId: number): Promise<BookingItem[]>;
   createBookingItem(item: InsertBookingItem): Promise<BookingItem>;
   deleteBookingItem(id: number): Promise<boolean>;
+
+  // Vendor operations
+  getAllVendors(): Promise<Vendor[]>;
+  getVendorById(id: number): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: number, vendor: Partial<InsertVendor>): Promise<Vendor | undefined>;
+  deleteVendor(id: number): Promise<boolean>;
+
+  // Expense operations
+  getAllExpenses(): Promise<Expense[]>;
+  getExpenseById(id: number): Promise<Expense | undefined>;
+  createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
+  deleteExpense(id: number): Promise<boolean>;
+
+  // Bill operations
+  getAllBills(): Promise<Bill[]>;
+  getBillById(id: number): Promise<Bill | undefined>;
+  createBill(bill: InsertBill): Promise<Bill>;
+  updateBill(id: number, bill: Partial<InsertBill>): Promise<Bill | undefined>;
+  deleteBill(id: number): Promise<boolean>;
+
+  // Bill Item operations
+  getBillItemsByBillId(billId: number): Promise<BillItem[]>;
+  createBillItem(item: InsertBillItem): Promise<BillItem>;
+  deleteBillItem(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -350,6 +387,108 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBookingItem(id: number): Promise<boolean> {
     const result = await db.delete(bookingItems).where(eq(bookingItems.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Vendor operations
+  async getAllVendors(): Promise<Vendor[]> {
+    return db.select().from(vendors).orderBy(vendors.name);
+  }
+
+  async getVendorById(id: number): Promise<Vendor | undefined> {
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
+    return vendor;
+  }
+
+  async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    const [newVendor] = await db.insert(vendors).values(vendor).returning();
+    return newVendor;
+  }
+
+  async updateVendor(id: number, vendor: Partial<InsertVendor>): Promise<Vendor | undefined> {
+    const [updated] = await db
+      .update(vendors)
+      .set(vendor)
+      .where(eq(vendors.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteVendor(id: number): Promise<boolean> {
+    const result = await db.delete(vendors).where(eq(vendors.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Expense operations
+  async getAllExpenses(): Promise<Expense[]> {
+    return db.select().from(expenses).orderBy(desc(expenses.expenseDate));
+  }
+
+  async getExpenseById(id: number): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense;
+  }
+
+  async createExpense(expense: InsertExpense): Promise<Expense> {
+    const [newExpense] = await db.insert(expenses).values(expense).returning();
+    return newExpense;
+  }
+
+  async updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined> {
+    const [updated] = await db
+      .update(expenses)
+      .set(expense)
+      .where(eq(expenses.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    const result = await db.delete(expenses).where(eq(expenses.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Bill operations
+  async getAllBills(): Promise<Bill[]> {
+    return db.select().from(bills).orderBy(desc(bills.billDate));
+  }
+
+  async getBillById(id: number): Promise<Bill | undefined> {
+    const [bill] = await db.select().from(bills).where(eq(bills.id, id));
+    return bill;
+  }
+
+  async createBill(bill: InsertBill): Promise<Bill> {
+    const [newBill] = await db.insert(bills).values(bill).returning();
+    return newBill;
+  }
+
+  async updateBill(id: number, bill: Partial<InsertBill>): Promise<Bill | undefined> {
+    const [updated] = await db
+      .update(bills)
+      .set(bill)
+      .where(eq(bills.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBill(id: number): Promise<boolean> {
+    const result = await db.delete(bills).where(eq(bills.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Bill Item operations
+  async getBillItemsByBillId(billId: number): Promise<BillItem[]> {
+    return db.select().from(billItems).where(eq(billItems.billId, billId));
+  }
+
+  async createBillItem(item: InsertBillItem): Promise<BillItem> {
+    const [newItem] = await db.insert(billItems).values(item).returning();
+    return newItem;
+  }
+
+  async deleteBillItem(id: number): Promise<boolean> {
+    const result = await db.delete(billItems).where(eq(billItems.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
 }
