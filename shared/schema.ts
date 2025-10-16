@@ -203,7 +203,11 @@ export const products = pgTable("products", {
   supplier: text("supplier"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_products_category").on(table.categoryId),
+  index("idx_products_sku").on(table.sku),
+  index("idx_products_active").on(table.active),
+]);
 
 // Customers
 export const customers = pgTable("customers", {
@@ -232,7 +236,13 @@ export const bookings = pgTable("bookings", {
   cancelledAt: timestamp("cancelled_at"),
   cancellationReason: text("cancellation_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_bookings_customer").on(table.customerId),
+  index("idx_bookings_staff").on(table.staffId),
+  index("idx_bookings_date").on(table.bookingDate),
+  index("idx_bookings_status").on(table.status),
+  index("idx_bookings_spa").on(table.spaId),
+]);
 
 // Booking items (services in a booking)
 export const bookingItems = pgTable("booking_items", {
@@ -260,7 +270,12 @@ export const invoices = pgTable("invoices", {
   paymentMethod: text("payment_method"), // cash, card, online
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_invoices_customer").on(table.customerId),
+  index("idx_invoices_status").on(table.status),
+  index("idx_invoices_due_date").on(table.dueDate),
+  index("idx_invoices_booking").on(table.bookingId),
+]);
 
 // Invoice line items
 export const invoiceItems = pgTable("invoice_items", {
