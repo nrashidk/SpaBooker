@@ -6,6 +6,7 @@ import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import { notificationService } from "./notificationService";
 import { requireStaff, requireStaffRole, getStaffByUserId, canViewStaffCalendar, canEditAppointments, canAccessDashboard } from "./staffPermissions";
 import { staffRoles, staffRoleInfo } from "@shared/schema";
+import { AuditLogger } from "./auditLog";
 import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
@@ -441,6 +442,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Log booking creation to audit trail
+      await AuditLogger.logCreate(req, "booking", booking.id, {
+        spaId,
+        customerId: customer.id,
+        staffId,
+        bookingDate: booking.bookingDate,
+        totalAmount,
+        services: services.map(id => id),
+      }, spaId);
+
       // Send booking confirmation notification (async, non-blocking)
       (async () => {
         try {
@@ -577,6 +588,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cancellationReason: reason || null,
       });
 
+      // Log booking cancellation to audit trail
+      if (updated) {
+        await AuditLogger.logUpdate(req, "booking", id, 
+          { status: booking.status },
+          { status: 'cancelled', reason },
+          booking.spaId
+        );
+      }
+
       // Send booking cancellation notification (async, non-blocking)
       if (updated) {
         (async () => {
@@ -684,6 +704,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updated = await storage.updateBooking(id, updates);
+
+      // Log booking modification to audit trail
+      if (updated && Object.keys(updates).length > 0) {
+        await AuditLogger.logUpdate(req, "booking", id, 
+          {
+            bookingDate: booking.bookingDate,
+            staffId: booking.staffId,
+            notes: booking.notes,
+          },
+          updates,
+          booking.spaId
+        );
+      }
 
       // Send booking modification notification (async, non-blocking)
       if (updated && Object.keys(updates).length > 0) {
@@ -1114,6 +1147,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertServiceSchema.parse(req.body);
       const service = await storage.createService(validatedData);
+      
+      // Log service creation to audit trail
+      await AuditLogger.logCreate(req, "service", service.id, validatedData, validatedData.spaId);
+      
       res.json(service);
     } catch (error) {
       console.error("Error creating service:", error);
@@ -1128,11 +1165,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid service ID" });
       }
       
+      const before = await storage.getService(id);
       const validatedData = insertServiceSchema.partial().parse(req.body);
       const service = await storage.updateService(id, validatedData);
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
+      
+      // Log service update to audit trail
+      if (before) {
+        await AuditLogger.logUpdate(req, "service", id, before, validatedData, service.spaId);
+      }
+      
       res.json(service);
     } catch (error) {
       handleRouteError(res, error, "Failed to update service");
@@ -1146,10 +1190,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid service ID" });
       }
       
+      const service = await storage.getService(id);
       const deleted = await storage.deleteService(id);
       if (!deleted) {
         return res.status(404).json({ message: "Service not found" });
       }
+      
+      // Log service deletion to audit trail
+      if (service) {
+        await AuditLogger.logDelete(req, "service", id, service, service.spaId);
+      }
+      
       res.json({ success: true });
     } catch (error) {
       handleRouteError(res, error, "Failed to delete service");
@@ -1171,6 +1222,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertStaffSchema.parse(req.body);
       const staffMember = await storage.createStaff(validatedData);
+      
+      // Log staff creation to audit trail
+      await AuditLogger.logCreate(req, "staff", staffMember.id, validatedData, validatedData.spaId);
+      
       res.json(staffMember);
     } catch (error) {
       console.error("Error creating staff member:", error);
@@ -1185,11 +1240,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid staff ID" });
       }
       
+      const before = await storage.getStaff(id);
       const validatedData = insertStaffSchema.partial().parse(req.body);
       const staffMember = await storage.updateStaff(id, validatedData);
       if (!staffMember) {
         return res.status(404).json({ message: "Staff member not found" });
       }
+      
+      // Log staff update to audit trail
+      if (before) {
+        await AuditLogger.logUpdate(req, "staff", id, before, validatedData, staffMember.spaId);
+      }
+      
       res.json(staffMember);
     } catch (error) {
       handleRouteError(res, error, "Failed to update staff member");
@@ -1203,10 +1265,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid staff ID" });
       }
       
+      const staff = await storage.getStaff(id);
       const deleted = await storage.deleteStaff(id);
       if (!deleted) {
         return res.status(404).json({ message: "Staff member not found" });
       }
+      
+      // Log staff deletion to audit trail
+      if (staff) {
+        await AuditLogger.logDelete(req, "staff", id, staff, staff.spaId);
+      }
+      
       res.json({ success: true });
     } catch (error) {
       handleRouteError(res, error, "Failed to delete staff member");

@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { db } from "../db";
+import { db } from "./db";
 import { auditLogs, InsertAuditLog } from "@shared/schema";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT" | "APPROVAL" | "REJECTION";
@@ -58,8 +58,11 @@ export class AuditLogger {
     data: any,
     spaId?: number
   ): Promise<void> {
+    const userId = this.getUserId(req);
+    const role = await this.getUserRole(userId);
+    
     await this.log({
-      userId: req.user?.id,
+      userId,
       action: "CREATE",
       entityType,
       entityId,
@@ -69,7 +72,7 @@ export class AuditLogger {
       ipAddress: this.getIpAddress(req),
       userAgent: req.get("user-agent"),
       spaId,
-      role: req.user?.role,
+      role,
     });
   }
 
@@ -93,8 +96,11 @@ export class AuditLogger {
       return; // No changes, don't log
     }
 
+    const userId = this.getUserId(req);
+    const role = await this.getUserRole(userId);
+
     await this.log({
-      userId: req.user?.id,
+      userId,
       action: "UPDATE",
       entityType,
       entityId,
@@ -106,7 +112,7 @@ export class AuditLogger {
       ipAddress: this.getIpAddress(req),
       userAgent: req.get("user-agent"),
       spaId,
-      role: req.user?.role,
+      role,
     });
   }
 
@@ -120,8 +126,11 @@ export class AuditLogger {
     data: any,
     spaId?: number
   ): Promise<void> {
+    const userId = this.getUserId(req);
+    const role = await this.getUserRole(userId);
+
     await this.log({
-      userId: req.user?.id,
+      userId,
       action: "DELETE",
       entityType,
       entityId,
@@ -131,7 +140,7 @@ export class AuditLogger {
       ipAddress: this.getIpAddress(req),
       userAgent: req.get("user-agent"),
       spaId,
-      role: req.user?.role,
+      role,
     });
   }
 
@@ -143,6 +152,8 @@ export class AuditLogger {
     action: "LOGIN" | "LOGOUT",
     userId: string
   ): Promise<void> {
+    const role = await this.getUserRole(userId);
+
     await this.log({
       userId,
       action,
@@ -150,7 +161,7 @@ export class AuditLogger {
       entityId: 0,
       ipAddress: this.getIpAddress(req),
       userAgent: req.get("user-agent"),
-      role: req.user?.role,
+      role,
     });
   }
 
@@ -164,8 +175,11 @@ export class AuditLogger {
     entityId: number,
     data: any
   ): Promise<void> {
+    const userId = this.getUserId(req);
+    const role = await this.getUserRole(userId);
+
     await this.log({
-      userId: req.user?.id,
+      userId,
       action,
       entityType,
       entityId,
@@ -174,8 +188,33 @@ export class AuditLogger {
       },
       ipAddress: this.getIpAddress(req),
       userAgent: req.get("user-agent"),
-      role: req.user?.role,
+      role,
     });
+  }
+
+  /**
+   * Get user ID from request
+   */
+  private static getUserId(req: Request): string | undefined {
+    const user = (req as any).user;
+    if (!user) return undefined;
+    return user.claims?.sub;
+  }
+
+  /**
+   * Get user role from database
+   */
+  private static async getUserRole(userId?: string): Promise<string | undefined> {
+    if (!userId) return undefined;
+    
+    try {
+      const { storage } = await import("./storage");
+      const user = await storage.getUser(userId);
+      return user?.role;
+    } catch (error) {
+      console.error("Failed to get user role for audit log:", error);
+      return undefined;
+    }
   }
 
   /**
