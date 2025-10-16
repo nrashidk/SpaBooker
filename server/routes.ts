@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin } from "./replitAuth";
 import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import { notificationService } from "./notificationService";
 import {
@@ -667,6 +667,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updated);
     } catch (error) {
       handleRouteError(res, error, "Failed to modify booking");
+    }
+  });
+
+  // Super Admin-only routes (protected with isSuperAdmin middleware)
+  app.get("/api/super-admin/applications", isSuperAdmin, async (req, res) => {
+    try {
+      const { status } = req.query;
+      
+      let applications;
+      if (status && typeof status === 'string') {
+        applications = await storage.getAdminApplicationsByStatus(status);
+      } else {
+        applications = await storage.getAllAdminApplications();
+      }
+
+      // Enrich applications with user data
+      const enrichedApplications = await Promise.all(
+        applications.map(async (app) => {
+          const user = await storage.getUser(app.userId);
+          return {
+            ...app,
+            user: user ? {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+            } : null,
+          };
+        })
+      );
+
+      res.json(enrichedApplications);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch admin applications");
+    }
+  });
+
+  app.post("/api/super-admin/applications/:id/approve", isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid application ID" });
+      }
+
+      const application = await storage.getAdminApplicationById(id);
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Update application status
+      await storage.updateAdminApplication(id, {
+        status: 'approved',
+        reviewedAt: new Date(),
+      });
+
+      // Update user status
+      await storage.upsertUser({
+        id: application.userId,
+        status: 'approved',
+      } as any);
+
+      res.json({ message: "Admin application approved successfully" });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to approve admin application");
+    }
+  });
+
+  app.post("/api/super-admin/applications/:id/reject", isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid application ID" });
+      }
+
+      const { reason } = req.body;
+
+      const application = await storage.getAdminApplicationById(id);
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Update application status
+      await storage.updateAdminApplication(id, {
+        status: 'rejected',
+        reviewedAt: new Date(),
+        rejectionReason: reason,
+      });
+
+      // Update user status
+      await storage.upsertUser({
+        id: application.userId,
+        status: 'rejected',
+      } as any);
+
+      res.json({ message: "Admin application rejected successfully" });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to reject admin application");
     }
   });
 
