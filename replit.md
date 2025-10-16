@@ -4,11 +4,17 @@
 Serene Spa is an online booking system, inspired by Fresha, offering a 4-step booking process for spa treatments. It supports multiple spa venues, allowing customers to search across all locations and book services. The platform aims to enhance customer satisfaction and operational efficiency through features like categorized services, flexible professional selection, and real-time availability. It also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance, with ambitions for future integration with growth and analytics tools to maximize spa revenue and customer engagement.
 
 ## Recent Changes (October 16, 2025)
--   **Database Optimization & Audit Trail (Latest):**
+-   **Audit Trail Enhancement & Package Updates (Latest):**
+    -   Enhanced audit logs with dedicated spaId and userRole columns for efficient compliance queries
+    -   Admin audit log endpoint now supports full filtering: userId, spaId, userRole, action, entityType, entityId, startDate, endDate
+    -   Database storage properly implements all audit trail filters with indexed columns for performance
+    -   Installed additional packages: Stripe, Sentry, Winston, Nodemailer, Twilio, node-cron, Helmet, express-rate-limit, i18next, testing tools
+    -   Fixed toast auto-dismiss: Client update/add/delete success messages now automatically disappear after 3 seconds
+-   **Database Optimization & Audit Trail:**
     -   Added performance indexes to critical tables (bookings, invoices, products) for faster queries
     -   Implemented audit logs table to track all important changes (CREATE, UPDATE, DELETE actions)
-    -   Audit trail captures user actions, entity changes, IP address, and user agent for security compliance
-    -   Indexed audit logs by user, entity, action, and timestamp for efficient querying
+    -   Audit trail captures user context, IP address, and user agent for security compliance
+    -   Indexed audit logs by userId, spaId, userRole, entityType/entityId, action, and createdAt
 -   **Security Hardening & Input Validation:**
     -   Added parseNumericId helper function for secure ID parameter validation across all routes
     -   Implemented handleRouteError for consistent error handling with Zod validation support

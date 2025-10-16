@@ -214,6 +214,7 @@ export interface IStorage {
     action?: string;
     entityType?: string;
     entityId?: number;
+    spaId?: number;
     startDate?: Date;
     endDate?: Date;
     limit?: number;

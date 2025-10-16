@@ -64,6 +64,7 @@ export default function AdminClients() {
       toast({
         title: "Client added",
         description: "The client has been added successfully.",
+        duration: 3000,
       });
     },
     onError: () => {
@@ -86,6 +87,7 @@ export default function AdminClients() {
       toast({
         title: "Client updated",
         description: "The client has been updated successfully.",
+        duration: 3000,
       });
     },
     onError: () => {
@@ -106,6 +108,7 @@ export default function AdminClients() {
       toast({
         title: "Client deleted",
         description: "The client has been deleted successfully.",
+        duration: 3000,
       });
     },
     onError: () => {
