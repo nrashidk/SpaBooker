@@ -231,6 +231,9 @@ export const bookings = pgTable("bookings", {
   bookingDate: timestamp("booking_date").notNull(),
   status: text("status").notNull().default("confirmed"), // confirmed, completed, cancelled, no-show, modified
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  discountType: text("discount_type"), // flat, percentage
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0.00"), // e.g., 50 for AED 50 or 20 for 20%
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"), // calculated discount amount
   notes: text("notes"),
   notificationSent: boolean("notification_sent").default(false),
   cancelledAt: timestamp("cancelled_at"),
@@ -392,6 +395,8 @@ export const loyaltyCards = pgTable("loyalty_cards", {
   usedSessions: integer("used_sessions").default(0).notNull(), // sessions already used
   expiryDate: timestamp("expiry_date"), // optional expiry
   purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }).notNull(),
+  discountType: text("discount_type"), // flat, percentage
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0.00"), // e.g., 50 for AED 50 or 20 for 20%
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
   status: text("status").notNull().default("active"), // active, expired, fully_used, cancelled
   invoiceId: integer("invoice_id").references(() => invoices.id), // links to payment
