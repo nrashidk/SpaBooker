@@ -1,0 +1,38 @@
+1. Booking Page (client/src/pages/booking.tsx)
+Flow: This page uses React state to manage the multi-step booking process.
+Buttons: Functions like handleContinueToProfessional, handleContinueToTime, handleContinueToDetails, and handleCustomerDetailsSubmit are tied to UI actions (buttons).
+Data Capture: Data such as selected services, professionals, date/time, and customer details are stored in React state variables.
+Data Storage: When customer details are submitted, a comment says:
+// TODO: Send to backend to save booking and send notifications.
+Currently, it only simulates a delay and sets confirmation (setIsConfirmed(true);).
+Result: Data is NOT sent to a backend or persisted anywhere—it's only present in memory for the current user session.
+UI Update: The booking confirmation page reflects the captured selection, but nothing is actually stored for later retrieval.
+2. Admin Pages (Bookings, Services, Marketing, Finance, Calendar)
+Buttons: All admin features show buttons (e.g., add/edit/view in Bookings, Services, Campaigns, etc.) with recognizable onClick handlers.
+Data:
+Many admin pages (e.g., Bookings, Services) currently use hardcoded/mock data arrays (not dynamic or fetched from a backend).
+Buttons like "Save", "Add category", "Edit", "Delete" are visible, but their handlers either update only local state or are not connected to persistent storage.
+For example, in Services, the "Save" button does not appear to call an API or mutate global data—changes are not persisted.
+Reflection: UI updates may occur in the current session (e.g., adding a category), but data is lost on refresh because nothing is stored to a database or even to localStorage.
+API Integration:
+There are useQuery and useMutation hooks set up for integration (especially in Calendar, Finance, etc.), but the actual backend API endpoints or integration logic are either missing or not implemented for all features.
+The backend (server/index.ts, server/routes.ts) shows express is set up and ready for API routes, but booking-related POST/PUT/DELETE routes are not shown to be called from the frontend.
+3. Backend (server/index.ts, server/routes.ts)
+The backend is set up to accept requests and has placeholders for routes, but unless the frontend actually calls these endpoints, no data is saved.
+There is a storage import, but again, unless explicitly called, data is not persisted.
+4. Other Observations
+Test IDs: Many buttons have data-testid attributes, which is good for automated UI testing, but this does not guarantee functionality.
+Planned Integrations: The documentation mentions plans for database and API integrations, but these are not yet implemented.
+Conclusion / Summary Table
+Area	Button/Function	Data Capture	Data Storage	Data Reflected on Page
+Booking Page	Yes	Yes	No	Yes (in session only)
+Admin Pages	Yes	Yes	No	Yes (in session only)
+Backend API	Ready	N/A	Possible	N/A
+Key Finding:
+
+The buttons and functions generally work at the UI/state level (data is captured and reflected for the current session), but there is NO persistent storage: nothing is saved to a backend or database. Data will disappear if the user refreshes the page or navigates away.
+Recommendation
+Connect the frontend to your backend API for all data-mutating actions (add/edit/delete/save).
+Implement API calls inside button handlers and useMutation hooks.
+Ensure backend endpoints actually store and retrieve data (e.g., via a database or at least file storage for development).
+Only then will your app capture, store, and reflect user/admin actions persistently.

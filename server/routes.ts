@@ -941,7 +941,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/bookings", isAdmin, async (req, res) => {
     try {
       const bookings = await storage.getAllBookings();
-      res.json(bookings);
+      
+      // Enrich bookings with related data
+      const enrichedBookings = await Promise.all(
+        bookings.map(async (booking) => {
+          const customer = await storage.getCustomerById(booking.customerId);
+          const staff = booking.staffId ? await storage.getStaffById(booking.staffId) : null;
+          const bookingItems = await storage.getBookingItemsByBookingId(booking.id);
+          
+          const allServices = await storage.getAllServices();
+          const services = bookingItems.map((item) => {
+            return allServices.find((s: any) => s.id === item.serviceId);
+          }).filter(Boolean);
+
+          return {
+            ...booking,
+            customer,
+            staff,
+            services,
+            bookingItems,
+          };
+        })
+      );
+
+      res.json(enrichedBookings);
     } catch (error) {
       console.error("Error fetching bookings:", error);
       res.status(500).json({ message: "Failed to fetch bookings" });
