@@ -4,7 +4,19 @@
 Serene Spa is an online booking system, inspired by Fresha, offering a 4-step booking process for spa treatments. It supports multiple spa venues, allowing customers to search across all locations and book services. The platform aims to enhance customer satisfaction and operational efficiency through features like categorized services, flexible professional selection, and real-time availability. It also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance, with ambitions for future integration with growth and analytics tools to maximize spa revenue and customer engagement.
 
 ## Recent Changes (October 16, 2025)
--   **Service Management Enhancements (Latest):**
+-   **Static Data Removal for Clean Testing (Latest):**
+    -   Removed all static/mock data from admin pages to enable testing from scratch
+    -   Finance page: Cleared mock vendors, expenses, bills, hardcoded revenue (45,230 → 0), and recent invoices
+    -   Reports page: Removed mock chart data (salesByChannel, occupancyRateData, returningClientData)
+    -   Sales, Dashboard, and Staff pages already use real API data - no changes needed
+    -   All pages now initialize with empty states and display real data from the database
+    -   Users can now test the complete workflow and see data reflection across Finance, Sales, Team, and Reports
+-   **Reports Page Cleanup:**
+    -   Removed Premium, Custom, Targets, Folders, and Data connector sections
+    -   Simplified to three categories: Favourites, Dashboards, and Standard
+    -   Removed Add button from top right
+    -   Default category changed from Dashboards to Favourites
+-   **Service Management Enhancements:**
     -   Services grouped by category when viewing "All categories" with alphabetically sorted category headers
     -   Implemented edit and delete functionality via 3-dot menu on each service card
     -   Fixed search functionality to filter services by name and description in real-time
