@@ -10,6 +10,7 @@ import {
   Users, Navigation, Grid3x3, Wand2, Eye, Wind, Flower2, Droplets,
   Syringe, HeartPulse, Bone, UserCheck, Smile, Stethoscope, Brain
 } from "lucide-react";
+import { APP_CONFIG } from "@shared/constants";
 
 const treatmentCategories = [
   { id: "all", name: "All treatments", icon: Grid3x3 },
@@ -127,7 +128,7 @@ export default function Home() {
       {/* Header */}
       <header className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm">
         <Link href="/">
-          <h1 className="text-2xl font-bold cursor-pointer" data-testid="text-logo">SpaBooker</h1>
+          <h1 className="text-2xl font-bold cursor-pointer" data-testid="text-logo">{APP_CONFIG.APP_NAME}</h1>
         </Link>
         
         <div className="flex items-center gap-3">

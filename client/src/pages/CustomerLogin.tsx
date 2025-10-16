@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiFacebook, SiGoogle } from "react-icons/si";
 import { Separator } from "@/components/ui/separator";
+import { APP_CONFIG } from "@shared/constants";
 
 export default function CustomerLogin() {
   const [email, setEmail] = useState("");
@@ -33,7 +34,7 @@ export default function CustomerLogin() {
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold" data-testid="text-title">
-              SpaBooker for customers
+              {APP_CONFIG.APP_NAME} for customers
             </h1>
             <p className="text-muted-foreground" data-testid="text-subtitle">
               Create an account or log in to book and manage your appointments.

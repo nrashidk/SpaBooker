@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Calendar, Users, TrendingUp, DollarSign, Megaphone, Plug, Package, UserCog, ArrowRight, Sparkles } from "lucide-react";
+import { APP_CONFIG } from "@shared/constants";
 
 export default function AdminLanding() {
   const [, setLocation] = useLocation();
@@ -85,7 +86,7 @@ export default function AdminLanding() {
                 <Sparkles className="w-7 h-7 text-primary" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-                SpaBooker
+                {APP_CONFIG.APP_NAME}
               </h1>
             </div>
 
