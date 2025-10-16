@@ -302,6 +302,52 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
   transactionDate: timestamp("transaction_date").defaultNow().notNull(),
 });
 
+// Loyalty Cards (packages/prepaid services)
+export const loyaltyCards = pgTable("loyalty_cards", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  cardType: text("card_type").notNull(), // e.g., "6-session haircut package"
+  serviceId: integer("service_id").references(() => services.id), // linked service type
+  purchaseDate: timestamp("purchase_date").defaultNow().notNull(),
+  totalSessions: integer("total_sessions").notNull(), // total sessions in package
+  usedSessions: integer("used_sessions").default(0).notNull(), // sessions already used
+  expiryDate: timestamp("expiry_date"), // optional expiry
+  purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
+  status: text("status").notNull().default("active"), // active, expired, fully_used, cancelled
+  invoiceId: integer("invoice_id").references(() => invoices.id), // links to payment
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Loyalty Card Usage tracking
+export const loyaltyCardUsage = pgTable("loyalty_card_usage", {
+  id: serial("id").primaryKey(),
+  loyaltyCardId: integer("loyalty_card_id").references(() => loyaltyCards.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id).notNull(),
+  bookingItemId: integer("booking_item_id").references(() => bookingItems.id), // specific service used
+  usedAt: timestamp("used_at").defaultNow().notNull(),
+  sessionValue: decimal("session_value", { precision: 10, scale: 2 }).notNull(), // value of this session
+  notes: text("notes"),
+});
+
+// Product Sales (retail/POS transactions)
+export const productSales = pgTable("product_sales", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
+  saleDate: timestamp("sale_date").defaultNow().notNull(),
+  invoiceId: integer("invoice_id").references(() => invoices.id), // links to invoice
+  transactionId: integer("transaction_id").references(() => transactions.id), // links to payment
+  soldBy: integer("sold_by").references(() => staff.id), // staff member who made the sale
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertSpaSchema = createInsertSchema(spas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSpaSettingsSchema = createInsertSchema(spaSettings).omit({ id: true, updatedAt: true });
@@ -325,6 +371,9 @@ export const insertBillSchema = createInsertSchema(bills).omit({ id: true, creat
 export const insertBillItemSchema = createInsertSchema(billItems).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true });
+export const insertLoyaltyCardSchema = createInsertSchema(loyaltyCards).omit({ id: true, createdAt: true });
+export const insertLoyaltyCardUsageSchema = createInsertSchema(loyaltyCardUsage).omit({ id: true });
+export const insertProductSaleSchema = createInsertSchema(productSales).omit({ id: true, createdAt: true });
 
 // Insert Types (for creating new records)
 export type InsertSpa = z.infer<typeof insertSpaSchema>;
@@ -346,6 +395,9 @@ export type InsertBill = z.infer<typeof insertBillSchema>;
 export type InsertBillItem = z.infer<typeof insertBillItemSchema>;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
+export type InsertLoyaltyCard = z.infer<typeof insertLoyaltyCardSchema>;
+export type InsertLoyaltyCardUsage = z.infer<typeof insertLoyaltyCardUsageSchema>;
+export type InsertProductSale = z.infer<typeof insertProductSaleSchema>;
 
 // Select Types (for reading records)
 export type Spa = typeof spas.$inferSelect;
@@ -367,6 +419,9 @@ export type Bill = typeof bills.$inferSelect;
 export type BillItem = typeof billItems.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export type LoyaltyCard = typeof loyaltyCards.$inferSelect;
+export type LoyaltyCardUsage = typeof loyaltyCardUsage.$inferSelect;
+export type ProductSale = typeof productSales.$inferSelect;
 
 // Enhanced validation schemas with specific enums and categories
 

@@ -15,6 +15,9 @@ import {
   insertBookingSchema,
   insertBookingItemSchema,
   insertTransactionSchema,
+  insertLoyaltyCardSchema,
+  insertLoyaltyCardUsageSchema,
+  insertProductSaleSchema,
 } from "@shared/schema";
 
 // Helper function for consistent error handling
@@ -1169,6 +1172,251 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating sale:", error);
       res.status(500).json({ message: "Failed to create sale" });
+    }
+  });
+
+  // Loyalty Card routes
+  app.get("/api/admin/loyalty-cards", isAdmin, async (req, res) => {
+    try {
+      const cards = await storage.getAllLoyaltyCards();
+      res.json(cards);
+    } catch (error) {
+      console.error("Error fetching loyalty cards:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty cards" });
+    }
+  });
+
+  app.get("/api/admin/loyalty-cards/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid loyalty card ID" });
+      }
+      const card = await storage.getLoyaltyCardById(id);
+      if (!card) {
+        return res.status(404).json({ message: "Loyalty card not found" });
+      }
+      res.json(card);
+    } catch (error) {
+      console.error("Error fetching loyalty card:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty card" });
+    }
+  });
+
+  app.get("/api/admin/customers/:customerId/loyalty-cards", isAdmin, async (req, res) => {
+    try {
+      const customerId = parseNumericId(req.params.customerId);
+      if (customerId === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+      const cards = await storage.getLoyaltyCardsByCustomerId(customerId);
+      res.json(cards);
+    } catch (error) {
+      console.error("Error fetching customer loyalty cards:", error);
+      res.status(500).json({ message: "Failed to fetch customer loyalty cards" });
+    }
+  });
+
+  app.post("/api/admin/loyalty-cards", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertLoyaltyCardSchema.parse(req.body);
+      const card = await storage.createLoyaltyCard(validatedData);
+      res.json(card);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid loyalty card data", errors: error.errors });
+      }
+      console.error("Error creating loyalty card:", error);
+      res.status(500).json({ message: "Failed to create loyalty card" });
+    }
+  });
+
+  app.put("/api/admin/loyalty-cards/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid loyalty card ID" });
+      }
+      const validatedData = insertLoyaltyCardSchema.partial().parse(req.body);
+      const card = await storage.updateLoyaltyCard(id, validatedData);
+      if (!card) {
+        return res.status(404).json({ message: "Loyalty card not found" });
+      }
+      res.json(card);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid loyalty card data", errors: error.errors });
+      }
+      console.error("Error updating loyalty card:", error);
+      res.status(500).json({ message: "Failed to update loyalty card" });
+    }
+  });
+
+  app.delete("/api/admin/loyalty-cards/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid loyalty card ID" });
+      }
+      const deleted = await storage.deleteLoyaltyCard(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Loyalty card not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting loyalty card:", error);
+      res.status(500).json({ message: "Failed to delete loyalty card" });
+    }
+  });
+
+  // Loyalty Card Usage routes
+  app.get("/api/admin/loyalty-cards/:cardId/usage", isAdmin, async (req, res) => {
+    try {
+      const cardId = parseNumericId(req.params.cardId);
+      if (cardId === null) {
+        return res.status(400).json({ message: "Invalid loyalty card ID" });
+      }
+      const usage = await storage.getLoyaltyCardUsageByCardId(cardId);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error fetching loyalty card usage:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty card usage" });
+    }
+  });
+
+  app.post("/api/admin/loyalty-cards/:cardId/use", isAdmin, async (req, res) => {
+    try {
+      const cardId = parseNumericId(req.params.cardId);
+      if (cardId === null) {
+        return res.status(400).json({ message: "Invalid loyalty card ID" });
+      }
+
+      const validatedData = insertLoyaltyCardUsageSchema.parse({
+        ...req.body,
+        loyaltyCardId: cardId,
+      });
+      
+      // Get the card to update used sessions
+      const card = await storage.getLoyaltyCardById(cardId);
+      if (!card) {
+        return res.status(404).json({ message: "Loyalty card not found" });
+      }
+
+      // Check if card has sessions remaining
+      if (card.usedSessions >= card.totalSessions) {
+        return res.status(400).json({ message: "No sessions remaining on this card" });
+      }
+
+      // Create usage record
+      const usage = await storage.createLoyaltyCardUsage(validatedData);
+
+      // Update card's used sessions
+      await storage.updateLoyaltyCard(cardId, {
+        usedSessions: card.usedSessions + 1,
+        status: card.usedSessions + 1 >= card.totalSessions ? "fully_used" : "active",
+      });
+
+      res.json(usage);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid usage data", errors: error.errors });
+      }
+      console.error("Error recording loyalty card usage:", error);
+      res.status(500).json({ message: "Failed to record loyalty card usage" });
+    }
+  });
+
+  // Product Sales routes
+  app.get("/api/admin/product-sales", isAdmin, async (req, res) => {
+    try {
+      const sales = await storage.getAllProductSales();
+      res.json(sales);
+    } catch (error) {
+      console.error("Error fetching product sales:", error);
+      res.status(500).json({ message: "Failed to fetch product sales" });
+    }
+  });
+
+  app.get("/api/admin/product-sales/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid product sale ID" });
+      }
+      const sale = await storage.getProductSaleById(id);
+      if (!sale) {
+        return res.status(404).json({ message: "Product sale not found" });
+      }
+      res.json(sale);
+    } catch (error) {
+      console.error("Error fetching product sale:", error);
+      res.status(500).json({ message: "Failed to fetch product sale" });
+    }
+  });
+
+  app.get("/api/admin/customers/:customerId/product-sales", isAdmin, async (req, res) => {
+    try {
+      const customerId = parseNumericId(req.params.customerId);
+      if (customerId === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+      const sales = await storage.getProductSalesByCustomerId(customerId);
+      res.json(sales);
+    } catch (error) {
+      console.error("Error fetching customer product sales:", error);
+      res.status(500).json({ message: "Failed to fetch customer product sales" });
+    }
+  });
+
+  app.post("/api/admin/product-sales", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertProductSaleSchema.parse(req.body);
+      const sale = await storage.createProductSale(validatedData);
+      res.json(sale);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid product sale data", errors: error.errors });
+      }
+      console.error("Error creating product sale:", error);
+      res.status(500).json({ message: "Failed to create product sale" });
+    }
+  });
+
+  app.put("/api/admin/product-sales/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid product sale ID" });
+      }
+      const validatedData = insertProductSaleSchema.partial().parse(req.body);
+      const sale = await storage.updateProductSale(id, validatedData);
+      if (!sale) {
+        return res.status(404).json({ message: "Product sale not found" });
+      }
+      res.json(sale);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid product sale data", errors: error.errors });
+      }
+      console.error("Error updating product sale:", error);
+      res.status(500).json({ message: "Failed to update product sale" });
+    }
+  });
+
+  app.delete("/api/admin/product-sales/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid product sale ID" });
+      }
+      const deleted = await storage.deleteProductSale(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Product sale not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting product sale:", error);
+      res.status(500).json({ message: "Failed to delete product sale" });
     }
   });
 

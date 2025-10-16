@@ -19,6 +19,9 @@ import {
   billItems,
   inventoryTransactions,
   staffTimeEntries,
+  loyaltyCards,
+  loyaltyCardUsage,
+  productSales,
   type User,
   type UpsertUser,
   type Spa,
@@ -51,6 +54,12 @@ import {
   type InsertBillItem,
   type Transaction,
   type InsertTransaction,
+  type LoyaltyCard,
+  type InsertLoyaltyCard,
+  type LoyaltyCardUsage,
+  type InsertLoyaltyCardUsage,
+  type ProductSale,
+  type InsertProductSale,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -165,6 +174,26 @@ export interface IStorage {
   getAllTransactions(): Promise<Transaction[]>;
   getTransactionById(id: number): Promise<Transaction | undefined>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+
+  // Loyalty Card operations
+  getAllLoyaltyCards(): Promise<LoyaltyCard[]>;
+  getLoyaltyCardById(id: number): Promise<LoyaltyCard | undefined>;
+  getLoyaltyCardsByCustomerId(customerId: number): Promise<LoyaltyCard[]>;
+  createLoyaltyCard(card: InsertLoyaltyCard): Promise<LoyaltyCard>;
+  updateLoyaltyCard(id: number, card: Partial<InsertLoyaltyCard>): Promise<LoyaltyCard | undefined>;
+  deleteLoyaltyCard(id: number): Promise<boolean>;
+
+  // Loyalty Card Usage operations
+  getLoyaltyCardUsageByCardId(cardId: number): Promise<LoyaltyCardUsage[]>;
+  createLoyaltyCardUsage(usage: InsertLoyaltyCardUsage): Promise<LoyaltyCardUsage>;
+
+  // Product Sales operations
+  getAllProductSales(): Promise<ProductSale[]>;
+  getProductSaleById(id: number): Promise<ProductSale | undefined>;
+  getProductSalesByCustomerId(customerId: number): Promise<ProductSale[]>;
+  createProductSale(sale: InsertProductSale): Promise<ProductSale>;
+  updateProductSale(id: number, sale: Partial<InsertProductSale>): Promise<ProductSale | undefined>;
+  deleteProductSale(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -627,6 +656,88 @@ export class DatabaseStorage implements IStorage {
   async createTransaction(transactionData: InsertTransaction): Promise<Transaction> {
     const [newTransaction] = await db.insert(transactions).values(transactionData).returning();
     return newTransaction;
+  }
+
+  // Loyalty Card operations
+  async getAllLoyaltyCards(): Promise<LoyaltyCard[]> {
+    return db.select().from(loyaltyCards).orderBy(desc(loyaltyCards.purchaseDate));
+  }
+
+  async getLoyaltyCardById(id: number): Promise<LoyaltyCard | undefined> {
+    const [card] = await db.select().from(loyaltyCards).where(eq(loyaltyCards.id, id));
+    return card;
+  }
+
+  async getLoyaltyCardsByCustomerId(customerId: number): Promise<LoyaltyCard[]> {
+    return db.select().from(loyaltyCards)
+      .where(eq(loyaltyCards.customerId, customerId))
+      .orderBy(desc(loyaltyCards.purchaseDate));
+  }
+
+  async createLoyaltyCard(cardData: InsertLoyaltyCard): Promise<LoyaltyCard> {
+    const [newCard] = await db.insert(loyaltyCards).values(cardData).returning();
+    return newCard;
+  }
+
+  async updateLoyaltyCard(id: number, cardData: Partial<InsertLoyaltyCard>): Promise<LoyaltyCard | undefined> {
+    const [updated] = await db
+      .update(loyaltyCards)
+      .set(cardData)
+      .where(eq(loyaltyCards.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLoyaltyCard(id: number): Promise<boolean> {
+    const result = await db.delete(loyaltyCards).where(eq(loyaltyCards.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Loyalty Card Usage operations
+  async getLoyaltyCardUsageByCardId(cardId: number): Promise<LoyaltyCardUsage[]> {
+    return db.select().from(loyaltyCardUsage)
+      .where(eq(loyaltyCardUsage.loyaltyCardId, cardId))
+      .orderBy(desc(loyaltyCardUsage.usedAt));
+  }
+
+  async createLoyaltyCardUsage(usageData: InsertLoyaltyCardUsage): Promise<LoyaltyCardUsage> {
+    const [newUsage] = await db.insert(loyaltyCardUsage).values(usageData).returning();
+    return newUsage;
+  }
+
+  // Product Sales operations
+  async getAllProductSales(): Promise<ProductSale[]> {
+    return db.select().from(productSales).orderBy(desc(productSales.saleDate));
+  }
+
+  async getProductSaleById(id: number): Promise<ProductSale | undefined> {
+    const [sale] = await db.select().from(productSales).where(eq(productSales.id, id));
+    return sale;
+  }
+
+  async getProductSalesByCustomerId(customerId: number): Promise<ProductSale[]> {
+    return db.select().from(productSales)
+      .where(eq(productSales.customerId, customerId))
+      .orderBy(desc(productSales.saleDate));
+  }
+
+  async createProductSale(saleData: InsertProductSale): Promise<ProductSale> {
+    const [newSale] = await db.insert(productSales).values(saleData).returning();
+    return newSale;
+  }
+
+  async updateProductSale(id: number, saleData: Partial<InsertProductSale>): Promise<ProductSale | undefined> {
+    const [updated] = await db
+      .update(productSales)
+      .set(saleData)
+      .where(eq(productSales.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProductSale(id: number): Promise<boolean> {
+    const result = await db.delete(productSales).where(eq(productSales.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 
