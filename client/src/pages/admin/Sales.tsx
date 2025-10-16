@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Booking, BookingItem, Service } from "@shared/schema";
+import type { Booking, BookingItem, Service, ProductSale, LoyaltyCard } from "@shared/schema";
 
 export default function AdminSales() {
   const { toast } = useToast();
@@ -36,6 +36,14 @@ export default function AdminSales() {
     queryKey: ['/api/admin/services'],
   });
 
+  const { data: productSales = [] } = useQuery<ProductSale[]>({
+    queryKey: ['/api/admin/product-sales'],
+  });
+
+  const { data: loyaltyCards = [] } = useQuery<LoyaltyCard[]>({
+    queryKey: ['/api/admin/loyalty-cards'],
+  });
+
   // Mutation to create a sale
   const createSaleMutation = useMutation({
     mutationFn: async (saleData: {
@@ -49,6 +57,8 @@ export default function AdminSales() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/bookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/product-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/loyalty-cards'] });
       toast({
         title: "Sale added",
         description: "The sale has been recorded successfully.",
@@ -75,16 +85,38 @@ export default function AdminSales() {
     return format(bookingDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
   });
 
+  // Filter product sales for selected date
+  const dailyProductSales = productSales.filter(p => {
+    const saleDate = new Date(p.saleDate);
+    return format(saleDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+  });
+
+  // Filter loyalty cards for selected date
+  const dailyLoyaltyCards = loyaltyCards.filter(lc => {
+    const purchaseDate = new Date(lc.purchaseDate);
+    return format(purchaseDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+  });
+
+  // Calculate totals
+  const servicesTotal = dailyBookings
+    .filter(b => b.status === 'completed')
+    .reduce((sum, b) => sum + parseFloat(b.totalAmount?.toString() || '0'), 0);
+
+  const productsTotal = dailyProductSales
+    .reduce((sum, p) => sum + parseFloat(p.totalPrice?.toString() || '0'), 0);
+
+  const loyaltyCardsTotal = dailyLoyaltyCards
+    .reduce((sum, lc) => sum + parseFloat(lc.purchasePrice?.toString() || '0'), 0);
+
+  const grandTotal = servicesTotal + productsTotal + loyaltyCardsTotal;
+
   // Calculate transaction summary
   const transactionSummary = [
     {
       itemType: 'Services',
       itemsSold: dailyBookings.filter(b => b.status === 'completed').length,
       refunds: 0,
-      grossTotal: dailyBookings
-        .filter(b => b.status === 'completed')
-        .reduce((sum, b) => sum + parseFloat(b.totalAmount?.toString() || '0'), 0)
-        .toFixed(2),
+      grossTotal: servicesTotal.toFixed(2),
     },
     {
       itemType: 'Service with add-on',
@@ -94,9 +126,9 @@ export default function AdminSales() {
     },
     {
       itemType: 'Products',
-      itemsSold: 0,
+      itemsSold: dailyProductSales.length,
       refunds: 0,
-      grossTotal: '0.00',
+      grossTotal: productsTotal.toFixed(2),
     },
     {
       itemType: 'Vouchers',
@@ -111,10 +143,10 @@ export default function AdminSales() {
       grossTotal: '0.00',
     },
     {
-      itemType: 'Gift cards',
-      itemsSold: 0,
+      itemType: 'Loyalty cards',
+      itemsSold: dailyLoyaltyCards.length,
       refunds: 0,
-      grossTotal: '0.00',
+      grossTotal: loyaltyCardsTotal.toFixed(2),
     },
     {
       itemType: 'Memberships',
@@ -144,10 +176,7 @@ export default function AdminSales() {
       itemType: 'Total Sales',
       itemsSold: 0,
       refunds: 0,
-      grossTotal: dailyBookings
-        .filter(b => b.status === 'completed')
-        .reduce((sum, b) => sum + parseFloat(b.totalAmount?.toString() || '0'), 0)
-        .toFixed(2),
+      grossTotal: grandTotal.toFixed(2),
     },
   ];
 
