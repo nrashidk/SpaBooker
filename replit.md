@@ -3,6 +3,22 @@
 ## Overview
 Serene Spa is an online booking system, inspired by Fresha, offering a 4-step booking process for spa treatments. It supports multiple spa venues, allowing customers to search across all locations and book services. The platform aims to enhance customer satisfaction and operational efficiency through features like categorized services, flexible professional selection, and real-time availability. It also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance, with ambitions for future integration with growth and analytics tools to maximize spa revenue and customer engagement.
 
+## Recent Changes (October 16, 2025)
+-   **Code Quality Improvements:**
+    -   Replaced non-null assertions in BookingFlow.tsx with proper null/undefined guards to prevent runtime errors
+    -   Enhanced admin bookings API endpoint to return enriched data with customer, staff, and service details
+    -   Updated admin Bookings page to fetch real API data instead of using hardcoded demo bookings
+-   **Configuration & Branding:**
+    -   Created `shared/constants.ts` for centralized app configuration
+    -   Replaced all hardcoded "SpaBooker" branding with configurable APP_CONFIG constants
+    -   All branding is now managed from a single source of truth
+-   **UI/UX Enhancements:**
+    -   Added favicon (inline SVG sparkles icon) to index.html
+    -   Added meta theme-color for better browser integration
+    -   Added noscript fallback message for users without JavaScript
+-   **Repository Cleanup:**
+    -   Removed temporary pasted text files from attached_assets directory
+
 ## User Preferences
 - 4-step booking sequence (Services → Professional → Time → Details)
 - Category-based service browsing
