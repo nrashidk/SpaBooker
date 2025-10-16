@@ -41,6 +41,8 @@ export default function AdminServices() {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newServiceStep, setNewServiceStep] = useState("basic-details");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [serviceForm, setServiceForm] = useState({
     name: "",
     categoryId: null as number | null,
@@ -90,6 +92,59 @@ export default function AdminServices() {
     },
   });
 
+  const updateServiceMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest('PUT', `/api/admin/services/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/services'] });
+      setShowNewService(false);
+      setEditingService(null);
+      setServiceForm({
+        name: "",
+        categoryId: null,
+        treatmentType: "",
+        description: "",
+        priceType: "fixed",
+        price: "",
+        duration: "60",
+      });
+      toast({
+        title: "Service updated",
+        description: "The service has been updated successfully.",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update service. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/services/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/services'] });
+      toast({
+        title: "Service deleted",
+        description: "The service has been deleted successfully.",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete service. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const createCategoryMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
       return apiRequest('POST', '/api/admin/service-categories', {
@@ -126,14 +181,43 @@ export default function AdminServices() {
       return;
     }
 
-    createServiceMutation.mutate({
+    const dataToSubmit = {
       spaId: 1, // TODO: Get from auth context
       name: serviceForm.name,
       categoryId: serviceForm.categoryId,
       description: serviceForm.description || null,
       price: serviceForm.price,
       duration: parseInt(serviceForm.duration),
+    };
+
+    if (editingService) {
+      updateServiceMutation.mutate({
+        id: editingService.id,
+        data: dataToSubmit,
+      });
+    } else {
+      createServiceMutation.mutate(dataToSubmit);
+    }
+  };
+
+  const handleEditService = (service: Service) => {
+    setServiceForm({
+      name: service.name,
+      categoryId: service.categoryId,
+      treatmentType: "",
+      description: service.description || "",
+      priceType: "fixed",
+      price: service.price.toString(),
+      duration: service.duration.toString(),
     });
+    setEditingService(service);
+    setShowNewService(true);
+  };
+
+  const handleDeleteService = (id: number) => {
+    if (confirm('Are you sure you want to delete this service?')) {
+      deleteServiceMutation.mutate(id);
+    }
   };
 
   const handleAddCategory = () => {
@@ -171,25 +255,44 @@ export default function AdminServices() {
     }
   ];
 
-  // Build categories list from database
+  // Build categories list from database - sorted alphabetically
   const getCategoryCount = (categoryId: number | string) => {
     if (categoryId === "all") return services.length;
     return services.filter(s => s.categoryId === categoryId).length;
   };
 
+  const sortedServiceCategories = [...serviceCategories].sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
+
   const categories = [
     { id: "all", label: "All categories", count: services.length },
-    ...serviceCategories.map(cat => ({
+    ...sortedServiceCategories.map(cat => ({
       id: cat.id,
       label: cat.name,
       count: getCategoryCount(cat.id),
     })),
   ];
 
-  // Filter services based on selected category
-  const filteredServices = selectedCategory === "all" 
-    ? services 
-    : services.filter(s => s.categoryId === selectedCategory);
+  // Filter services based on selected category and search query
+  const filteredServices = services
+    .filter(s => selectedCategory === "all" || s.categoryId === selectedCategory)
+    .filter(s => 
+      searchQuery === "" || 
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.description ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  // Group services by category for display
+  const groupedServices: { [key: string]: Service[] } = {};
+  filteredServices.forEach(service => {
+    const category = serviceCategories.find(cat => cat.id === service.categoryId);
+    const categoryName = category?.name || 'Uncategorized';
+    if (!groupedServices[categoryName]) {
+      groupedServices[categoryName] = [];
+    }
+    groupedServices[categoryName].push(service);
+  });
 
   const serviceSteps = [
     { id: "basic-details", label: "Basic details" },
@@ -299,35 +402,93 @@ export default function AdminServices() {
               <Input
                 placeholder="Search service name"
                 className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 data-testid="input-search-services"
               />
             </div>
-            <Button variant="outline" size="sm" data-testid="button-filters">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => toast({ title: "Coming soon", description: "Filters will be available soon." })}
+              data-testid="button-filters"
+            >
               <Filter className="h-4 w-4 mr-2" />
               Filters
             </Button>
-            <Button variant="outline" size="sm" data-testid="button-manage-order">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => toast({ title: "Coming soon", description: "Manage order will be available soon." })}
+              data-testid="button-manage-order"
+            >
               <ListTree className="h-4 w-4 mr-2" />
               Manage order
             </Button>
           </div>
 
-          <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              {selectedCategory === "all" ? "All services" : categories.find(c => c.id === selectedCategory)?.label}
-              <Button variant="ghost" size="sm" data-testid="button-actions">
-                Actions
-                <ChevronDown className="h-4 w-4 ml-1" />
-              </Button>
-            </h3>
-
-            <div className="space-y-2">
-              {filteredServices.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No services in this category
-                </p>
-              ) : (
-                filteredServices.map((service) => (
+          {filteredServices.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              {searchQuery ? "No services match your search" : "No services in this category"}
+            </p>
+          ) : selectedCategory === "all" ? (
+            // Group by category when showing all services
+            <div className="space-y-6">
+              {Object.keys(groupedServices).sort().map((categoryName) => (
+                <div key={categoryName}>
+                  <h3 className="font-semibold mb-3">{categoryName}</h3>
+                  <div className="space-y-2">
+                    {groupedServices[categoryName].map((service) => (
+                      <Card key={service.id} className="hover-elevate" data-testid={`service-card-${service.id}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{service.name}</h4>
+                              <p className="text-sm text-muted-foreground">{service.duration}min</p>
+                              {service.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="font-semibold">AED {service.price}</p>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" data-testid={`button-service-menu-${service.id}`}>
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleEditService(service)} data-testid={`edit-service-${service.id}`}>
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteService(service.id)}
+                                    className="text-destructive"
+                                    data-testid={`delete-service-${service.id}`}
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Show flat list when a specific category is selected
+            <div>
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                {categories.find(c => c.id === selectedCategory)?.label}
+              </h3>
+              <div className="space-y-2">
+                {filteredServices.map((service) => (
                   <Card key={service.id} className="hover-elevate" data-testid={`service-card-${service.id}`}>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -342,17 +503,33 @@ export default function AdminServices() {
                           <div className="text-right">
                             <p className="font-semibold">AED {service.price}</p>
                           </div>
-                          <Button variant="ghost" size="icon" data-testid={`button-service-menu-${service.id}`}>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" data-testid={`button-service-menu-${service.id}`}>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditService(service)} data-testid={`edit-service-${service.id}`}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteService(service.id)}
+                                className="text-destructive"
+                                data-testid={`delete-service-${service.id}`}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -363,12 +540,32 @@ export default function AdminServices() {
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="border-b p-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">New service</h2>
+          <h2 className="text-2xl font-bold">{editingService ? 'Edit service' : 'New service'}</h2>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setShowNewService(false)} data-testid="button-close-service">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowNewService(false);
+                setEditingService(null);
+                setServiceForm({
+                  name: "",
+                  categoryId: null,
+                  treatmentType: "",
+                  description: "",
+                  priceType: "fixed",
+                  price: "",
+                  duration: "60",
+                });
+              }} 
+              data-testid="button-close-service"
+            >
               Close
             </Button>
-            <Button onClick={handleSaveService} disabled={createServiceMutation.isPending} data-testid="button-save-service">
+            <Button 
+              onClick={handleSaveService} 
+              disabled={createServiceMutation.isPending || updateServiceMutation.isPending} 
+              data-testid="button-save-service"
+            >
               Save
             </Button>
           </div>
@@ -439,7 +636,7 @@ export default function AdminServices() {
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {serviceCategories.map((cat) => (
+                      {sortedServiceCategories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id.toString()}>
                           {cat.name}
                         </SelectItem>
