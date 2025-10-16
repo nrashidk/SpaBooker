@@ -82,6 +82,7 @@ export default function AdminClients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/customers'] });
+      setIsAddClientOpen(false);
       setEditingClient(null);
       setClientForm({ name: "", email: "", phone: "" });
       toast({
