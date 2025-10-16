@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  BarChart3, TrendingUp, TrendingDown, Users, Star, FolderPlus, 
-  Database, Search, Filter, Plus, FileText, Award, Target, 
-  Heart, Settings, Activity, ArrowUp, ArrowDown, Tag, DollarSign,
-  Calendar, Package, UserCheck, Banknote, Receipt
+  BarChart3, TrendingUp, TrendingDown, Users, Star, 
+  Search, Filter, FileText,
+  Heart, Activity, Tag, DollarSign,
+  Calendar, Package, UserCheck
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,11 +15,11 @@ import {
   Tooltip, Legend, ResponsiveContainer, Area, AreaChart
 } from "recharts";
 
-type ReportCategory = "all" | "favourites" | "dashboards" | "standard" | "premium" | "custom" | "targets";
+type ReportCategory = "favourites" | "dashboards" | "standard";
 type StandardSubcategory = "all" | "sales" | "finance" | "appointments" | "team" | "clients" | "inventory";
 
 export default function AdminReports() {
-  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>("dashboards");
+  const [selectedCategory, setSelectedCategory] = useState<ReportCategory>("favourites");
   const [selectedDashboard, setSelectedDashboard] = useState<string | null>(null);
   const [selectedStandardSubcategory, setSelectedStandardSubcategory] = useState<StandardSubcategory>("all");
 
@@ -162,13 +162,9 @@ export default function AdminReports() {
   // Use calculated staff performance (already defined above)
 
   const categories = [
-    { id: "all", label: "All reports", count: 52, icon: FileText },
     { id: "favourites", label: "Favourites", count: 1, icon: Heart },
     { id: "dashboards", label: "Dashboards", count: 2, icon: BarChart3 },
     { id: "standard", label: "Standard", count: 42, icon: FileText },
-    { id: "premium", label: "Premium", count: 8, icon: Award },
-    { id: "custom", label: "Custom", count: 0, icon: Settings },
-    { id: "targets", label: "Targets", count: null, icon: Target },
   ];
 
   const dashboards = [
@@ -749,36 +745,15 @@ export default function AdminReports() {
             );
           })}
         </div>
-
-        <div className="pt-4 border-t">
-          <h3 className="text-sm font-medium mb-2">Folders</h3>
-          <Button variant="ghost" size="sm" className="w-full justify-start" data-testid="button-add-folder">
-            <Plus className="h-4 w-4 mr-2" />
-            Add folder
-          </Button>
-        </div>
-
-        <div className="pt-4 border-t">
-          <Button variant="ghost" size="sm" className="w-full justify-start text-green-600" data-testid="button-data-connector">
-            <Database className="h-4 w-4 mr-2" />
-            Data connector
-          </Button>
-        </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold capitalize">{selectedCategory}</h2>
-            <p className="text-muted-foreground text-sm">
-              {selectedCategory === "dashboards" ? "2" : categories.find(c => c.id === selectedCategory)?.count || 0}
-            </p>
-          </div>
-          <Button data-testid="button-add-dashboard">
-            <Plus className="h-4 w-4 mr-2" />
-            Add
-          </Button>
+        <div>
+          <h2 className="text-2xl font-bold capitalize">{selectedCategory}</h2>
+          <p className="text-muted-foreground text-sm">
+            {selectedCategory === "dashboards" ? "2" : categories.find(c => c.id === selectedCategory)?.count || 0}
+          </p>
         </div>
 
         <div className="relative">
@@ -820,14 +795,6 @@ export default function AdminReports() {
                 </Card>
               );
             })}
-          </div>
-        )}
-
-        {selectedCategory === "all" && (
-          <div className="text-center py-12 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>52 reports available</p>
-            <p className="text-sm">Select a category to view specific reports</p>
           </div>
         )}
 
@@ -882,13 +849,6 @@ export default function AdminReports() {
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {selectedCategory === "premium" && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Award className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>8 premium reports available</p>
           </div>
         )}
       </div>
