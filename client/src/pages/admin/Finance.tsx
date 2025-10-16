@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { calculateTaxInclusive, calculateNetVAT, formatCurrency } from "@shared/taxUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Vendor, Expense, Bill } from "@shared/schema";
 
 const expenseFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -47,51 +51,17 @@ type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 type VendorFormValues = z.infer<typeof vendorFormSchema>;
 type BillFormValues = z.infer<typeof billFormSchema>;
 
-interface LocalExpense {
-  id: number;
-  category: string;
-  description: string;
-  amount: number;
-  date: Date;
-  status: string;
-}
-
-interface LocalVendor {
-  id: number;
-  name: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  category: string;
-  paymentTerms?: string;
-  notes?: string;
-  active: boolean;
-}
-
-interface LocalBill {
-  id: number;
-  billNumber: string;
-  vendorId: number;
-  vendorName: string;
-  billDate: Date;
-  dueDate: Date;
-  subtotal: number;
-  taxAmount: number;
-  totalAmount: number;
-  paidAmount: number;
-  status: string;
-  category?: string;
-  notes?: string;
-}
+type BillWithVendor = Bill & { vendorName?: string };
 
 export default function AdminFinance() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<LocalExpense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<LocalVendor | null>(null);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
-  const [editingBill, setEditingBill] = useState<LocalBill | null>(null);
+  const [editingBill, setEditingBill] = useState<BillWithVendor | null>(null);
   
   // UAE VAT rate (5%)
   const TAX_RATE = 5;
@@ -122,11 +92,201 @@ export default function AdminFinance() {
     { value: "net_90", label: "Net 90" },
   ];
 
-  const [vendors, setVendors] = useState<LocalVendor[]>([]);
+  // Fetch data with React Query
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
+    queryKey: ['/api/admin/vendors'],
+  });
 
-  const [expenses, setExpenses] = useState<LocalExpense[]>([]);
+  const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({
+    queryKey: ['/api/admin/expenses'],
+  });
 
-  const [bills, setBills] = useState<LocalBill[]>([]);
+  const { data: bills = [], isLoading: billsLoading } = useQuery<BillWithVendor[]>({
+    queryKey: ['/api/admin/bills'],
+  });
+
+  // Expense mutations
+  const createExpenseMutation = useMutation({
+    mutationFn: async (data: { category: string; description: string; amount: number; expenseDate: string }) => {
+      return apiRequest('POST', '/api/admin/expenses', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/expenses'] });
+      toast({
+        title: "Expense added",
+        description: "The expense has been added successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add expense. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest('PUT', `/api/admin/expenses/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/expenses'] });
+      toast({
+        title: "Expense updated",
+        description: "The expense has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update expense. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/expenses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/expenses'] });
+      toast({
+        title: "Expense deleted",
+        description: "The expense has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete expense. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Vendor mutations
+  const createVendorMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/admin/vendors', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendors'] });
+      toast({
+        title: "Vendor added",
+        description: "The vendor has been added successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add vendor. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateVendorMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest('PUT', `/api/admin/vendors/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendors'] });
+      toast({
+        title: "Vendor updated",
+        description: "The vendor has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update vendor. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteVendorMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/vendors/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendors'] });
+      toast({
+        title: "Vendor deleted",
+        description: "The vendor has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete vendor. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bill mutations
+  const createBillMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/admin/bills', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bills'] });
+      toast({
+        title: "Bill added",
+        description: "The bill has been added successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add bill. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateBillMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest('PUT', `/api/admin/bills/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bills'] });
+      toast({
+        title: "Bill updated",
+        description: "The bill has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update bill. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteBillMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/bills/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bills'] });
+      toast({
+        title: "Bill deleted",
+        description: "The bill has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete bill. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
@@ -139,26 +299,23 @@ export default function AdminFinance() {
   });
 
   const handleAddExpense = (values: ExpenseFormValues) => {
-    const newExpense: LocalExpense = {
-      id: expenses.length > 0 ? Math.max(...expenses.map(e => e.id)) + 1 : 1,
+    createExpenseMutation.mutate({
       category: values.category,
       description: values.description,
       amount: Number(values.amount),
-      date: new Date(values.date),
-      status: "paid",
-    };
-    setExpenses([...expenses, newExpense]);
+      expenseDate: values.date,
+    });
     form.reset();
     setIsAddExpenseOpen(false);
   };
 
-  const handleEditExpense = (expense: LocalExpense) => {
+  const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
     form.reset({
       category: expense.category,
       description: expense.description,
       amount: expense.amount.toString(),
-      date: format(expense.date, "yyyy-MM-dd"),
+      date: format(new Date(expense.expenseDate), "yyyy-MM-dd"),
     });
     setIsAddExpenseOpen(true);
   };
@@ -166,25 +323,24 @@ export default function AdminFinance() {
   const handleUpdateExpense = (values: ExpenseFormValues) => {
     if (!editingExpense) return;
     
-    const updatedExpenses = expenses.map(exp =>
-      exp.id === editingExpense.id
-        ? {
-            ...exp,
-            category: values.category,
-            description: values.description,
-            amount: Number(values.amount),
-            date: new Date(values.date),
-          }
-        : exp
-    );
-    setExpenses(updatedExpenses);
+    updateExpenseMutation.mutate({
+      id: editingExpense.id,
+      data: {
+        category: values.category,
+        description: values.description,
+        amount: Number(values.amount),
+        expenseDate: values.date,
+      },
+    });
     form.reset();
     setEditingExpense(null);
     setIsAddExpenseOpen(false);
   };
 
   const handleDeleteExpense = (id: number) => {
-    setExpenses(expenses.filter(exp => exp.id !== id));
+    if (confirm('Are you sure you want to delete this expense?')) {
+      deleteExpenseMutation.mutate(id);
+    }
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -215,30 +371,27 @@ export default function AdminFinance() {
   });
 
   const handleAddVendor = (values: VendorFormValues) => {
-    const newVendor: LocalVendor = {
-      id: vendors.length > 0 ? Math.max(...vendors.map(v => v.id)) + 1 : 1,
+    createVendorMutation.mutate({
       name: values.name,
-      email: values.email,
-      phone: values.phone,
-      address: values.address,
+      email: values.email || undefined,
+      phone: values.phone || undefined,
+      address: values.address || undefined,
       category: values.category,
-      paymentTerms: values.paymentTerms,
-      notes: values.notes,
-      active: true,
-    };
-    setVendors([...vendors, newVendor]);
+      paymentTerms: values.paymentTerms || undefined,
+      notes: values.notes || undefined,
+    });
     vendorForm.reset();
     setIsAddVendorOpen(false);
   };
 
-  const handleEditVendor = (vendor: LocalVendor) => {
+  const handleEditVendor = (vendor: Vendor) => {
     setEditingVendor(vendor);
     vendorForm.reset({
       name: vendor.name,
       email: vendor.email || "",
       phone: vendor.phone || "",
       address: vendor.address || "",
-      category: vendor.category,
+      category: vendor.category || "",
       paymentTerms: vendor.paymentTerms || "",
       notes: vendor.notes || "",
     });
@@ -248,28 +401,27 @@ export default function AdminFinance() {
   const handleUpdateVendor = (values: VendorFormValues) => {
     if (!editingVendor) return;
     
-    const updatedVendors = vendors.map(v =>
-      v.id === editingVendor.id
-        ? {
-            ...v,
-            name: values.name,
-            email: values.email,
-            phone: values.phone,
-            address: values.address,
-            category: values.category,
-            paymentTerms: values.paymentTerms,
-            notes: values.notes,
-          }
-        : v
-    );
-    setVendors(updatedVendors);
+    updateVendorMutation.mutate({
+      id: editingVendor.id,
+      data: {
+        name: values.name,
+        email: values.email || undefined,
+        phone: values.phone || undefined,
+        address: values.address || undefined,
+        category: values.category,
+        paymentTerms: values.paymentTerms || undefined,
+        notes: values.notes || undefined,
+      },
+    });
     vendorForm.reset();
     setEditingVendor(null);
     setIsAddVendorOpen(false);
   };
 
   const handleDeleteVendor = (id: number) => {
-    setVendors(vendors.filter(v => v.id !== id));
+    if (confirm('Are you sure you want to delete this vendor?')) {
+      deleteVendorMutation.mutate(id);
+    }
   };
 
   const handleVendorDialogClose = (open: boolean) => {
@@ -309,39 +461,33 @@ export default function AdminFinance() {
     : null;
 
   const handleAddBill = (values: BillFormValues) => {
-    const vendor = vendors.find(v => v.id === Number(values.vendorId));
     const totalAmount = Number(values.totalAmount);
     
     // Calculate tax breakdown using UAE VAT (tax-inclusive)
     const taxBreakdown = calculateTaxInclusive(totalAmount, TAX_RATE);
     
-    const newBill: LocalBill = {
-      id: bills.length > 0 ? Math.max(...bills.map(b => b.id)) + 1 : 1,
+    createBillMutation.mutate({
       billNumber: values.billNumber,
       vendorId: Number(values.vendorId),
-      vendorName: vendor?.name || "Unknown Vendor",
-      billDate: new Date(values.billDate),
-      dueDate: new Date(values.dueDate),
+      billDate: values.billDate,
+      dueDate: values.dueDate,
       subtotal: taxBreakdown.netAmount,
       taxAmount: taxBreakdown.taxAmount,
       totalAmount: taxBreakdown.totalAmount,
-      paidAmount: 0,
-      status: "unpaid",
-      category: values.category,
-      notes: values.notes,
-    };
-    setBills([...bills, newBill]);
+      category: values.category || undefined,
+      notes: values.notes || undefined,
+    });
     billForm.reset();
     setIsAddBillOpen(false);
   };
 
-  const handleEditBill = (bill: LocalBill) => {
+  const handleEditBill = (bill: BillWithVendor) => {
     setEditingBill(bill);
     billForm.reset({
       billNumber: bill.billNumber,
       vendorId: bill.vendorId.toString(),
-      billDate: format(bill.billDate, "yyyy-MM-dd"),
-      dueDate: format(bill.dueDate, "yyyy-MM-dd"),
+      billDate: format(new Date(bill.billDate), "yyyy-MM-dd"),
+      dueDate: format(new Date(bill.dueDate), "yyyy-MM-dd"),
       totalAmount: bill.totalAmount.toString(),
       category: bill.category || "",
       notes: bill.notes || "",
@@ -352,37 +498,34 @@ export default function AdminFinance() {
   const handleUpdateBill = (values: BillFormValues) => {
     if (!editingBill) return;
     
-    const vendor = vendors.find(v => v.id === Number(values.vendorId));
     const totalAmount = Number(values.totalAmount);
     
     // Calculate tax breakdown using UAE VAT (tax-inclusive)
     const taxBreakdown = calculateTaxInclusive(totalAmount, TAX_RATE);
     
-    const updatedBills = bills.map(b =>
-      b.id === editingBill.id
-        ? {
-            ...b,
-            billNumber: values.billNumber,
-            vendorId: Number(values.vendorId),
-            vendorName: vendor?.name || "Unknown Vendor",
-            billDate: new Date(values.billDate),
-            dueDate: new Date(values.dueDate),
-            subtotal: taxBreakdown.netAmount,
-            taxAmount: taxBreakdown.taxAmount,
-            totalAmount: taxBreakdown.totalAmount,
-            category: values.category,
-            notes: values.notes,
-          }
-        : b
-    );
-    setBills(updatedBills);
+    updateBillMutation.mutate({
+      id: editingBill.id,
+      data: {
+        billNumber: values.billNumber,
+        vendorId: Number(values.vendorId),
+        billDate: values.billDate,
+        dueDate: values.dueDate,
+        subtotal: taxBreakdown.netAmount,
+        taxAmount: taxBreakdown.taxAmount,
+        totalAmount: taxBreakdown.totalAmount,
+        category: values.category || undefined,
+        notes: values.notes || undefined,
+      },
+    });
     billForm.reset();
     setEditingBill(null);
     setIsAddBillOpen(false);
   };
 
   const handleDeleteBill = (id: number) => {
-    setBills(bills.filter(b => b.id !== id));
+    if (confirm('Are you sure you want to delete this bill?')) {
+      deleteBillMutation.mutate(id);
+    }
   };
 
   const handleBillDialogClose = (open: boolean) => {
@@ -416,7 +559,7 @@ export default function AdminFinance() {
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
   const totalRevenue = 0;
   const netProfit = totalRevenue - totalExpenses;
   
@@ -426,14 +569,14 @@ export default function AdminFinance() {
   const vatCollected = revenueWithTax.taxAmount;
   
   // VAT paid on bills/expenses (deductible)
-  const totalBillTax = bills.reduce((sum, bill) => sum + bill.taxAmount, 0);
+  const totalBillTax = bills.reduce((sum, bill) => sum + Number(bill.taxAmount), 0);
   
   // Net VAT payable to tax authorities
   const vatSummary = calculateNetVAT(vatCollected, totalBillTax);
 
   const expensesByCategory = expenseCategories.map(cat => {
     const categoryExpenses = expenses.filter(e => e.category === cat.value);
-    const total = categoryExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const total = categoryExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const percentage = totalExpenses > 0 ? ((total / totalExpenses) * 100).toFixed(1) : "0";
     return {
       ...cat,
@@ -743,55 +886,62 @@ export default function AdminFinance() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {expenses.map((expense) => {
-              const CategoryIcon = getCategoryIcon(expense.category);
-              return (
-                <div
-                  key={expense.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                  data-testid={`expense-${expense.id}`}
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <CategoryIcon className="w-5 h-5 text-primary" />
+            {expensesLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading expenses...
+              </div>
+            ) : expenses.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No expenses found
+              </div>
+            ) : (
+              expenses.map((expense) => {
+                const CategoryIcon = getCategoryIcon(expense.category);
+                return (
+                  <div
+                    key={expense.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                    data-testid={`expense-${expense.id}`}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <CategoryIcon className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{expense.description}</p>
+                        <p className="text-sm text-muted-foreground">{getCategoryLabel(expense.category)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold">{expense.description}</p>
-                      <p className="text-sm text-muted-foreground">{getCategoryLabel(expense.category)}</p>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold">AED {Number(expense.amount).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(expense.expenseDate), "MMM d, yyyy")}
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEditExpense(expense)}
+                        data-testid={`button-edit-expense-${expense.id}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteExpense(expense.id)}
+                        data-testid={`button-delete-expense-${expense.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-semibold">AED {expense.amount.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(expense.date, "MMM d, yyyy")}
-                      </p>
-                    </div>
-                    <Badge className={getStatusColor(expense.status)}>
-                      {expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}
-                    </Badge>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleEditExpense(expense)}
-                      data-testid={`button-edit-expense-${expense.id}`}
-                    >
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8"
-                      onClick={() => handleDeleteExpense(expense.id)}
-                      data-testid={`button-delete-expense-${expense.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1007,52 +1157,62 @@ export default function AdminFinance() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {vendors.map((vendor) => (
-                  <div
-                    key={vendor.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                    data-testid={`vendor-${vendor.id}`}
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Building2 className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">{vendor.name}</p>
-                        <p className="text-sm text-muted-foreground">{getVendorCategoryLabel(vendor.category)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Payment Terms:</p>
-                        <p className="text-sm font-medium">{getPaymentTermsLabel(vendor.paymentTerms)}</p>
-                      </div>
-                      {vendor.email && (
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Email:</p>
-                          <p className="text-sm">{vendor.email}</p>
-                        </div>
-                      )}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleEditVendor(vendor)}
-                        data-testid={`button-edit-vendor-${vendor.id}`}
-                      >
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8"
-                        onClick={() => handleDeleteVendor(vendor.id)}
-                        data-testid={`button-delete-vendor-${vendor.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                {vendorsLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading vendors...
                   </div>
-                ))}
+                ) : vendors.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No vendors found
+                  </div>
+                ) : (
+                  vendors.map((vendor) => (
+                    <div
+                      key={vendor.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                      data-testid={`vendor-${vendor.id}`}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{vendor.name}</p>
+                          <p className="text-sm text-muted-foreground">{getVendorCategoryLabel(vendor.category || "")}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Payment Terms:</p>
+                          <p className="text-sm font-medium">{getPaymentTermsLabel(vendor.paymentTerms)}</p>
+                        </div>
+                        {vendor.email && (
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Email:</p>
+                            <p className="text-sm">{vendor.email}</p>
+                          </div>
+                        )}
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleEditVendor(vendor)}
+                          data-testid={`button-edit-vendor-${vendor.id}`}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => handleDeleteVendor(vendor.id)}
+                          data-testid={`button-delete-vendor-${vendor.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1230,51 +1390,61 @@ export default function AdminFinance() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {bills.map((bill) => (
-                  <div
-                    key={bill.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                    data-testid={`bill-${bill.id}`}
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">{bill.billNumber}</p>
-                        <p className="text-sm text-muted-foreground">{bill.vendorName}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Amount:</p>
-                        <p className="font-semibold">AED {bill.totalAmount.toLocaleString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Due Date:</p>
-                        <p className="text-sm">{format(bill.dueDate, "MMM dd, yyyy")}</p>
-                      </div>
-                      <Badge className={getBillStatusColor(bill.status)}>{bill.status}</Badge>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleEditBill(bill)}
-                        data-testid={`button-edit-bill-${bill.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8"
-                        onClick={() => handleDeleteBill(bill.id)}
-                        data-testid={`button-delete-bill-${bill.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                {billsLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading bills...
                   </div>
-                ))}
+                ) : bills.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No bills found
+                  </div>
+                ) : (
+                  bills.map((bill) => (
+                    <div
+                      key={bill.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                      data-testid={`bill-${bill.id}`}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{bill.billNumber}</p>
+                          <p className="text-sm text-muted-foreground">{bill.vendorName || `Vendor #${bill.vendorId}`}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Amount:</p>
+                          <p className="font-semibold">AED {Number(bill.totalAmount).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Due Date:</p>
+                          <p className="text-sm">{format(new Date(bill.dueDate), "MMM dd, yyyy")}</p>
+                        </div>
+                        <Badge className={getBillStatusColor(bill.status)}>{bill.status}</Badge>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleEditBill(bill)}
+                          data-testid={`button-edit-bill-${bill.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => handleDeleteBill(bill.id)}
+                          data-testid={`button-delete-bill-${bill.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
