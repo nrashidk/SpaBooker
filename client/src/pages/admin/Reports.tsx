@@ -110,13 +110,7 @@ export default function AdminReports() {
    * 3. Add staff time tracking and ratings system
    */
   
-  const salesByChannel = [
-    { channel: "Offline", amount: totalSales * 0.43, percentage: 14.3, color: "#94a3b8" },
-    { channel: "Online", amount: totalSales * 0.41, percentage: 13.6, color: "#f97316" },
-    { channel: "Social", amount: totalSales * 0.09, percentage: 15.9, color: "#3b82f6" },
-    { channel: "Direct", amount: totalSales * 0.07, percentage: 26.6, color: "#8b5cf6" },
-    { channel: "Marketing", amount: 0, percentage: 100, color: "#6366f1" },
-  ];
+  const salesByChannel: { channel: string; amount: number; percentage: number; color: string }[] = [];
 
   // Generate sales over time from real bookings data (grouped by date)
   const salesOverTimeData = (() => {
@@ -137,27 +131,9 @@ export default function AdminReports() {
     });
   })();
 
-  const occupancyRateData = [
-    { date: "14 Sep", current: 42, comparison: 45 },
-    { date: "18 Sep", current: 48, comparison: 40 },
-    { date: "22 Sep", current: 38, comparison: 52 },
-    { date: "26 Sep", current: 51, comparison: 43 },
-    { date: "30 Sep", current: 44, comparison: 48 },
-    { date: "4 Oct", current: 47, comparison: 41 },
-    { date: "8 Oct", current: 42, comparison: 46 },
-    { date: "13 Oct", current: 46, comparison: 44 },
-  ];
+  const occupancyRateData: { date: string; current: number; comparison: number }[] = [];
 
-  const returningClientData = [
-    { date: "14 Sep", current: returningClientRate, comparison: returningClientRate * 1.02 },
-    { date: "18 Sep", current: returningClientRate, comparison: returningClientRate * 0.99 },
-    { date: "22 Sep", current: returningClientRate, comparison: returningClientRate * 1.01 },
-    { date: "26 Sep", current: returningClientRate, comparison: returningClientRate * 0.98 },
-    { date: "30 Sep", current: returningClientRate, comparison: returningClientRate * 1.03 },
-    { date: "4 Oct", current: returningClientRate, comparison: returningClientRate * 1.00 },
-    { date: "8 Oct", current: returningClientRate, comparison: returningClientRate * 0.99 },
-    { date: "13 Oct", current: returningClientRate, comparison: returningClientRate * 1.00 },
-  ];
+  const returningClientData: { date: string; current: number; comparison: number }[] = [];
 
   // Use calculated staff performance (already defined above)
 
