@@ -105,6 +105,26 @@ export default function AdminFinance() {
     queryKey: ['/api/admin/bills'],
   });
 
+  // Fetch revenue summary for VAT collected
+  const { data: revenueSummary } = useQuery<{
+    bookingsTotal: string;
+    productSalesTotal: string;
+    loyaltyCardsTotal: string;
+    totalRevenue: string;
+    vatCollected: string;
+  }>({
+    queryKey: ['/api/admin/revenue-summary'],
+  });
+
+  // Fetch VAT payable summary
+  const { data: vatPayableSummary } = useQuery<{
+    vatCollected: string;
+    vatPaid: string;
+    vatPayable: string;
+  }>({
+    queryKey: ['/api/admin/vat-payable'],
+  });
+
   // Expense mutations
   const createExpenseMutation = useMutation({
     mutationFn: async (data: { category: string; description: string; amount: number; expenseDate: string }) => {
@@ -560,19 +580,13 @@ export default function AdminFinance() {
   };
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-  const totalRevenue = 0;
+  const totalRevenue = Number(revenueSummary?.totalRevenue || 0);
   const netProfit = totalRevenue - totalExpenses;
   
-  // UAE VAT calculations
-  // VAT collected from customers (assuming totalRevenue includes tax)
-  const revenueWithTax = calculateTaxInclusive(totalRevenue, TAX_RATE);
-  const vatCollected = revenueWithTax.taxAmount;
-  
-  // VAT paid on bills/expenses (deductible)
-  const totalBillTax = bills.reduce((sum, bill) => sum + Number(bill.taxAmount), 0);
-  
-  // Net VAT payable to tax authorities
-  const vatSummary = calculateNetVAT(vatCollected, totalBillTax);
+  // Use VAT data from API
+  const vatCollectedFromSales = Number(revenueSummary?.vatCollected || 0);
+  const vatPaidOnBills = Number(vatPayableSummary?.vatPaid || 0);
+  const netVATPayable = Number(vatPayableSummary?.vatPayable || 0);
 
   const expensesByCategory = expenseCategories.map(cat => {
     const categoryExpenses = expenses.filter(e => e.category === cat.value);
@@ -710,28 +724,28 @@ export default function AdminFinance() {
 
             <div className="grid gap-4 md:grid-cols-3">
               <div className="p-4 border rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">VAT Collected (from sales)</div>
+                <div className="text-sm font-medium text-muted-foreground">VAT Collected</div>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="vat-collected">
-                  {formatCurrency(vatSummary.vatCollected)}
+                  {formatCurrency(vatCollectedFromSales)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Tax from customer payments</p>
+                <p className="text-xs text-muted-foreground mt-1">From bookings, sales & loyalty cards</p>
               </div>
 
               <div className="p-4 border rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">VAT Paid (on bills)</div>
+                <div className="text-sm font-medium text-muted-foreground">VAT Paid</div>
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="vat-paid">
-                  {formatCurrency(vatSummary.vatPaid)}
+                  {formatCurrency(vatPaidOnBills)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Deductible tax on expenses</p>
+                <p className="text-xs text-muted-foreground mt-1">On vendor bills & expenses</p>
               </div>
 
               <div className="p-4 border rounded-lg bg-primary/5">
                 <div className="text-sm font-medium text-muted-foreground">Net VAT Payable</div>
-                <div className={`text-2xl font-bold ${vatSummary.netVATPayable >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`} data-testid="vat-net-payable">
-                  {formatCurrency(Math.abs(vatSummary.netVATPayable))}
+                <div className={`text-2xl font-bold ${netVATPayable >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`} data-testid="vat-net-payable">
+                  {formatCurrency(Math.abs(netVATPayable))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {vatSummary.netVATPayable >= 0 ? 'Owed to tax authorities' : 'Tax credit/refund'}
+                  {netVATPayable >= 0 ? 'Owed to tax authorities' : 'Tax credit/refund'}
                 </p>
               </div>
             </div>
