@@ -979,9 +979,6 @@ export class DatabaseStorage implements IStorage {
 
     // Get VAT paid from bills
     const billConditions = [];
-    if (filters?.spaId) {
-      billConditions.push(eq(bills.spaId, filters.spaId));
-    }
     if (filters?.startDate) {
       billConditions.push(gte(bills.billDate, filters.startDate));
     }

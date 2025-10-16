@@ -2084,6 +2084,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Revenue and VAT routes (admin only)
+  app.get("/api/admin/revenue-summary", isAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate, spaId } = req.query;
+      
+      const filters: any = {};
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (spaId) filters.spaId = parseInt(spaId as string);
+      
+      const summary = await storage.getRevenueSummary(filters);
+      res.json(summary);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch revenue summary");
+    }
+  });
+
+  app.get("/api/admin/vat-payable", isAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate, spaId } = req.query;
+      
+      const filters: any = {};
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (spaId) filters.spaId = parseInt(spaId as string);
+      
+      const summary = await storage.getVATPayableSummary(filters);
+      res.json(summary);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch VAT payable summary");
+    }
+  });
+
   // Audit Logs routes (admin only)
   app.get("/api/admin/audit-logs", isAdmin, async (req, res) => {
     try {
