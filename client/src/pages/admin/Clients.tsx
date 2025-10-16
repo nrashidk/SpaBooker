@@ -3,20 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Filter, Plus, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Search, Filter, Plus, MoreVertical, Edit, Trash2, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Customer } from "@shared/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Customer, Booking, ProductSale, LoyaltyCard } from "@shared/schema";
 
 export default function AdminClients() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Customer | null>(null);
+  const [viewingClientId, setViewingClientId] = useState<number | null>(null);
   const [clientForm, setClientForm] = useState({
     name: "",
     email: "",
@@ -27,11 +29,29 @@ export default function AdminClients() {
     queryKey: ['/api/admin/customers'],
   });
 
+  // Fetch purchase history for viewing client
+  const { data: clientBookings = [] } = useQuery<Booking[]>({
+    queryKey: ['/api/admin/customers', viewingClientId, 'bookings'],
+    enabled: viewingClientId !== null,
+  });
+
+  const { data: clientProductSales = [] } = useQuery<ProductSale[]>({
+    queryKey: ['/api/admin/customers', viewingClientId, 'product-sales'],
+    enabled: viewingClientId !== null,
+  });
+
+  const { data: clientLoyaltyCards = [] } = useQuery<LoyaltyCard[]>({
+    queryKey: ['/api/admin/customers', viewingClientId, 'loyalty-cards'],
+    enabled: viewingClientId !== null,
+  });
+
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.phone?.includes(searchQuery)
   );
+
+  const viewingClient = customers.find(c => c.id === viewingClientId);
 
   const createClientMutation = useMutation({
     mutationFn: async (data: { name: string; email?: string; phone?: string }) => {
@@ -261,6 +281,10 @@ export default function AdminClients() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewingClientId(customer.id)} data-testid={`view-client-${index}`}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditClient(customer)} data-testid={`edit-client-${index}`}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
@@ -353,6 +377,114 @@ export default function AdminClients() {
               {editingClient ? 'Update' : 'Add'} Client
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Client Details Dialog */}
+      <Dialog open={viewingClientId !== null} onOpenChange={(open) => !open && setViewingClientId(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Purchase History</DialogTitle>
+            <DialogDescription>
+              Complete purchase history for {viewingClient?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs defaultValue="bookings" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="bookings" data-testid="tab-bookings">
+                Bookings ({clientBookings.length})
+              </TabsTrigger>
+              <TabsTrigger value="products" data-testid="tab-products">
+                Product Sales ({clientProductSales.length})
+              </TabsTrigger>
+              <TabsTrigger value="loyalty" data-testid="tab-loyalty">
+                Loyalty Cards ({clientLoyaltyCards.length})
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="bookings" className="space-y-4">
+              {clientBookings.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No bookings found</p>
+              ) : (
+                <div className="space-y-2">
+                  {clientBookings.map((booking) => (
+                    <Card key={booking.id} data-testid={`booking-${booking.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">Booking #{booking.id}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(booking.bookingDate), 'dd MMM yyyy')}
+                            </p>
+                            <p className="text-sm text-muted-foreground">Status: {booking.status}</p>
+                          </div>
+                          <p className="font-semibold">AED {parseFloat(booking.totalAmount?.toString() || '0').toFixed(2)}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="products" className="space-y-4">
+              {clientProductSales.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No product sales found</p>
+              ) : (
+                <div className="space-y-2">
+                  {clientProductSales.map((sale) => (
+                    <Card key={sale.id} data-testid={`product-sale-${sale.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">Product Sale #{sale.id}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(sale.saleDate), 'dd MMM yyyy')}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Quantity: {sale.quantity} × AED {parseFloat(sale.unitPrice?.toString() || '0').toFixed(2)}
+                            </p>
+                            {sale.notes && (
+                              <p className="text-sm text-muted-foreground">Note: {sale.notes}</p>
+                            )}
+                          </div>
+                          <p className="font-semibold">AED {parseFloat(sale.totalPrice?.toString() || '0').toFixed(2)}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="loyalty" className="space-y-4">
+              {clientLoyaltyCards.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No loyalty cards found</p>
+              ) : (
+                <div className="space-y-2">
+                  {clientLoyaltyCards.map((card) => (
+                    <Card key={card.id} data-testid={`loyalty-card-${card.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">Loyalty Card #{card.id}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(card.purchaseDate), 'dd MMM yyyy')}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Type: {card.cardType} | Sessions: {card.usedSessions}/{card.totalSessions}
+                            </p>
+                            <p className="text-sm text-muted-foreground">Status: {card.status}</p>
+                            {card.notes && (
+                              <p className="text-sm text-muted-foreground">Note: {card.notes}</p>
+                            )}
+                          </div>
+                          <p className="font-semibold">AED {parseFloat(card.purchasePrice?.toString() || '0').toFixed(2)}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
