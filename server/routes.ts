@@ -1126,7 +1126,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/services/:id", isAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
       const validatedData = insertServiceSchema.partial().parse(req.body);
       const service = await storage.updateService(id, validatedData);
       if (!service) {
@@ -1134,22 +1138,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(service);
     } catch (error) {
-      console.error("Error updating service:", error);
-      res.status(500).json({ message: "Failed to update service" });
+      handleRouteError(res, error, "Failed to update service");
     }
   });
 
   app.delete("/api/admin/services/:id", isAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
       const deleted = await storage.deleteService(id);
       if (!deleted) {
         return res.status(404).json({ message: "Service not found" });
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting service:", error);
-      res.status(500).json({ message: "Failed to delete service" });
+      handleRouteError(res, error, "Failed to delete service");
     }
   });
 
@@ -1177,7 +1183,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/staff/:id", isAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid staff ID" });
+      }
+      
       const validatedData = insertStaffSchema.partial().parse(req.body);
       const staffMember = await storage.updateStaff(id, validatedData);
       if (!staffMember) {
@@ -1185,22 +1195,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(staffMember);
     } catch (error) {
-      console.error("Error updating staff member:", error);
-      res.status(500).json({ message: "Failed to update staff member" });
+      handleRouteError(res, error, "Failed to update staff member");
     }
   });
 
   app.delete("/api/admin/staff/:id", isAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid staff ID" });
+      }
+      
       const deleted = await storage.deleteStaff(id);
       if (!deleted) {
         return res.status(404).json({ message: "Staff member not found" });
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting staff member:", error);
-      res.status(500).json({ message: "Failed to delete staff member" });
+      handleRouteError(res, error, "Failed to delete staff member");
     }
   });
 
