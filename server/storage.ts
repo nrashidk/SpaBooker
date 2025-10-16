@@ -219,6 +219,29 @@ export interface IStorage {
     endDate?: Date;
     limit?: number;
   }): Promise<AuditLog[]>;
+
+  // Revenue and VAT summary operations
+  getRevenueSummary(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    spaId?: number;
+  }): Promise<{
+    bookingsTotal: string;
+    productSalesTotal: string;
+    loyaltyCardsTotal: string;
+    totalRevenue: string;
+    vatCollected: string;
+  }>;
+
+  getVATPayableSummary(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    spaId?: number;
+  }): Promise<{
+    vatCollected: string;
+    vatPaid: string;
+    vatPayable: string;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -863,6 +886,123 @@ export class DatabaseStorage implements IStorage {
     
     const logs = await query.orderBy(desc(auditLogs.createdAt)).limit(filters?.limit || 100);
     return logs;
+  }
+
+  // Revenue and VAT summary operations
+  async getRevenueSummary(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    spaId?: number;
+  }): Promise<{
+    bookingsTotal: string;
+    productSalesTotal: string;
+    loyaltyCardsTotal: string;
+    totalRevenue: string;
+    vatCollected: string;
+  }> {
+    const conditions = [];
+    
+    if (filters?.spaId) {
+      conditions.push(eq(bookings.spaId, filters.spaId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(bookings.bookingDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(bookings.bookingDate, filters.endDate));
+    }
+
+    // Get bookings total
+    let bookingsQuery = db.select({ total: bookings.totalAmount }).from(bookings);
+    if (conditions.length > 0) {
+      bookingsQuery = bookingsQuery.where(and(...conditions)) as any;
+    }
+    const bookingsData = await bookingsQuery;
+    const bookingsTotal = bookingsData.reduce((sum, b) => sum + (parseFloat(b.total || '0')), 0);
+
+    // Get product sales total
+    const salesConditions = [];
+    if (filters?.startDate) {
+      salesConditions.push(gte(productSales.saleDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      salesConditions.push(lte(productSales.saleDate, filters.endDate));
+    }
+
+    let salesQuery = db.select({ total: productSales.totalPrice }).from(productSales);
+    if (salesConditions.length > 0) {
+      salesQuery = salesQuery.where(and(...salesConditions)) as any;
+    }
+    const salesData = await salesQuery;
+    const productSalesTotal = salesData.reduce((sum, s) => sum + (parseFloat(s.total || '0')), 0);
+
+    // Get loyalty cards total
+    const cardsConditions = [];
+    if (filters?.startDate) {
+      cardsConditions.push(gte(loyaltyCards.purchaseDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      cardsConditions.push(lte(loyaltyCards.purchaseDate, filters.endDate));
+    }
+
+    let cardsQuery = db.select({ price: loyaltyCards.purchasePrice }).from(loyaltyCards);
+    if (cardsConditions.length > 0) {
+      cardsQuery = cardsQuery.where(and(...cardsConditions)) as any;
+    }
+    const cardsData = await cardsQuery;
+    const loyaltyCardsTotal = cardsData.reduce((sum, c) => sum + (parseFloat(c.price || '0')), 0);
+
+    const totalRevenue = bookingsTotal + productSalesTotal + loyaltyCardsTotal;
+    const vatCollected = (totalRevenue * 5) / 105; // Tax-inclusive VAT calculation
+
+    return {
+      bookingsTotal: bookingsTotal.toFixed(2),
+      productSalesTotal: productSalesTotal.toFixed(2),
+      loyaltyCardsTotal: loyaltyCardsTotal.toFixed(2),
+      totalRevenue: totalRevenue.toFixed(2),
+      vatCollected: vatCollected.toFixed(2),
+    };
+  }
+
+  async getVATPayableSummary(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    spaId?: number;
+  }): Promise<{
+    vatCollected: string;
+    vatPaid: string;
+    vatPayable: string;
+  }> {
+    // Get VAT collected from revenue
+    const revenueSummary = await this.getRevenueSummary(filters);
+    const vatCollected = parseFloat(revenueSummary.vatCollected);
+
+    // Get VAT paid from bills
+    const billConditions = [];
+    if (filters?.spaId) {
+      billConditions.push(eq(bills.spaId, filters.spaId));
+    }
+    if (filters?.startDate) {
+      billConditions.push(gte(bills.billDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      billConditions.push(lte(bills.billDate, filters.endDate));
+    }
+
+    let billsQuery = db.select({ taxAmount: bills.taxAmount }).from(bills);
+    if (billConditions.length > 0) {
+      billsQuery = billsQuery.where(and(...billConditions)) as any;
+    }
+    const billsData = await billsQuery;
+    const vatPaid = billsData.reduce((sum, b) => sum + (parseFloat(b.taxAmount || '0')), 0);
+
+    const vatPayable = vatCollected - vatPaid;
+
+    return {
+      vatCollected: vatCollected.toFixed(2),
+      vatPaid: vatPaid.toFixed(2),
+      vatPayable: vatPayable.toFixed(2),
+    };
   }
 }
 
