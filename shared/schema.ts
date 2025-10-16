@@ -649,14 +649,35 @@ export const notificationUsage = pgTable("notification_usage", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Audit logs - track all important changes for compliance and security
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  action: text("action").notNull(), // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
+  entityType: text("entity_type").notNull(), // bookings, invoices, services, staff, etc.
+  entityId: integer("entity_id").notNull(),
+  changes: jsonb("changes"), // Store old/new values
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_audit_user").on(table.userId),
+  index("idx_audit_entity").on(table.entityType, table.entityId),
+  index("idx_audit_action").on(table.action),
+  index("idx_audit_created").on(table.createdAt),
+]);
+
 // Insert schemas
 export const insertSpaNotificationSettingsSchema = createInsertSchema(spaNotificationSettings);
 export const insertSpaNotificationCredentialsSchema = createInsertSchema(spaNotificationCredentials);
 export const insertNotificationEventSchema = createInsertSchema(notificationEvents);
 export const insertNotificationUsageSchema = createInsertSchema(notificationUsage);
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 
 // Select types
 export type SpaNotificationSettings = typeof spaNotificationSettings.$inferSelect;
 export type SpaNotificationCredentials = typeof spaNotificationCredentials.$inferSelect;
 export type NotificationEvent = typeof notificationEvents.$inferSelect;
 export type NotificationUsage = typeof notificationUsage.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;

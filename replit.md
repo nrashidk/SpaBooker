@@ -4,7 +4,12 @@
 Serene Spa is an online booking system, inspired by Fresha, offering a 4-step booking process for spa treatments. It supports multiple spa venues, allowing customers to search across all locations and book services. The platform aims to enhance customer satisfaction and operational efficiency through features like categorized services, flexible professional selection, and real-time availability. It also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance, with ambitions for future integration with growth and analytics tools to maximize spa revenue and customer engagement.
 
 ## Recent Changes (October 16, 2025)
--   **Security Hardening & Input Validation (Latest):**
+-   **Database Optimization & Audit Trail (Latest):**
+    -   Added performance indexes to critical tables (bookings, invoices, products) for faster queries
+    -   Implemented audit logs table to track all important changes (CREATE, UPDATE, DELETE actions)
+    -   Audit trail captures user actions, entity changes, IP address, and user agent for security compliance
+    -   Indexed audit logs by user, entity, action, and timestamp for efficient querying
+-   **Security Hardening & Input Validation:**
     -   Added parseNumericId helper function for secure ID parameter validation across all routes
     -   Implemented handleRouteError for consistent error handling with Zod validation support
     -   Updated all mutation routes (PUT/DELETE) to validate IDs and use proper error handling
