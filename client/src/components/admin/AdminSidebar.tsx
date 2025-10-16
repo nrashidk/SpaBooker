@@ -42,72 +42,86 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { useStaffPermissions } from "@/hooks/useStaffPermissions";
 
 const menuItems = [
   {
     title: "Dashboard",
     url: "/admin",
     icon: LayoutDashboard,
+    requirePermission: "canAccessDashboard" as const,
   },
   {
     title: "Calendar",
     url: "/admin/calendar",
     icon: Calendar,
+    requirePermission: "canViewOwnCalendar" as const,
   },
   {
     title: "Sales",
     url: "/admin/sales",
     icon: DollarSign,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Clients",
     url: "/admin/clients",
     icon: UserCheck,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Services",
     url: "/admin/services",
     icon: Sparkles,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Staff",
     url: "/admin/staff",
     icon: Users,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Bookings",
     url: "/admin/bookings",
     icon: Calendar,
+    requirePermission: "canViewOwnCalendar" as const,
   },
   {
     title: "Inventory",
     url: "/admin/inventory",
     icon: Package,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Finance",
     url: "/admin/finance",
     icon: DollarSign,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Reports",
     url: "/admin/reports",
     icon: BarChart3,
+    requirePermission: "canAccessDashboard" as const,
   },
   {
     title: "Marketplace",
     url: "/admin/marketplace",
     icon: Store,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Marketing",
     url: "/admin/marketing",
     icon: Megaphone,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Add-ons",
     url: "/admin/addons",
     icon: Puzzle,
+    requirePermission: "isAdmin" as const,
   },
   {
     title: "Settings",
@@ -119,6 +133,7 @@ const menuItems = [
 export function AdminSidebar() {
   const [location] = useLocation();
   const { user, isSuperAdmin } = useAuth();
+  const staffPermissions = useStaffPermissions();
   
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     if (!firstName && !lastName) return "AD";
@@ -131,6 +146,12 @@ export function AdminSidebar() {
     if (!firstName && !lastName) return "Admin User";
     return [firstName, lastName].filter(Boolean).join(" ");
   };
+
+  // Filter menu items based on staff permissions
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (!item.requirePermission) return true; // Always show items without permission requirement
+    return staffPermissions[item.requirePermission];
+  });
 
   return (
     <Sidebar>
@@ -151,7 +172,7 @@ export function AdminSidebar() {
           <SidebarGroupLabel>Management</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
