@@ -231,6 +231,7 @@ export interface IStorage {
     loyaltyCardsTotal: string;
     totalRevenue: string;
     vatCollected: string;
+    totalDiscounts: string;
   }>;
 
   getVATPayableSummary(filters?: {
@@ -899,6 +900,7 @@ export class DatabaseStorage implements IStorage {
     loyaltyCardsTotal: string;
     totalRevenue: string;
     vatCollected: string;
+    totalDiscounts: string;
   }> {
     const conditions = [];
     
@@ -912,15 +914,20 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(bookings.bookingDate, filters.endDate));
     }
 
-    // Get bookings total
-    let bookingsQuery = db.select({ total: bookings.totalAmount }).from(bookings);
+    // Get bookings total (net amount after discounts)
+    let bookingsQuery = db.select({ 
+      total: bookings.totalAmount, 
+      discount: bookings.discountAmount 
+    }).from(bookings);
     if (conditions.length > 0) {
       bookingsQuery = bookingsQuery.where(and(...conditions)) as any;
     }
     const bookingsData = await bookingsQuery;
-    const bookingsTotal = bookingsData.reduce((sum, b) => sum + (parseFloat(b.total || '0')), 0);
+    const bookingsGross = bookingsData.reduce((sum, b) => sum + (parseFloat(b.total || '0')), 0);
+    const bookingsDiscounts = bookingsData.reduce((sum, b) => sum + (parseFloat(b.discount || '0')), 0);
+    const bookingsTotal = bookingsGross - bookingsDiscounts;
 
-    // Get product sales total
+    // Get product sales total (net amount after discounts)
     const salesConditions = [];
     if (filters?.startDate) {
       salesConditions.push(gte(productSales.saleDate, filters.startDate));
@@ -929,14 +936,19 @@ export class DatabaseStorage implements IStorage {
       salesConditions.push(lte(productSales.saleDate, filters.endDate));
     }
 
-    let salesQuery = db.select({ total: productSales.totalPrice }).from(productSales);
+    let salesQuery = db.select({ 
+      total: productSales.totalPrice, 
+      discount: productSales.discountAmount 
+    }).from(productSales);
     if (salesConditions.length > 0) {
       salesQuery = salesQuery.where(and(...salesConditions)) as any;
     }
     const salesData = await salesQuery;
-    const productSalesTotal = salesData.reduce((sum, s) => sum + (parseFloat(s.total || '0')), 0);
+    const salesGross = salesData.reduce((sum, s) => sum + (parseFloat(s.total || '0')), 0);
+    const salesDiscounts = salesData.reduce((sum, s) => sum + (parseFloat(s.discount || '0')), 0);
+    const productSalesTotal = salesGross - salesDiscounts;
 
-    // Get loyalty cards total
+    // Get loyalty cards total (net amount after discounts) - these are service bundles
     const cardsConditions = [];
     if (filters?.startDate) {
       cardsConditions.push(gte(loyaltyCards.purchaseDate, filters.startDate));
@@ -945,15 +957,22 @@ export class DatabaseStorage implements IStorage {
       cardsConditions.push(lte(loyaltyCards.purchaseDate, filters.endDate));
     }
 
-    let cardsQuery = db.select({ price: loyaltyCards.purchasePrice }).from(loyaltyCards);
+    let cardsQuery = db.select({ 
+      price: loyaltyCards.purchasePrice, 
+      discount: loyaltyCards.discountAmount 
+    }).from(loyaltyCards);
     if (cardsConditions.length > 0) {
       cardsQuery = cardsQuery.where(and(...cardsConditions)) as any;
     }
     const cardsData = await cardsQuery;
-    const loyaltyCardsTotal = cardsData.reduce((sum, c) => sum + (parseFloat(c.price || '0')), 0);
+    const cardsGross = cardsData.reduce((sum, c) => sum + (parseFloat(c.price || '0')), 0);
+    const cardsDiscounts = cardsData.reduce((sum, c) => sum + (parseFloat(c.discount || '0')), 0);
+    const loyaltyCardsTotal = cardsGross - cardsDiscounts;
 
+    // Calculate totals
+    const totalDiscounts = bookingsDiscounts + salesDiscounts + cardsDiscounts;
     const totalRevenue = bookingsTotal + productSalesTotal + loyaltyCardsTotal;
-    const vatCollected = (totalRevenue * 5) / 105; // Tax-inclusive VAT calculation
+    const vatCollected = (totalRevenue * 5) / 105; // Tax-inclusive VAT calculation on net amount
 
     return {
       bookingsTotal: bookingsTotal.toFixed(2),
@@ -961,6 +980,7 @@ export class DatabaseStorage implements IStorage {
       loyaltyCardsTotal: loyaltyCardsTotal.toFixed(2),
       totalRevenue: totalRevenue.toFixed(2),
       vatCollected: vatCollected.toFixed(2),
+      totalDiscounts: totalDiscounts.toFixed(2),
     };
   }
 
