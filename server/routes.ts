@@ -48,8 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      handleRouteError(res, error, "Failed to fetch user");
     }
   });
 
@@ -69,8 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         permissions: staffRoleInfo[staffMember.role as keyof typeof staffRoleInfo] || staffRoleInfo.basic,
       });
     } catch (error) {
-      console.error("Error fetching staff profile:", error);
-      res.status(500).json({ error: "Failed to fetch staff profile" });
+      handleRouteError(res, error, "Failed to fetch staff profile");
     }
   });
 
@@ -117,8 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         staffId: staffMember.id,
       });
     } catch (error) {
-      console.error("Error checking permissions:", error);
-      res.status(500).json({ error: "Failed to check permissions" });
+      handleRouteError(res, error, "Failed to check permissions");
     }
   });
 
