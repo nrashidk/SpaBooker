@@ -27,21 +27,23 @@ import {
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Service } from "@shared/schema";
+import type { Service, ServiceCategory } from "@shared/schema";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ServicesSection = "catalog" | "service-menu" | "memberships" | "products" | "stock-takes" | "stock-orders" | "suppliers";
-type ServiceCategory = "all" | "hair" | "coloring" | "shave-beard" | "facial" | "hand-foot-care";
 
 export default function AdminServices() {
   const { toast } = useToast();
   const [selectedSection, setSelectedSection] = useState<ServicesSection>("service-menu");
-  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string | number>("all");
   const [showNewService, setShowNewService] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
   const [newServiceStep, setNewServiceStep] = useState("basic-details");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [serviceForm, setServiceForm] = useState({
     name: "",
-    category: "",
+    categoryId: null as number | null,
     treatmentType: "",
     description: "",
     priceType: "fixed",
@@ -53,6 +55,10 @@ export default function AdminServices() {
     queryKey: ["/api/admin/services"],
   });
 
+  const { data: serviceCategories = [] } = useQuery<ServiceCategory[]>({
+    queryKey: ["/api/admin/service-categories"],
+  });
+
   const createServiceMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest('POST', '/api/admin/services', data);
@@ -62,7 +68,7 @@ export default function AdminServices() {
       setShowNewService(false);
       setServiceForm({
         name: "",
-        category: "",
+        categoryId: null,
         treatmentType: "",
         description: "",
         priceType: "fixed",
@@ -72,6 +78,7 @@ export default function AdminServices() {
       toast({
         title: "Service created",
         description: "The service has been added successfully.",
+        duration: 3000,
       });
     },
     onError: () => {
@@ -83,8 +90,34 @@ export default function AdminServices() {
     },
   });
 
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      return apiRequest('POST', '/api/admin/service-categories', {
+        spaId: 1, // TODO: Get from auth context
+        ...data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
+      setNewCategoryName("");
+      setShowAddCategory(false);
+      toast({
+        title: "Category added",
+        description: "The category has been added successfully.",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add category. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSaveService = () => {
-    if (!serviceForm.name || !serviceForm.category || !serviceForm.price) {
+    if (!serviceForm.name || !serviceForm.categoryId || !serviceForm.price) {
       toast({
         title: "Validation error",
         description: "Please fill in all required fields (name, category, price).",
@@ -96,10 +129,25 @@ export default function AdminServices() {
     createServiceMutation.mutate({
       spaId: 1, // TODO: Get from auth context
       name: serviceForm.name,
-      category: serviceForm.category,
+      categoryId: serviceForm.categoryId,
       description: serviceForm.description || null,
       price: serviceForm.price,
       duration: parseInt(serviceForm.duration),
+    });
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Validation error",
+        description: "Please enter a category name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createCategoryMutation.mutate({
+      name: newCategoryName.trim(),
     });
   };
 
@@ -123,14 +171,25 @@ export default function AdminServices() {
     }
   ];
 
+  // Build categories list from database
+  const getCategoryCount = (categoryId: number | string) => {
+    if (categoryId === "all") return services.length;
+    return services.filter(s => s.categoryId === categoryId).length;
+  };
+
   const categories = [
-    { id: "all" as ServiceCategory, label: "All categories", count: services.length },
-    { id: "hair" as ServiceCategory, label: "Hair", count: 14 },
-    { id: "coloring" as ServiceCategory, label: "Coloring", count: 9 },
-    { id: "shave-beard" as ServiceCategory, label: "Shave & Beard", count: 6 },
-    { id: "facial" as ServiceCategory, label: "Facial", count: 4 },
-    { id: "hand-foot-care" as ServiceCategory, label: "Hand & Foot Care", count: 5 },
+    { id: "all", label: "All categories", count: services.length },
+    ...serviceCategories.map(cat => ({
+      id: cat.id,
+      label: cat.name,
+      count: getCategoryCount(cat.id),
+    })),
   ];
+
+  // Filter services based on selected category
+  const filteredServices = selectedCategory === "all" 
+    ? services 
+    : services.filter(s => s.categoryId === selectedCategory);
 
   const serviceSteps = [
     { id: "basic-details", label: "Basic details" },
@@ -170,7 +229,13 @@ export default function AdminServices() {
               <DropdownMenuItem data-testid="option-bundle">
                 Bundle
               </DropdownMenuItem>
-              <DropdownMenuItem data-testid="option-category">
+              <DropdownMenuItem 
+                onClick={() => {
+                  setShowAddCategory(true);
+                  setShowOptionsMenu(false);
+                }} 
+                data-testid="option-category"
+              >
                 Category
               </DropdownMenuItem>
               <DropdownMenuItem data-testid="option-service">
@@ -215,7 +280,12 @@ export default function AdminServices() {
               <span className="text-xs text-muted-foreground">{category.count}</span>
             </button>
           ))}
-          <Button variant="ghost" className="text-primary w-full justify-start px-3" data-testid="button-add-category">
+          <Button 
+            variant="ghost" 
+            className="text-primary w-full justify-start px-3" 
+            onClick={() => setShowAddCategory(true)}
+            data-testid="button-add-category"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add category
           </Button>
@@ -252,29 +322,35 @@ export default function AdminServices() {
             </h3>
 
             <div className="space-y-2">
-              {services.map((service) => (
-                <Card key={service.id} className="hover-elevate" data-testid={`service-card-${service.id}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{service.name}</h4>
-                        <p className="text-sm text-muted-foreground">{service.duration}min</p>
-                        {service.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold">AED {service.price}</p>
+              {filteredServices.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No services in this category
+                </p>
+              ) : (
+                filteredServices.map((service) => (
+                  <Card key={service.id} className="hover-elevate" data-testid={`service-card-${service.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{service.name}</h4>
+                          <p className="text-sm text-muted-foreground">{service.duration}min</p>
+                          {service.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                          )}
                         </div>
-                        <Button variant="ghost" size="icon" data-testid={`button-service-menu-${service.id}`}>
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-semibold">AED {service.price}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" data-testid={`button-service-menu-${service.id}`}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -355,14 +431,19 @@ export default function AdminServices() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="menu-category">Menu category</Label>
-                  <Select value={serviceForm.category} onValueChange={(value) => setServiceForm({ ...serviceForm, category: value })}>
+                  <Select 
+                    value={serviceForm.categoryId?.toString()} 
+                    onValueChange={(value) => setServiceForm({ ...serviceForm, categoryId: parseInt(value) })}
+                  >
                     <SelectTrigger id="menu-category" data-testid="select-menu-category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="hair">Hair</SelectItem>
-                      <SelectItem value="coloring">Coloring</SelectItem>
-                      <SelectItem value="facial">Facial</SelectItem>
+                      {serviceCategories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id.toString()}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
@@ -547,6 +628,55 @@ export default function AdminServices() {
         </>
       )}
       {showNewService && renderContent()}
+
+      {/* Add Category Dialog */}
+      <Dialog 
+        open={showAddCategory} 
+        onOpenChange={(open) => {
+          setShowAddCategory(open);
+          if (!open) setNewCategoryName("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Category</DialogTitle>
+            <DialogDescription>
+              Create a new service category to organize your services
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="category-name">Category Name</Label>
+              <Input
+                id="category-name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Enter category name (e.g., Massage, Nails)"
+                data-testid="input-category-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAddCategory(false);
+                setNewCategoryName("");
+              }}
+              data-testid="button-cancel-category"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddCategory}
+              disabled={createCategoryMutation.isPending}
+              data-testid="button-save-category"
+            >
+              Add Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
