@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin } from "./replitAuth";
 import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import { notificationService } from "./notificationService";
+import { requireStaff, requireStaffRole, getStaffByUserId, canViewStaffCalendar, canEditAppointments, canAccessDashboard } from "./staffPermissions";
+import { staffRoles, staffRoleInfo } from "@shared/schema";
 import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
@@ -48,6 +50,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Staff permission routes
+  app.get('/api/staff/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const staffMember = await getStaffByUserId(userId);
+      
+      if (!staffMember) {
+        return res.status(404).json({ error: "Staff profile not found" });
+      }
+
+      // Return staff info with permissions
+      res.json({
+        ...staffMember,
+        permissions: staffRoleInfo[staffMember.role as keyof typeof staffRoleInfo] || staffRoleInfo.basic,
+      });
+    } catch (error) {
+      console.error("Error fetching staff profile:", error);
+      res.status(500).json({ error: "Failed to fetch staff profile" });
+    }
+  });
+
+  // Check staff permissions
+  app.get('/api/staff/permissions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Admins have all permissions
+      if (user?.role === "admin" || user?.role === "super_admin") {
+        return res.json({
+          canViewOwnCalendar: true,
+          canViewAllCalendars: true,
+          canEditAppointments: true,
+          canAccessDashboard: true,
+          role: user.role,
+          isAdmin: true,
+        });
+      }
+
+      const staffMember = await getStaffByUserId(userId);
+      
+      if (!staffMember) {
+        return res.json({
+          canViewOwnCalendar: false,
+          canViewAllCalendars: false,
+          canEditAppointments: false,
+          canAccessDashboard: false,
+          role: null,
+          isAdmin: false,
+        });
+      }
+
+      const role = staffMember.role || staffRoles.BASIC;
+      
+      res.json({
+        canViewOwnCalendar: canViewStaffCalendar(role, staffMember.id, staffMember.id),
+        canViewAllCalendars: canViewStaffCalendar(role, staffMember.id, -1), // -1 for different staff
+        canEditAppointments: canEditAppointments(role),
+        canAccessDashboard: canAccessDashboard(role),
+        role: role,
+        isAdmin: false,
+        staffId: staffMember.id,
+      });
+    } catch (error) {
+      console.error("Error checking permissions:", error);
+      res.status(500).json({ error: "Failed to check permissions" });
     }
   });
 
