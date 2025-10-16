@@ -21,7 +21,9 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: text("role").notNull().default("customer"), // customer, staff, admin
+  role: text("role").notNull().default("customer"), // customer, staff, admin, super_admin
+  status: text("status").notNull().default("approved"), // pending, approved, rejected (for admin registrations)
+  adminSpaId: integer("admin_spa_id"), // Links admin users to their spa
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -29,6 +31,25 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users);
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Admin Applications - tracks admin registration and approval process
+export const adminApplications = pgTable("admin_applications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  businessName: text("business_name").notNull(),
+  businessType: text("business_type"), // spa, salon, barbershop, etc.
+  contactPhone: text("contact_phone"),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  appliedAt: timestamp("applied_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Super admin who reviewed
+  rejectionReason: text("rejection_reason"),
+  notes: text("notes"),
+});
+
+export const insertAdminApplicationSchema = createInsertSchema(adminApplications).omit({ id: true, appliedAt: true });
+export type InsertAdminApplication = z.infer<typeof insertAdminApplicationSchema>;
+export type AdminApplication = typeof adminApplications.$inferSelect;
 
 // Spas/Venues table (multiple spas using the system)
 export const spas = pgTable("spas", {
@@ -53,6 +74,7 @@ export const spas = pgTable("spas", {
   reviewCount: integer("review_count").default(0),
   active: boolean("active").default(true),
   featured: boolean("featured").default(false),
+  setupComplete: boolean("setup_complete").default(false), // Tracks if admin completed spa setup wizard
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

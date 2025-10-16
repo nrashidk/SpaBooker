@@ -180,12 +180,51 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
     }
   }
 
-  // Check if user has admin role
+  // Check if user has admin role and is approved
   const userId = user.claims.sub;
   const dbUser = await storage.getUser(userId);
   
   if (!dbUser || dbUser.role !== "admin") {
     return res.status(403).json({ message: "Forbidden: Admin access required" });
+  }
+
+  if (dbUser.status !== "approved") {
+    return res.status(403).json({ message: "Forbidden: Admin account pending approval" });
+  }
+
+  next();
+};
+
+// Super Admin-only middleware - requires authentication + super_admin role
+export const isSuperAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user.expires_at) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now > user.expires_at) {
+    const refreshToken = user.refresh_token;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const config = await getOidcConfig();
+      const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+      updateUserSession(user, tokenResponse);
+    } catch (error) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+  }
+
+  // Check if user has super_admin role
+  const userId = user.claims.sub;
+  const dbUser = await storage.getUser(userId);
+  
+  if (!dbUser || dbUser.role !== "super_admin") {
+    return res.status(403).json({ message: "Forbidden: Super Admin access required" });
   }
 
   next();

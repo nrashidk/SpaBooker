@@ -1,5 +1,6 @@
 import {
   users,
+  adminApplications,
   spas,
   spaSettings,
   serviceCategories,
@@ -24,6 +25,8 @@ import {
   productSales,
   type User,
   type UpsertUser,
+  type AdminApplication,
+  type InsertAdminApplication,
   type Spa,
   type InsertSpa,
   type SpaSettings,
@@ -70,6 +73,14 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+
+  // Admin Application operations
+  createAdminApplication(application: InsertAdminApplication): Promise<AdminApplication>;
+  getAllAdminApplications(): Promise<AdminApplication[]>;
+  getAdminApplicationById(id: number): Promise<AdminApplication | undefined>;
+  getAdminApplicationByUserId(userId: string): Promise<AdminApplication | undefined>;
+  getAdminApplicationsByStatus(status: string): Promise<AdminApplication[]>;
+  updateAdminApplication(id: number, application: Partial<InsertAdminApplication>): Promise<AdminApplication | undefined>;
 
   // Spa operations
   getAllSpas(): Promise<Spa[]>;
@@ -221,6 +232,52 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // Admin Application operations
+  async createAdminApplication(application: InsertAdminApplication): Promise<AdminApplication> {
+    const [app] = await db
+      .insert(adminApplications)
+      .values(application)
+      .returning();
+    return app;
+  }
+
+  async getAllAdminApplications(): Promise<AdminApplication[]> {
+    return await db.select().from(adminApplications).orderBy(desc(adminApplications.appliedAt));
+  }
+
+  async getAdminApplicationById(id: number): Promise<AdminApplication | undefined> {
+    const [app] = await db
+      .select()
+      .from(adminApplications)
+      .where(eq(adminApplications.id, id));
+    return app;
+  }
+
+  async getAdminApplicationByUserId(userId: string): Promise<AdminApplication | undefined> {
+    const [app] = await db
+      .select()
+      .from(adminApplications)
+      .where(eq(adminApplications.userId, userId));
+    return app;
+  }
+
+  async getAdminApplicationsByStatus(status: string): Promise<AdminApplication[]> {
+    return await db
+      .select()
+      .from(adminApplications)
+      .where(eq(adminApplications.status, status))
+      .orderBy(desc(adminApplications.appliedAt));
+  }
+
+  async updateAdminApplication(id: number, application: Partial<InsertAdminApplication>): Promise<AdminApplication | undefined> {
+    const [updated] = await db
+      .update(adminApplications)
+      .set(application)
+      .where(eq(adminApplications.id, id))
+      .returning();
+    return updated;
   }
 
   // Spa operations
