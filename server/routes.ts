@@ -1069,7 +1069,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/service-categories/:id", isAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+      
       const validatedData = insertServiceCategorySchema.partial().parse(req.body);
       const category = await storage.updateServiceCategory(id, validatedData);
       if (!category) {
@@ -1077,22 +1081,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(category);
     } catch (error) {
-      console.error("Error updating service category:", error);
-      res.status(500).json({ message: "Failed to update service category" });
+      handleRouteError(res, error, "Failed to update service category");
     }
   });
 
   app.delete("/api/admin/service-categories/:id", isAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+      
       const deleted = await storage.deleteServiceCategory(id);
       if (!deleted) {
         return res.status(404).json({ message: "Service category not found" });
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting service category:", error);
-      res.status(500).json({ message: "Failed to delete service category" });
+      handleRouteError(res, error, "Failed to delete service category");
     }
   });
 
