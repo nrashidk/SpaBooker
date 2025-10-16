@@ -29,14 +29,12 @@ export class AuditLogger {
     try {
       const auditLog: InsertAuditLog = {
         userId: data.userId,
+        userRole: data.role,
+        spaId: data.spaId,
         action: data.action,
         entityType: data.entityType,
         entityId: data.entityId,
-        changes: data.changes ? {
-          ...data.changes,
-          spaId: data.spaId,
-          role: data.role,
-        } : null,
+        changes: data.changes || null,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
       };

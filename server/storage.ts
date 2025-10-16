@@ -23,6 +23,7 @@ import {
   loyaltyCards,
   loyaltyCardUsage,
   productSales,
+  auditLogs,
   type User,
   type UpsertUser,
   type AdminApplication,
@@ -63,9 +64,10 @@ import {
   type InsertLoyaltyCardUsage,
   type ProductSale,
   type InsertProductSale,
+  type AuditLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -205,6 +207,17 @@ export interface IStorage {
   createProductSale(sale: InsertProductSale): Promise<ProductSale>;
   updateProductSale(id: number, sale: Partial<InsertProductSale>): Promise<ProductSale | undefined>;
   deleteProductSale(id: number): Promise<boolean>;
+
+  // Audit Log operations
+  getAuditLogs(filters?: {
+    userId?: string;
+    action?: string;
+    entityType?: string;
+    entityId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<AuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -798,6 +811,57 @@ export class DatabaseStorage implements IStorage {
   async deleteProductSale(id: number): Promise<boolean> {
     const result = await db.delete(productSales).where(eq(productSales.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Audit Log operations
+  async getAuditLogs(filters?: {
+    userId?: string;
+    action?: string;
+    entityType?: string;
+    entityId?: number;
+    spaId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    const conditions = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(auditLogs.userId, filters.userId));
+    }
+    
+    if (filters?.action) {
+      conditions.push(eq(auditLogs.action, filters.action));
+    }
+    
+    if (filters?.entityType) {
+      conditions.push(eq(auditLogs.entityType, filters.entityType));
+    }
+    
+    if (filters?.entityId) {
+      conditions.push(eq(auditLogs.entityId, filters.entityId));
+    }
+    
+    if (filters?.spaId) {
+      conditions.push(eq(auditLogs.spaId, filters.spaId));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(gte(auditLogs.createdAt, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      conditions.push(lte(auditLogs.createdAt, filters.endDate));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const logs = await query.orderBy(desc(auditLogs.createdAt)).limit(filters?.limit || 100);
+    return logs;
   }
 }
 

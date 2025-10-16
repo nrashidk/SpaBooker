@@ -653,6 +653,8 @@ export const notificationUsage = pgTable("notification_usage", {
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id),
+  userRole: text("user_role"), // Store user role at time of action for compliance
+  spaId: integer("spa_id").references(() => spas.id), // Dedicated spa context for filtering
   action: text("action").notNull(), // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
   entityType: text("entity_type").notNull(), // bookings, invoices, services, staff, etc.
   entityId: integer("entity_id").notNull(),
@@ -662,6 +664,7 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("idx_audit_user").on(table.userId),
+  index("idx_audit_spa").on(table.spaId),
   index("idx_audit_entity").on(table.entityType, table.entityId),
   index("idx_audit_action").on(table.action),
   index("idx_audit_created").on(table.createdAt),

@@ -1240,7 +1240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid staff ID" });
       }
       
-      const before = await storage.getStaff(id);
+      const before = await storage.getStaffById(id);
       const validatedData = insertStaffSchema.partial().parse(req.body);
       const staffMember = await storage.updateStaff(id, validatedData);
       if (!staffMember) {
@@ -1265,7 +1265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid staff ID" });
       }
       
-      const staff = await storage.getStaff(id);
+      const staff = await storage.getStaffById(id);
       const deleted = await storage.deleteStaff(id);
       if (!deleted) {
         return res.status(404).json({ message: "Staff member not found" });
@@ -1871,6 +1871,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting product sale:", error);
       res.status(500).json({ message: "Failed to delete product sale" });
+    }
+  });
+
+  // Audit Logs routes (admin only)
+  app.get("/api/admin/audit-logs", isAdmin, async (req, res) => {
+    try {
+      const { userId, action, entityType, entityId, spaId, startDate, endDate, limit } = req.query;
+      
+      const filters: any = {};
+      if (userId) filters.userId = userId as string;
+      if (action) filters.action = action as string;
+      if (entityType) filters.entityType = entityType as string;
+      if (entityId) filters.entityId = parseInt(entityId as string);
+      if (spaId) filters.spaId = parseInt(spaId as string);
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (limit) filters.limit = parseInt(limit as string);
+      
+      const logs = await storage.getAuditLogs(filters);
+      res.json(logs);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch audit logs");
     }
   });
 
