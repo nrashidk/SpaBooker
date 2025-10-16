@@ -1288,7 +1288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Booking routes - with staff permission enforcement
-  app.get("/api/admin/bookings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/bookings", requireStaffRole(staffRoles.VIEW_OWN), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -1307,17 +1307,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const role = staffMember.role || staffRoles.BASIC;
         
-        // VIEW_OWN or VIEW_ALL needed to see bookings
-        if (canViewStaffCalendar(role, staffMember.id, staffMember.id)) {
-          // If VIEW_OWN, only show own bookings
-          if (!canViewStaffCalendar(role, staffMember.id, -1)) {
-            bookings = bookings.filter(b => b.staffId === staffMember.id);
-          }
-          // If VIEW_ALL, show all bookings (no filter needed)
-        } else {
-          // Basic staff cannot view bookings
-          return res.status(403).json({ error: "Insufficient permissions to view bookings" });
+        // If VIEW_OWN, only show own bookings
+        if (!canViewStaffCalendar(role, staffMember.id, -1)) {
+          bookings = bookings.filter(b => b.staffId === staffMember.id);
         }
+        // If VIEW_ALL or higher, show all bookings (no filter needed)
       }
       
       // Enrich bookings with related data
@@ -1372,21 +1366,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/admin/bookings/:id", requireStaffRole(staffRoles.MANAGE_BOOKINGS), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
-      
-      // Check edit permissions
-      const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
-      
-      if (!isAdminUser) {
-        const staffMember = await getStaffByUserId(userId);
-        if (!staffMember || !canEditAppointments(staffMember.role || staffRoles.BASIC)) {
-          return res.status(403).json({ error: "Insufficient permissions to edit appointments" });
-        }
-      }
       
       // Extract services BEFORE Zod parsing (which strips unknown fields)
       const services = req.body.services;
@@ -1429,21 +1411,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/bookings/:id", requireStaffRole(staffRoles.MANAGE_BOOKINGS), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
-      
-      // Check edit permissions
-      const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
-      
-      if (!isAdminUser) {
-        const staffMember = await getStaffByUserId(userId);
-        if (!staffMember || !canEditAppointments(staffMember.role || staffRoles.BASIC)) {
-          return res.status(403).json({ error: "Insufficient permissions to delete appointments" });
-        }
-      }
       
       const deleted = await storage.deleteBooking(id);
       if (!deleted) {
