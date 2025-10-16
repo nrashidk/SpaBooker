@@ -1,0 +1,205 @@
+import { Request } from "express";
+import { db } from "../db";
+import { auditLogs, InsertAuditLog } from "@shared/schema";
+
+export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT" | "APPROVAL" | "REJECTION";
+export type AuditEntityType = "booking" | "invoice" | "service" | "staff" | "customer" | "spa" | "product" | "loyalty_card" | "expense" | "vendor";
+
+interface AuditLogData {
+  userId?: string;
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: number;
+  changes?: {
+    before?: any;
+    after?: any;
+    fields?: string[];
+  };
+  ipAddress?: string;
+  userAgent?: string;
+  spaId?: number;
+  role?: string;
+}
+
+export class AuditLogger {
+  /**
+   * Log an audit event
+   */
+  static async log(data: AuditLogData): Promise<void> {
+    try {
+      const auditLog: InsertAuditLog = {
+        userId: data.userId,
+        action: data.action,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        changes: data.changes ? {
+          ...data.changes,
+          spaId: data.spaId,
+          role: data.role,
+        } : null,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+      };
+
+      await db.insert(auditLogs).values(auditLog);
+    } catch (error) {
+      // Log error but don't throw - audit logging should not break the main flow
+      console.error("Failed to create audit log:", error);
+    }
+  }
+
+  /**
+   * Log a CREATE action
+   */
+  static async logCreate(
+    req: Request,
+    entityType: AuditEntityType,
+    entityId: number,
+    data: any,
+    spaId?: number
+  ): Promise<void> {
+    await this.log({
+      userId: req.user?.id,
+      action: "CREATE",
+      entityType,
+      entityId,
+      changes: {
+        after: data,
+      },
+      ipAddress: this.getIpAddress(req),
+      userAgent: req.get("user-agent"),
+      spaId,
+      role: req.user?.role,
+    });
+  }
+
+  /**
+   * Log an UPDATE action
+   */
+  static async logUpdate(
+    req: Request,
+    entityType: AuditEntityType,
+    entityId: number,
+    before: any,
+    after: any,
+    spaId?: number
+  ): Promise<void> {
+    // Calculate changed fields
+    const changedFields = Object.keys(after).filter(
+      key => JSON.stringify(before[key]) !== JSON.stringify(after[key])
+    );
+
+    if (changedFields.length === 0) {
+      return; // No changes, don't log
+    }
+
+    await this.log({
+      userId: req.user?.id,
+      action: "UPDATE",
+      entityType,
+      entityId,
+      changes: {
+        before: this.pickFields(before, changedFields),
+        after: this.pickFields(after, changedFields),
+        fields: changedFields,
+      },
+      ipAddress: this.getIpAddress(req),
+      userAgent: req.get("user-agent"),
+      spaId,
+      role: req.user?.role,
+    });
+  }
+
+  /**
+   * Log a DELETE action
+   */
+  static async logDelete(
+    req: Request,
+    entityType: AuditEntityType,
+    entityId: number,
+    data: any,
+    spaId?: number
+  ): Promise<void> {
+    await this.log({
+      userId: req.user?.id,
+      action: "DELETE",
+      entityType,
+      entityId,
+      changes: {
+        before: data,
+      },
+      ipAddress: this.getIpAddress(req),
+      userAgent: req.get("user-agent"),
+      spaId,
+      role: req.user?.role,
+    });
+  }
+
+  /**
+   * Log authentication events
+   */
+  static async logAuth(
+    req: Request,
+    action: "LOGIN" | "LOGOUT",
+    userId: string
+  ): Promise<void> {
+    await this.log({
+      userId,
+      action,
+      entityType: "customer", // Use customer as placeholder for auth events
+      entityId: 0,
+      ipAddress: this.getIpAddress(req),
+      userAgent: req.get("user-agent"),
+      role: req.user?.role,
+    });
+  }
+
+  /**
+   * Log approval/rejection events for super admin actions
+   */
+  static async logApproval(
+    req: Request,
+    action: "APPROVAL" | "REJECTION",
+    entityType: AuditEntityType,
+    entityId: number,
+    data: any
+  ): Promise<void> {
+    await this.log({
+      userId: req.user?.id,
+      action,
+      entityType,
+      entityId,
+      changes: {
+        after: data,
+      },
+      ipAddress: this.getIpAddress(req),
+      userAgent: req.get("user-agent"),
+      role: req.user?.role,
+    });
+  }
+
+  /**
+   * Get client IP address from request
+   */
+  private static getIpAddress(req: Request): string | undefined {
+    // Check various headers for the real IP (useful behind proxies)
+    const forwarded = req.get("x-forwarded-for");
+    if (forwarded) {
+      return forwarded.split(",")[0].trim();
+    }
+    return req.ip || req.socket.remoteAddress;
+  }
+
+  /**
+   * Pick specific fields from an object
+   */
+  private static pickFields(obj: any, fields: string[]): any {
+    const result: any = {};
+    for (const field of fields) {
+      if (field in obj) {
+        result[field] = obj[field];
+      }
+    }
+    return result;
+  }
+}
