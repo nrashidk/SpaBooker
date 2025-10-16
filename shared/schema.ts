@@ -120,6 +120,46 @@ export const services = pgTable("services", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Staff roles and permissions
+export const staffRoles = {
+  BASIC: "basic", // Only receives notifications when selected by customer
+  VIEW_OWN: "view_own_calendar", // Can view only their own calendar
+  VIEW_ALL: "view_all_calendars", // Can view all team calendars
+  MANAGE_BOOKINGS: "manage_bookings", // Can edit calendar and appointments
+  ADMIN_ACCESS: "admin_access", // Can view dashboard and download reports
+} as const;
+
+export type StaffRole = typeof staffRoles[keyof typeof staffRoles];
+
+// Staff role metadata for UI
+export const staffRoleInfo = {
+  basic: {
+    label: "Basic Staff",
+    description: "Only receives email notifications when selected by customer",
+    permissions: ["Receive booking notifications"],
+  },
+  view_own_calendar: {
+    label: "View Own Calendar",
+    description: "Can view their own calendar and appointments",
+    permissions: ["View own calendar", "Receive booking notifications"],
+  },
+  view_all_calendars: {
+    label: "View All Calendars",
+    description: "Can view all team members' calendars",
+    permissions: ["View all calendars", "View own calendar", "Receive booking notifications"],
+  },
+  manage_bookings: {
+    label: "Manage Bookings",
+    description: "Can edit calendar and manage appointments",
+    permissions: ["Edit appointments", "View all calendars", "View own calendar", "Receive booking notifications"],
+  },
+  admin_access: {
+    label: "Admin Access",
+    description: "Full access to dashboard, reports, and analytics",
+    permissions: ["View dashboard", "Download reports", "Edit appointments", "View all calendars", "View own calendar", "Receive booking notifications"],
+  },
+} as const;
+
 // Staff members
 export const staff = pgTable("staff", {
   id: serial("id").primaryKey(),
@@ -129,6 +169,7 @@ export const staff = pgTable("staff", {
   specialty: text("specialty"),
   email: text("email"),
   phone: text("phone"),
+  role: text("role").notNull().default("basic"), // basic, view_own_calendar, view_all_calendars, manage_bookings, admin_access
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // percentage
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
   active: boolean("active").default(true),
@@ -376,7 +417,9 @@ export const insertSpaSchema = createInsertSchema(spas).omit({ id: true, created
 export const insertSpaSettingsSchema = createInsertSchema(spaSettings).omit({ id: true, updatedAt: true });
 export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({ id: true });
 export const insertServiceSchema = createInsertSchema(services).omit({ id: true, createdAt: true });
-export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, createdAt: true });
+export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, createdAt: true }).extend({
+  role: z.enum(["basic", "view_own_calendar", "view_all_calendars", "manage_bookings", "admin_access"]).default("basic"),
+});
 export const insertStaffScheduleSchema = createInsertSchema(staffSchedules).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true }).extend({

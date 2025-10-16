@@ -4,7 +4,20 @@
 Serene Spa is an online booking system, inspired by Fresha, offering a 4-step booking process for spa treatments. It supports multiple spa venues, allowing customers to search across all locations and book services. The platform aims to enhance customer satisfaction and operational efficiency through features like categorized services, flexible professional selection, and real-time availability. It also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance, with ambitions for future integration with growth and analytics tools to maximize spa revenue and customer engagement.
 
 ## Recent Changes (October 16, 2025)
--   **Revenue Tracking System (Latest):**
+-   **Staff Role-Based Permissions System (Latest):**
+    -   Added role field to staff table with 5 permission levels: Basic, View Own Calendar, View All Calendars, Manage Bookings, Admin Access
+    -   Created staffRoleInfo metadata with labels, descriptions, and permissions for each role
+    -   Updated Staff management page to display role badges with icons
+    -   Basic staff only receive email notifications when selected by customer
+    -   Higher roles grant progressive permissions: view calendars, edit appointments, access dashboard/reports
+    -   All staff roles properly validated with Zod schema
+-   **Admin Profile & Security Enhancements:**
+    -   Updated AdminSidebar footer to show real user account details (name, email, avatar with initials)
+    -   Added dropdown menu with Account Settings, Change Password, and Log Out options
+    -   Implemented requireSuperAdmin prop for ProtectedRoute to enforce super admin access
+    -   Super Admin menu item now conditionally visible only to super_admin role users
+    -   Frontend and backend authorization properly aligned for super admin dashboard
+-   **Revenue Tracking System:**
     -   Added loyalty_cards table to track loyalty card purchases and redemptions
     -   Added loyalty_card_usage table to track each time a loyalty card is used
     -   Added product_sales table to track retail product purchases separate from services
@@ -58,7 +71,8 @@ The UI adheres to specific design guidelines with a defined color palette and ty
 Utilizes a PostgreSQL database for comprehensive data management and an Express-based REST API.
 -   **Database:** PostgreSQL (Neon-backed) storing data for spas, services, staff, bookings, customers, invoices, expenses, vendors, product sales, loyalty cards, and loyalty card usage.
 -   **API:** Provides endpoints for searching spas, fetching spa details, services, staff, and robust admin routes for resource management including complete revenue tracking (bookings, product sales, loyalty cards).
--   **Authentication:** Replit Auth handles user authentication with role-based access control (customer, staff, admin) and secures routes.
+-   **Authentication:** Replit Auth handles user authentication with role-based access control (customer, staff, admin, super_admin) and secures routes with proper authorization middleware.
+-   **Staff Role-Based Permissions:** Five-tier permission system (Basic, View Own Calendar, View All Calendars, Manage Bookings, Admin Access) controlling staff access to calendars, appointments, dashboard, and reports.
 -   **Revenue Tracking:** Complete system for tracking all revenue streams including service bookings, retail product sales, and loyalty card purchases/redemptions with proper validation and balance management.
 -   **Calendar Validation System:** Ensures accurate time slot generation based on business hours, service durations, and staff availability, preventing double-bookings.
 -   **Pay-As-You-Go Notification System:** Allows spa owners to configure and pay for their own notification services (Email, SMS, WhatsApp) using their credentials. It includes credential encryption, audit logging, and configurable fallback logic.

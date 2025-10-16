@@ -2,9 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Edit, Star, Calendar } from "lucide-react";
+import { Plus, Edit, Calendar, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { Staff } from "@shared/schema";
+import { staffRoleInfo } from "@shared/schema";
 
 export default function AdminStaff() {
   const { data: staff = [], isLoading } = useQuery<Staff[]>({
@@ -55,6 +56,13 @@ export default function AdminStaff() {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Specialty</span>
                   <Badge variant="secondary">{member.specialty}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Role</span>
+                  <Badge variant="outline" className="gap-1" data-testid={`badge-role-${member.id}`}>
+                    <Shield className="h-3 w-3" />
+                    {staffRoleInfo[member.role as keyof typeof staffRoleInfo]?.label || "Basic Staff"}
+                  </Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2 pt-2">
