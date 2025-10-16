@@ -106,32 +106,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin register route (for testing)
+  // Admin register route - creates pending application
   app.post('/api/admin/register', async (req, res) => {
     try {
       const { name, email, password, spaName } = req.body;
       
-      // Create admin user
+      // Create pending admin user
       const adminUser = await storage.upsertUser({
         id: `admin-${Date.now()}`,
         email,
         firstName: name.split(' ')[0],
         lastName: name.split(' ').slice(1).join(' ') || '',
         role: 'admin',
+        status: 'pending', // Set as pending until super admin approves
       });
       
-      // Set up session with required OIDC-like properties
-      const sessionUser = {
-        claims: { sub: adminUser.id },
-        expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
-        refresh_token: 'test-refresh-token', // Dummy refresh token
-      };
+      // Create admin application
+      await storage.createAdminApplication({
+        userId: adminUser.id,
+        businessName: spaName,
+        businessType: 'spa', // Default to spa, can be extended later
+        status: 'pending',
+      });
       
-      req.login(sessionUser, (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Registration failed" });
-        }
-        return res.json({ success: true, user: adminUser });
+      // Return success message without logging in
+      // User must wait for super admin approval
+      res.json({ 
+        success: true, 
+        message: 'Application submitted successfully. Your account is pending approval by a super admin.',
+        pendingApproval: true
       });
     } catch (error) {
       console.error("Admin register error:", error);
