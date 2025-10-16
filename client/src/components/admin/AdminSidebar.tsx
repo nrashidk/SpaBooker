@@ -14,6 +14,10 @@ import {
   Megaphone,
   Puzzle,
   Shield,
+  ChevronUp,
+  Key,
+  LogOut,
+  User,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -29,6 +33,14 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
@@ -106,7 +118,19 @@ const menuItems = [
 
 export function AdminSidebar() {
   const [location] = useLocation();
-  const { isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
+  
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
+    if (!firstName && !lastName) return "AD";
+    const first = firstName?.[0] || "";
+    const last = lastName?.[0] || "";
+    return (first + last).toUpperCase() || "AD";
+  };
+
+  const getFullName = (firstName?: string | null, lastName?: string | null) => {
+    if (!firstName && !lastName) return "Admin User";
+    return [firstName, lastName].filter(Boolean).join(" ");
+  };
 
   return (
     <Sidebar>
@@ -161,16 +185,51 @@ export function AdminSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>AD</AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <p className="text-sm font-medium">Admin User</p>
-            <p className="text-xs text-muted-foreground">admin@spa.com</p>
-          </div>
-          <UserCircle className="h-4 w-4 text-muted-foreground" />
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button 
+              className="flex items-center gap-3 w-full hover-elevate rounded-md p-2 transition-colors"
+              data-testid="admin-profile-menu"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarFallback>{getInitials(user?.firstName, user?.lastName)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium" data-testid="text-admin-name">
+                  {getFullName(user?.firstName, user?.lastName)}
+                </p>
+                <p className="text-xs text-muted-foreground" data-testid="text-admin-email">
+                  {user?.email || "admin@spa.com"}
+                </p>
+              </div>
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/admin/settings" data-testid="menu-account-settings">
+                <User className="mr-2 h-4 w-4" />
+                <span>Account Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/settings?tab=password" data-testid="menu-change-password">
+                <Key className="mr-2 h-4 w-4" />
+                <span>Change Password</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => window.location.href = "/api/logout"}
+              data-testid="menu-logout"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log Out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
   );
