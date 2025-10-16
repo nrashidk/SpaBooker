@@ -12,103 +12,11 @@ import BookingSteps from "@/components/BookingSteps";
 import ThemeToggle from "@/components/ThemeToggle";
 import type { Spa, Service as DbService, Staff } from "@shared/schema";
 
-//todo: remove mock functionality
-const mockServices: Service[] = [
-  {
-    id: "1",
-    name: "Express Haircut - اكسبريس قص الشعر - عادي",
-    description: "Quick and professional haircut service",
-    duration: 25,
-    price: 50,
-    category: "Hair Services",
-    featured: true,
-    package: {
-      description: "Get 6 sessions for AED 250 with 5 Haircuts + 1 Free Haircut ✨",
-      originalPrice: 300,
-    },
-  },
-  {
-    id: "2",
-    name: "Beard Styling- خط اللحية",
-    description: "Professional beard trim and styling",
-    duration: 25,
-    price: 50,
-    category: "Shave Services",
-    featured: true,
-  },
-  {
-    id: "3",
-    name: "Headshave - حلق الرأس (على الصفر)",
-    description: "Complete head shave service",
-    duration: 25,
-    price: 50,
-    category: "Hair Services",
-  },
-  {
-    id: "4",
-    name: "Little Master Haircut - قص الشعر|الأطفل",
-    description: "Haircut for children",
-    duration: 25,
-    price: 40,
-    category: "Hair Services",
-  },
-  {
-    id: "5",
-    name: "Executive Pedicure - اكسيكيوتف بادكير - حامي (دقيقة)",
-    description: "Premium pedicure service",
-    duration: 40,
-    price: 80,
-    category: "Nails",
-    featured: true,
-    discount: 33,
-  },
-  {
-    id: "6",
-    name: "Executive Manicure - اكسيكيوتف مانيكير - حامي (دقيقة)",
-    description: "Premium manicure service",
-    duration: 30,
-    price: 65,
-    category: "Nails",
-    discount: 24,
-  },
-];
+const mockServices: Service[] = [];
 
-//todo: remove mock functionality
-const mockProfessionals: Professional[] = [
-  {
-    id: "1",
-    name: "Saqib",
-    specialty: "Hairdresser/Massage Therapist",
-    rating: 4.9,
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    specialty: "Skincare Specialist",
-    rating: 4.8,
-  },
-  {
-    id: "3",
-    name: "Michael Chen",
-    specialty: "Massage Therapist",
-    rating: 4.7,
-  },
-];
+const mockProfessionals: Professional[] = [];
 
-//todo: remove mock functionality  
-const mockTimeSlots = [
-  { time: "5:30PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "5:45PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "6:00PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "6:15PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "6:30PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "6:45PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "7:00PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "7:15PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "7:30PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "7:45PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-  { time: "8:00PM", available: true, price: 180, originalPrice: 220, discount: 18 },
-];
+const mockTimeSlots: any[] = [];
 
 export default function BookingPage() {
   const [location] = useLocation();

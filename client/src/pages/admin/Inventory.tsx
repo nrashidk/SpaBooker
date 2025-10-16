@@ -4,48 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, AlertTriangle } from "lucide-react";
 
 export default function AdminInventory() {
-  const products = [
-    {
-      id: 1,
-      name: "Hair Styling Gel",
-      sku: "HSG-001",
-      category: "Hair Products",
-      stock: 45,
-      reorderLevel: 20,
-      costPrice: 15,
-      sellingPrice: 35,
-    },
-    {
-      id: 2,
-      name: "Beard Oil",
-      sku: "BO-002",
-      category: "Grooming",
-      stock: 8,
-      reorderLevel: 15,
-      costPrice: 25,
-      sellingPrice: 60,
-    },
-    {
-      id: 3,
-      name: "Nail Polish Set",
-      sku: "NPS-003",
-      category: "Nail Care",
-      stock: 22,
-      reorderLevel: 10,
-      costPrice: 40,
-      sellingPrice: 95,
-    },
-    {
-      id: 4,
-      name: "Massage Oil",
-      sku: "MO-004",
-      category: "Massage",
-      stock: 5,
-      reorderLevel: 12,
-      costPrice: 30,
-      sellingPrice: 75,
-    },
-  ];
+  const products: any[] = [];
 
   const getStockStatus = (stock: number, reorderLevel: number) => {
     if (stock <= reorderLevel) {

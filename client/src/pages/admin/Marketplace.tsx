@@ -4,32 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Link as LinkIcon, Search } from "lucide-react";
 
 export default function AdminMarketplace() {
-  const integrations = [
-    {
-      id: 1,
-      name: "Google My Business",
-      description: "Sync your business info across Google Search and Maps",
-      category: "Marketing",
-      connected: true,
-      roi: "+23% bookings",
-    },
-    {
-      id: 2,
-      name: "Instagram",
-      description: "Enable booking directly from Instagram",
-      category: "Social Media",
-      connected: false,
-      roi: "Coming soon",
-    },
-    {
-      id: 3,
-      name: "SMS Notifications",
-      description: "Send automated appointment reminders via SMS",
-      category: "Communications",
-      connected: true,
-      roi: "15% no-show reduction",
-    },
-  ];
+  const integrations: any[] = [];
 
   return (
     <div className="space-y-6">

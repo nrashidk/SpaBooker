@@ -43,32 +43,9 @@ export default function AdminMarketing() {
     }
   ];
 
-  const blastCampaigns = [
-    {
-      id: 1,
-      title: "50% Discount on our 3rd Anniversary",
-      type: "SMS",
-      date: "31 Dec 2024",
-      status: "Sent",
-      audience: 1526
-    },
-    {
-      id: 2,
-      title: "Retro Grooming Lounge For Men is now open online!",
-      type: "SMS",
-      date: "23 Aug 2022",
-      status: "Sent",
-      audience: 57
-    }
-  ];
+  const blastCampaigns: any[] = [];
 
-  const messagesHistory = [
-    { time: "14 Oct 2025, 10:46pm", client: "Hamad Alhouari", appointment: "#D4F7059D", channel: "Text message", type: "Thank You", status: "Sent" },
-    { time: "14 Oct 2025, 9:58pm", client: "Ahmed Iunia", appointment: "#2788753", channel: "Text message", type: "Thank You", status: "Sent" },
-    { time: "14 Oct 2025, 9:58pm", client: "Ahmed Iunia", appointment: "#2788753", channel: "Email", type: "Thank You", status: "Sent" },
-    { time: "14 Oct 2025, 9:45pm", client: "Jasim", appointment: "#S5C3F350", channel: "Text message", type: "Thank You", status: "Sent" },
-    { time: "14 Oct 2025, 9:44pm", client: "Jasim", appointment: "#356C3934", channel: "Text message", type: "Thank You", status: "Sent" },
-  ];
+  const messagesHistory: any[] = [];
 
   const automationTabs = [
     { id: "reminders", label: "Reminders" },
@@ -79,125 +56,17 @@ export default function AdminMarketing() {
     { id: "client-loyalty", label: "Client loyalty" },
   ];
 
-  const reminderAutomations = [
-    {
-      title: "24 hours upcoming appointment reminder",
-      description: "Notifies clients reminding them of their upcoming appointment",
-      enabled: true,
-      icon: Bell
-    }
-  ];
+  const reminderAutomations: any[] = [];
 
-  const appointmentUpdateAutomations = [
-    {
-      title: "New appointment",
-      description: "Reach out to clients when their appointment is booked for them.",
-      enabled: true,
-      icon: CalendarCheck
-    },
-    {
-      title: "Rescheduled appointment",
-      description: "Automatically sends to clients when their appointment start time is changed.",
-      enabled: true,
-      icon: Calendar
-    },
-    {
-      title: "Cancelled appointment",
-      description: "Automatically sends to clients when their appointment is cancelled.",
-      enabled: true,
-      icon: Calendar
-    },
-    {
-      title: "Did not show up",
-      description: "Automatically sends to clients when their appointment is marked as a no-show.",
-      enabled: true,
-      icon: Calendar
-    },
-    {
-      title: "Thank you for visiting",
-      description: "Reach out to clients when they checked out, with a link to leave a review.",
-      enabled: true,
-      icon: ThumbsUp
-    },
-    {
-      title: "Thank you for tipping",
-      description: "Reach out to clients when they tip after their appointment.",
-      enabled: true,
-      icon: Heart
-    }
-  ];
+  const appointmentUpdateAutomations: any[] = [];
 
-  const waitlistAutomations = [
-    {
-      title: "Joined the waitlist",
-      description: "Automatically sends to clients when they join the waitlist.",
-      enabled: true,
-      icon: UserPlus
-    },
-    {
-      title: "Time slot available",
-      description: "Automatically sends to clients when a time slot becomes available to book.",
-      enabled: true,
-      icon: Calendar
-    }
-  ];
+  const waitlistAutomations: any[] = [];
 
-  const increaseBookingsAutomations = [
-    {
-      title: "Reminder to rebook",
-      description: "Remind your clients to rebook a few weeks after their last appointment.",
-      enabled: true,
-      icon: Calendar
-    },
-    {
-      title: "Celebrate birthdays",
-      description: "Surprise clients on their special day, a proven way to boost client loyalty and retention.",
-      enabled: true,
-      icon: PartyPopper
-    },
-    {
-      title: "Win back lapsed clients",
-      description: "Reach clients that you haven't seen for a while and encourage them to book their next appointment.",
-      enabled: true,
-      icon: Users2
-    },
-    {
-      title: "Reward loyal clients",
-      description: "Message top spenders and get them even more engaged with a special offer.",
-      enabled: false,
-      icon: Crown
-    }
-  ];
+  const increaseBookingsAutomations: any[] = [];
 
-  const celebrateMilestonesAutomations = [
-    {
-      title: "Welcome new clients",
-      description: "Celebrate new clients joining your business by offering them a discount.",
-      enabled: false,
-      icon: Sparkles
-    }
-  ];
+  const celebrateMilestonesAutomations: any[] = [];
 
-  const clientLoyaltyAutomations = [
-    {
-      title: "Earned points summary",
-      description: "Send clients a summary of points earned",
-      enabled: false,
-      icon: Gift
-    },
-    {
-      title: "Achieved loyalty tier",
-      description: "Notify clients when they achieve a new tier",
-      enabled: false,
-      icon: Crown
-    },
-    {
-      title: "Earned rewards summary",
-      description: "Send clients a summary of their rewards",
-      enabled: false,
-      icon: Gift
-    }
-  ];
+  const clientLoyaltyAutomations: any[] = [];
 
   const getAutomationsByTab = () => {
     switch (selectedAutomationTab) {

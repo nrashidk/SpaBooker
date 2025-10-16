@@ -18,22 +18,7 @@ import type { Spa, Service, Staff } from "@shared/schema";
 
 type SearchResult = Spa & { services: Service[]; staff: Staff[] };
 
-const treatmentCategories = [
-  { id: "all", name: "All treatments", icon: Grid3x3 },
-  { id: "hair-styling", name: "Hair & styling", icon: Scissors },
-  { id: "nails", name: "Nails", icon: Hand },
-  { id: "eyebrows", name: "Eyebrows & eyelashes", icon: Eye },
-  { id: "massage", name: "Massage", icon: Hand },
-  { id: "barbering", name: "Barbering", icon: Scissors },
-  { id: "hair-removal", name: "Hair removal", icon: Wind },
-  { id: "facials", name: "Facials & skincare", icon: Smile },
-  { id: "injectables", name: "Injectables & fillers", icon: Syringe },
-  { id: "body", name: "Body", icon: HeartPulse },
-  { id: "tattoo", name: "Tattoo & piercing", icon: Droplets },
-  { id: "makeup", name: "Makeup", icon: Wand2 },
-  { id: "medical", name: "Medical & dental", icon: Stethoscope },
-  { id: "counseling", name: "Counseling & holistic", icon: Brain },
-];
+const treatmentCategories: any[] = [];
 
 export default function BookingSearch() {
   const [, setLocation] = useLocation();
