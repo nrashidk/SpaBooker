@@ -119,112 +119,11 @@ export default function AdminFinance() {
     { value: "net_90", label: "Net 90" },
   ];
 
-  const [vendors, setVendors] = useState<LocalVendor[]>([
-    {
-      id: 1,
-      name: "Spa Supplies Co.",
-      email: "sales@spasupplies.ae",
-      phone: "+971 50 123 4567",
-      address: "Dubai, UAE",
-      category: "supplier",
-      paymentTerms: "net_30",
-      notes: "Premium spa products supplier",
-      active: true,
-    },
-    {
-      id: 2,
-      name: "DEWA",
-      email: "support@dewa.gov.ae",
-      phone: "+971 4 601 9999",
-      category: "utility_provider",
-      paymentTerms: "immediate",
-      active: true,
-    },
-    {
-      id: 3,
-      name: "Al Barsha Properties",
-      email: "info@albarsha.ae",
-      phone: "+971 4 555 1234",
-      category: "landlord",
-      paymentTerms: "net_15",
-      active: true,
-    },
-  ]);
+  const [vendors, setVendors] = useState<LocalVendor[]>([]);
 
-  const [expenses, setExpenses] = useState<LocalExpense[]>([
-    {
-      id: 1,
-      category: "rent",
-      description: "Monthly Office Rent",
-      amount: 8500,
-      date: new Date(2025, 9, 1),
-      status: "paid",
-    },
-    {
-      id: 2,
-      category: "utilities",
-      description: "Electricity & Water Bill",
-      amount: 1200,
-      date: new Date(2025, 9, 10),
-      status: "paid",
-    },
-    {
-      id: 3,
-      category: "materials",
-      description: "Spa Products & Supplies",
-      amount: 3400,
-      date: new Date(2025, 9, 12),
-      status: "paid",
-    },
-    {
-      id: 4,
-      category: "salaries",
-      description: "Staff Salaries (Oct)",
-      amount: 15200,
-      date: new Date(2025, 9, 5),
-      status: "paid",
-    },
-    {
-      id: 5,
-      category: "marketing",
-      description: "Social Media Ads",
-      amount: 850,
-      date: new Date(2025, 9, 8),
-      status: "pending",
-    },
-  ]);
+  const [expenses, setExpenses] = useState<LocalExpense[]>([]);
 
-  const [bills, setBills] = useState<LocalBill[]>([
-    {
-      id: 1,
-      billNumber: "BILL-001",
-      vendorId: 1,
-      vendorName: "Spa Supplies Co.",
-      billDate: new Date(2025, 9, 1),
-      dueDate: new Date(2025, 9, 31),
-      subtotal: 3200,
-      taxAmount: 160,
-      totalAmount: 3360,
-      paidAmount: 0,
-      status: "unpaid",
-      category: "materials",
-      notes: "Monthly spa products order",
-    },
-    {
-      id: 2,
-      billNumber: "BILL-002",
-      vendorId: 2,
-      vendorName: "DEWA",
-      billDate: new Date(2025, 9, 10),
-      dueDate: new Date(2025, 9, 15),
-      subtotal: 1200,
-      taxAmount: 0,
-      totalAmount: 1200,
-      paidAmount: 1200,
-      status: "paid",
-      category: "utilities",
-    },
-  ]);
+  const [bills, setBills] = useState<LocalBill[]>([]);
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
@@ -505,7 +404,7 @@ export default function AdminFinance() {
   };
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalRevenue = 45230;
+  const totalRevenue = 0;
   const netProfit = totalRevenue - totalExpenses;
 
   const expensesByCategory = expenseCategories.map(cat => {
@@ -534,13 +433,13 @@ export default function AdminFinance() {
     {
       title: "Total Revenue (Month)",
       value: `AED ${totalRevenue.toLocaleString()}`,
-      change: "+18.2%",
+      change: "No data",
       icon: DollarSign,
     },
     {
       title: "Pending Payments",
-      value: "AED 3,420",
-      change: "12 invoices",
+      value: "AED 0",
+      change: "0 invoices",
       icon: FileText,
     },
     {
@@ -552,40 +451,12 @@ export default function AdminFinance() {
     {
       title: "Net Profit (Month)",
       value: `AED ${netProfit.toLocaleString()}`,
-      change: "+22.4%",
+      change: "No data",
       icon: TrendingUp,
     },
   ];
 
-  const recentInvoices = [
-    {
-      id: 1,
-      invoiceNumber: "INV-001",
-      customer: "Ahmed Ali",
-      amount: 180,
-      status: "paid",
-      date: new Date(2025, 9, 14),
-      paymentMethod: "Card",
-    },
-    {
-      id: 2,
-      invoiceNumber: "INV-002",
-      customer: "Sarah Johnson",
-      amount: 145,
-      status: "pending",
-      date: new Date(2025, 9, 15),
-      paymentMethod: null,
-    },
-    {
-      id: 3,
-      invoiceNumber: "INV-003",
-      customer: "Mohammed Khan",
-      amount: 50,
-      status: "paid",
-      date: new Date(2025, 9, 15),
-      paymentMethod: "Cash",
-    },
-  ];
+  const recentInvoices: any[] = [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
