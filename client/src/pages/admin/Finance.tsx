@@ -112,6 +112,7 @@ export default function AdminFinance() {
     loyaltyCardsTotal: string;
     totalRevenue: string;
     vatCollected: string;
+    totalDiscounts: string;
   }>({
     queryKey: ['/api/admin/revenue-summary'],
   });
@@ -812,30 +813,58 @@ export default function AdminFinance() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
+                {/* Revenue Breakdown with Discounts */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Revenue Breakdown (After Discounts)</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="p-4 border rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Service Revenue (Net)</div>
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(Number(revenueSummary?.bookingsTotal || 0) + Number(revenueSummary?.loyaltyCardsTotal || 0))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Bookings + Loyalty card bundles (after discounts)</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Product Sales (Net)</div>
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(Number(revenueSummary?.productSalesTotal || 0))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Retail products (after discounts)</p>
+                    </div>
+                  </div>
+
+                  {Number(revenueSummary?.totalDiscounts || 0) > 0 && (
+                    <div className="mt-4 p-4 border border-orange-200 dark:border-orange-900 rounded-lg bg-orange-50 dark:bg-orange-950/20">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-muted-foreground">Total Discounts Applied</div>
+                          <p className="text-xs text-muted-foreground mt-1">Flat rate and percentage discounts on services and products</p>
+                        </div>
+                        <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                          -{formatCurrency(Number(revenueSummary?.totalDiscounts || 0))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* VAT Collected Breakdown */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4">VAT Collected from Sales & Services</h3>
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="p-4 border rounded-lg">
-                      <div className="text-sm font-medium text-muted-foreground">Bookings VAT</div>
+                      <div className="text-sm font-medium text-muted-foreground">Service Revenue VAT</div>
                       <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                        {formatCurrency((Number(revenueSummary?.bookingsTotal || 0) * 5) / 105)}
+                        {formatCurrency(((Number(revenueSummary?.bookingsTotal || 0) + Number(revenueSummary?.loyaltyCardsTotal || 0)) * 5) / 105)}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">VAT from service bookings</p>
+                      <p className="text-xs text-muted-foreground mt-1">VAT from bookings & loyalty bundles (net amount)</p>
                     </div>
                     <div className="p-4 border rounded-lg">
                       <div className="text-sm font-medium text-muted-foreground">Product Sales VAT</div>
                       <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
                         {formatCurrency((Number(revenueSummary?.productSalesTotal || 0) * 5) / 105)}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">VAT from retail products</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <div className="text-sm font-medium text-muted-foreground">Loyalty Cards VAT</div>
-                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                        {formatCurrency((Number(revenueSummary?.loyaltyCardsTotal || 0) * 5) / 105)}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">VAT from loyalty packages</p>
+                      <p className="text-xs text-muted-foreground mt-1">VAT from retail products (net amount)</p>
                     </div>
                   </div>
                   
