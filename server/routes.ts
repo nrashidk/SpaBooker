@@ -21,6 +21,9 @@ import {
   insertLoyaltyCardSchema,
   insertLoyaltyCardUsageSchema,
   insertProductSaleSchema,
+  insertVendorSchema,
+  insertExpenseSchema,
+  insertBillSchema,
 } from "@shared/schema";
 
 // Helper function for consistent error handling
@@ -1871,6 +1874,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting product sale:", error);
       res.status(500).json({ message: "Failed to delete product sale" });
+    }
+  });
+
+  // Finance: Vendors routes
+  app.get("/api/admin/vendors", isAdmin, async (req, res) => {
+    try {
+      const vendors = await storage.getAllVendors();
+      res.json(vendors);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch vendors");
+    }
+  });
+
+  app.get("/api/admin/vendors/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid vendor ID" });
+      }
+      const vendor = await storage.getVendorById(id);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch vendor");
+    }
+  });
+
+  app.post("/api/admin/vendors", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertVendorSchema.parse(req.body);
+      const vendor = await storage.createVendor(validatedData);
+      res.json(vendor);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create vendor");
+    }
+  });
+
+  app.put("/api/admin/vendors/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid vendor ID" });
+      }
+      const validatedData = insertVendorSchema.partial().parse(req.body);
+      const vendor = await storage.updateVendor(id, validatedData);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update vendor");
+    }
+  });
+
+  app.delete("/api/admin/vendors/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid vendor ID" });
+      }
+      const deleted = await storage.deleteVendor(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete vendor");
+    }
+  });
+
+  // Finance: Expenses routes
+  app.get("/api/admin/expenses", isAdmin, async (req, res) => {
+    try {
+      const expenses = await storage.getAllExpenses();
+      res.json(expenses);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch expenses");
+    }
+  });
+
+  app.get("/api/admin/expenses/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid expense ID" });
+      }
+      const expense = await storage.getExpenseById(id);
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      res.json(expense);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch expense");
+    }
+  });
+
+  app.post("/api/admin/expenses", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertExpenseSchema.parse(req.body);
+      const expense = await storage.createExpense(validatedData);
+      res.json(expense);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create expense");
+    }
+  });
+
+  app.put("/api/admin/expenses/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid expense ID" });
+      }
+      const validatedData = insertExpenseSchema.partial().parse(req.body);
+      const expense = await storage.updateExpense(id, validatedData);
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      res.json(expense);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update expense");
+    }
+  });
+
+  app.delete("/api/admin/expenses/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid expense ID" });
+      }
+      const deleted = await storage.deleteExpense(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete expense");
+    }
+  });
+
+  // Finance: Bills routes
+  app.get("/api/admin/bills", isAdmin, async (req, res) => {
+    try {
+      const bills = await storage.getAllBills();
+      res.json(bills);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch bills");
+    }
+  });
+
+  app.get("/api/admin/bills/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid bill ID" });
+      }
+      const bill = await storage.getBillById(id);
+      if (!bill) {
+        return res.status(404).json({ message: "Bill not found" });
+      }
+      res.json(bill);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch bill");
+    }
+  });
+
+  app.post("/api/admin/bills", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertBillSchema.parse(req.body);
+      const bill = await storage.createBill(validatedData);
+      res.json(bill);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create bill");
+    }
+  });
+
+  app.put("/api/admin/bills/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid bill ID" });
+      }
+      const validatedData = insertBillSchema.partial().parse(req.body);
+      const bill = await storage.updateBill(id, validatedData);
+      if (!bill) {
+        return res.status(404).json({ message: "Bill not found" });
+      }
+      res.json(bill);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update bill");
+    }
+  });
+
+  app.delete("/api/admin/bills/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid bill ID" });
+      }
+      const deleted = await storage.deleteBill(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Bill not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete bill");
     }
   });
 

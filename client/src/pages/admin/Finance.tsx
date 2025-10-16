@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, TrendingUp, FileText, Download, Calendar, Plus, Receipt, Home, Zap, Package as PackageIcon, Users as UsersIcon, MoreHorizontal, Trash2, Building2, ShoppingCart, Pencil } from "lucide-react";
+import { DollarSign, TrendingUp, FileText, Download, Calendar, Plus, Receipt, Home, Zap, Package as PackageIcon, Users as UsersIcon, MoreHorizontal, Trash2, Building2, ShoppingCart, Pencil, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { calculateTaxInclusive, calculateNetVAT, formatCurrency } from "@shared/taxUtils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const expenseFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -36,9 +38,7 @@ const billFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required"),
   billDate: z.string().min(1, "Bill date is required"),
   dueDate: z.string().min(1, "Due date is required"),
-  subtotal: z.string().min(1, "Subtotal is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, "Must be a valid number"),
-  taxAmount: z.string().optional(),
-  totalAmount: z.string().min(1, "Total amount is required").refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Must be a positive number"),
+  totalAmount: z.string().min(1, "Total amount (tax-inclusive) is required").refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Must be a positive number"),
   category: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -92,6 +92,9 @@ export default function AdminFinance() {
   const [editingVendor, setEditingVendor] = useState<LocalVendor | null>(null);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<LocalBill | null>(null);
+  
+  // UAE VAT rate (5%)
+  const TAX_RATE = 5;
 
   const expenseCategories = [
     { value: "rent", label: "Rent", icon: Home },
@@ -293,16 +296,25 @@ export default function AdminFinance() {
       vendorId: "",
       billDate: format(new Date(), "yyyy-MM-dd"),
       dueDate: format(new Date(), "yyyy-MM-dd"),
-      subtotal: "",
-      taxAmount: "",
       totalAmount: "",
       category: "",
       notes: "",
     },
   });
+  
+  // Watch totalAmount to show tax breakdown in real-time
+  const watchedTotalAmount = billForm.watch("totalAmount");
+  const billTaxBreakdown = watchedTotalAmount && !isNaN(Number(watchedTotalAmount)) 
+    ? calculateTaxInclusive(Number(watchedTotalAmount), TAX_RATE)
+    : null;
 
   const handleAddBill = (values: BillFormValues) => {
     const vendor = vendors.find(v => v.id === Number(values.vendorId));
+    const totalAmount = Number(values.totalAmount);
+    
+    // Calculate tax breakdown using UAE VAT (tax-inclusive)
+    const taxBreakdown = calculateTaxInclusive(totalAmount, TAX_RATE);
+    
     const newBill: LocalBill = {
       id: bills.length > 0 ? Math.max(...bills.map(b => b.id)) + 1 : 1,
       billNumber: values.billNumber,
@@ -310,9 +322,9 @@ export default function AdminFinance() {
       vendorName: vendor?.name || "Unknown Vendor",
       billDate: new Date(values.billDate),
       dueDate: new Date(values.dueDate),
-      subtotal: Number(values.subtotal),
-      taxAmount: values.taxAmount ? Number(values.taxAmount) : 0,
-      totalAmount: Number(values.totalAmount),
+      subtotal: taxBreakdown.netAmount,
+      taxAmount: taxBreakdown.taxAmount,
+      totalAmount: taxBreakdown.totalAmount,
       paidAmount: 0,
       status: "unpaid",
       category: values.category,
@@ -330,8 +342,6 @@ export default function AdminFinance() {
       vendorId: bill.vendorId.toString(),
       billDate: format(bill.billDate, "yyyy-MM-dd"),
       dueDate: format(bill.dueDate, "yyyy-MM-dd"),
-      subtotal: bill.subtotal.toString(),
-      taxAmount: bill.taxAmount.toString(),
       totalAmount: bill.totalAmount.toString(),
       category: bill.category || "",
       notes: bill.notes || "",
@@ -343,6 +353,11 @@ export default function AdminFinance() {
     if (!editingBill) return;
     
     const vendor = vendors.find(v => v.id === Number(values.vendorId));
+    const totalAmount = Number(values.totalAmount);
+    
+    // Calculate tax breakdown using UAE VAT (tax-inclusive)
+    const taxBreakdown = calculateTaxInclusive(totalAmount, TAX_RATE);
+    
     const updatedBills = bills.map(b =>
       b.id === editingBill.id
         ? {
@@ -352,9 +367,9 @@ export default function AdminFinance() {
             vendorName: vendor?.name || "Unknown Vendor",
             billDate: new Date(values.billDate),
             dueDate: new Date(values.dueDate),
-            subtotal: Number(values.subtotal),
-            taxAmount: values.taxAmount ? Number(values.taxAmount) : 0,
-            totalAmount: Number(values.totalAmount),
+            subtotal: taxBreakdown.netAmount,
+            taxAmount: taxBreakdown.taxAmount,
+            totalAmount: taxBreakdown.totalAmount,
             category: values.category,
             notes: values.notes,
           }
@@ -379,8 +394,6 @@ export default function AdminFinance() {
         vendorId: "",
         billDate: format(new Date(), "yyyy-MM-dd"),
         dueDate: format(new Date(), "yyyy-MM-dd"),
-        subtotal: "",
-        taxAmount: "",
         totalAmount: "",
         category: "",
         notes: "",
@@ -406,6 +419,17 @@ export default function AdminFinance() {
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const totalRevenue = 0;
   const netProfit = totalRevenue - totalExpenses;
+  
+  // UAE VAT calculations
+  // VAT collected from customers (assuming totalRevenue includes tax)
+  const revenueWithTax = calculateTaxInclusive(totalRevenue, TAX_RATE);
+  const vatCollected = revenueWithTax.taxAmount;
+  
+  // VAT paid on bills/expenses (deductible)
+  const totalBillTax = bills.reduce((sum, bill) => sum + bill.taxAmount, 0);
+  
+  // Net VAT payable to tax authorities
+  const vatSummary = calculateNetVAT(vatCollected, totalBillTax);
 
   const expensesByCategory = expenseCategories.map(cat => {
     const categoryExpenses = expenses.filter(e => e.category === cat.value);
@@ -517,6 +541,60 @@ export default function AdminFinance() {
           </Card>
         ))}
       </div>
+
+      {/* UAE VAT Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>UAE VAT Summary</CardTitle>
+          <p className="text-sm text-muted-foreground">Tax-inclusive pricing with automatic deductions</p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="text-sm">
+                  <p className="font-medium mb-2">How UAE VAT Works:</p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>Service prices <strong>include</strong> 5% VAT (not added separately)</li>
+                    <li>Bills/expenses also <strong>include</strong> 5% VAT (deductible)</li>
+                    <li>Net VAT = (Tax collected from customers) - (Tax paid on expenses)</li>
+                    <li>Pay only the <strong>net difference</strong> to tax authorities</li>
+                  </ul>
+                </div>
+              </AlertDescription>
+            </Alert>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-muted-foreground">VAT Collected (from sales)</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="vat-collected">
+                  {formatCurrency(vatSummary.vatCollected)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Tax from customer payments</p>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-muted-foreground">VAT Paid (on bills)</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="vat-paid">
+                  {formatCurrency(vatSummary.vatPaid)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Deductible tax on expenses</p>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-primary/5">
+                <div className="text-sm font-medium text-muted-foreground">Net VAT Payable</div>
+                <div className={`text-2xl font-bold ${vatSummary.netVATPayable >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`} data-testid="vat-net-payable">
+                  {formatCurrency(Math.abs(vatSummary.netVATPayable))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {vatSummary.netVATPayable >= 0 ? 'Owed to tax authorities' : 'Tax credit/refund'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -1065,36 +1143,10 @@ export default function AdminFinance() {
                           />
                           <FormField
                             control={billForm.control}
-                            name="subtotal"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Subtotal (AED) *</FormLabel>
-                                <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" data-testid="input-bill-subtotal" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={billForm.control}
-                            name="taxAmount"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Tax Amount (AED)</FormLabel>
-                                <FormControl>
-                                  <Input type="number" step="0.01" placeholder="0.00" data-testid="input-bill-tax" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={billForm.control}
                             name="totalAmount"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Total Amount (AED) *</FormLabel>
+                                <FormLabel>Total Amount - Tax Inclusive (AED) *</FormLabel>
                                 <FormControl>
                                   <Input type="number" step="0.01" placeholder="0.00" data-testid="input-bill-total" {...field} />
                                 </FormControl>
@@ -1102,6 +1154,28 @@ export default function AdminFinance() {
                               </FormItem>
                             )}
                           />
+                          
+                          {billTaxBreakdown && (
+                            <Alert>
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                <div className="space-y-1 text-sm">
+                                  <div className="flex justify-between">
+                                    <span>Net Amount:</span>
+                                    <span className="font-semibold">{formatCurrency(billTaxBreakdown.netAmount)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>VAT (5% deductible):</span>
+                                    <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(billTaxBreakdown.taxAmount)}</span>
+                                  </div>
+                                  <div className="flex justify-between border-t pt-1">
+                                    <span className="font-medium">Total:</span>
+                                    <span className="font-semibold">{formatCurrency(billTaxBreakdown.totalAmount)}</span>
+                                  </div>
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          )}
                           <FormField
                             control={billForm.control}
                             name="category"
