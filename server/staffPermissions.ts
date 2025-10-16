@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { db } from "@db";
+import { db } from "./db";
 import { staff, staffRoles } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -29,16 +29,20 @@ export async function getStaffByUserId(userId: string) {
 
 // Middleware to check if user is staff member
 export async function requireStaff(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) {
+  if (!(req as any).user) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
+  const userId = (req as any).user.claims.sub;
+  const { storage } = await import("./storage");
+  const user = await storage.getUser(userId);
+
   // Admins and super admins have all staff permissions
-  if (req.user.role === "admin" || req.user.role === "super_admin") {
+  if (user?.role === "admin" || user?.role === "super_admin") {
     return next();
   }
 
-  const staffMember = await getStaffByUserId(req.user.id);
+  const staffMember = await getStaffByUserId(userId);
   if (!staffMember) {
     return res.status(403).json({ error: "Staff access required" });
   }
@@ -51,16 +55,20 @@ export async function requireStaff(req: Request, res: Response, next: NextFuncti
 // Middleware to check minimum required role
 export function requireStaffRole(requiredRole: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
+    if (!(req as any).user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
+    const userId = (req as any).user.claims.sub;
+    const { storage } = await import("./storage");
+    const user = await storage.getUser(userId);
+
     // Admins and super admins bypass staff role checks
-    if (req.user.role === "admin" || req.user.role === "super_admin") {
+    if (user?.role === "admin" || user?.role === "super_admin") {
       return next();
     }
 
-    const staffMember = await getStaffByUserId(req.user.id);
+    const staffMember = await getStaffByUserId(userId);
     if (!staffMember) {
       return res.status(403).json({ error: "Staff access required" });
     }

@@ -1287,10 +1287,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Booking routes
-  app.get("/api/admin/bookings", isAdmin, async (req, res) => {
+  // Booking routes - with staff permission enforcement
+  app.get("/api/admin/bookings", isAuthenticated, async (req: any, res) => {
     try {
-      const bookings = await storage.getAllBookings();
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Admins see all bookings
+      const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
+      
+      let bookings = await storage.getAllBookings();
+      
+      // For staff, filter based on role
+      if (!isAdminUser) {
+        const staffMember = await getStaffByUserId(userId);
+        if (!staffMember) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+
+        const role = staffMember.role || staffRoles.BASIC;
+        
+        // VIEW_OWN or VIEW_ALL needed to see bookings
+        if (canViewStaffCalendar(role, staffMember.id, staffMember.id)) {
+          // If VIEW_OWN, only show own bookings
+          if (!canViewStaffCalendar(role, staffMember.id, -1)) {
+            bookings = bookings.filter(b => b.staffId === staffMember.id);
+          }
+          // If VIEW_ALL, show all bookings (no filter needed)
+        } else {
+          // Basic staff cannot view bookings
+          return res.status(403).json({ error: "Insufficient permissions to view bookings" });
+        }
+      }
       
       // Enrich bookings with related data
       const enrichedBookings = await Promise.all(
@@ -1344,9 +1372,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/bookings/:id", isAdmin, async (req, res) => {
+  app.put("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
+      
+      // Check edit permissions
+      const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
+      
+      if (!isAdminUser) {
+        const staffMember = await getStaffByUserId(userId);
+        if (!staffMember || !canEditAppointments(staffMember.role || staffRoles.BASIC)) {
+          return res.status(403).json({ error: "Insufficient permissions to edit appointments" });
+        }
+      }
       
       // Extract services BEFORE Zod parsing (which strips unknown fields)
       const services = req.body.services;
@@ -1389,9 +1429,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/bookings/:id", isAdmin, async (req, res) => {
+  app.delete("/api/admin/bookings/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
+      
+      // Check edit permissions
+      const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
+      
+      if (!isAdminUser) {
+        const staffMember = await getStaffByUserId(userId);
+        if (!staffMember || !canEditAppointments(staffMember.role || staffRoles.BASIC)) {
+          return res.status(403).json({ error: "Insufficient permissions to delete appointments" });
+        }
+      }
+      
       const deleted = await storage.deleteBooking(id);
       if (!deleted) {
         return res.status(404).json({ message: "Booking not found" });
