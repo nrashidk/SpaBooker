@@ -25,6 +25,8 @@ import AdminSettings from "@/pages/admin/Settings";
 import AdminMarketplace from "@/pages/admin/Marketplace";
 import AdminMarketing from "@/pages/admin/Marketing";
 import AdminAddOns from "@/pages/admin/AddOns";
+import SuperAdmin from "@/pages/admin/SuperAdmin";
+import SpaSetup from "@/pages/admin/SpaSetup";
 import MyAccount from "@/pages/MyAccount";
 
 function Router() {
@@ -160,6 +162,24 @@ function Router() {
           <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminAddOns />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/super-admin">
+        {() => (
+          <ProtectedRoute requireSuperAdmin>
+            <AdminLayout>
+              <SuperAdmin />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/setup">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <SpaSetup />
             </AdminLayout>
           </ProtectedRoute>
         )}

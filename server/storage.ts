@@ -65,7 +65,7 @@ import {
   type InsertProductSale,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -282,7 +282,9 @@ export class DatabaseStorage implements IStorage {
 
   // Spa operations
   async getAllSpas(): Promise<Spa[]> {
-    return db.select().from(spas).where(eq(spas.active, true)).orderBy(spas.featured, desc(spas.rating));
+    return db.select().from(spas)
+      .where(and(eq(spas.active, true), eq(spas.setupComplete, true)))
+      .orderBy(spas.featured, desc(spas.rating));
   }
 
   async getSpaById(id: number): Promise<Spa | undefined> {
@@ -310,9 +312,10 @@ export class DatabaseStorage implements IStorage {
     date?: string;
     time?: string;
   }): Promise<Array<Spa & { services: Service[]; staff: Staff[] }>> {
-    // For now, get all active spas
+    // Get all active and setup-complete spas
     // In a production system, this would filter by search, location, and availability
-    const allSpas = await db.select().from(spas).where(eq(spas.active, true));
+    const allSpas = await db.select().from(spas)
+      .where(and(eq(spas.active, true), eq(spas.setupComplete, true)));
     
     const results = await Promise.all(
       allSpas.map(async (spa) => {

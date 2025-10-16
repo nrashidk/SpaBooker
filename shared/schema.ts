@@ -75,6 +75,7 @@ export const spas = pgTable("spas", {
   active: boolean("active").default(true),
   featured: boolean("featured").default(false),
   setupComplete: boolean("setup_complete").default(false), // Tracks if admin completed spa setup wizard
+  setupSteps: jsonb("setup_steps"), // { basicInfo: true, location: true, hours: true, services: false, staff: false, policies: false, inventory: false, activation: false }
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

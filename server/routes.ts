@@ -767,6 +767,182 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Spa Setup Wizard endpoints (for approved admins)
+  app.get("/api/admin/setup/status", isAdmin, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.adminSpaId) {
+        return res.json({
+          spaId: null,
+          setupComplete: false,
+          steps: {
+            basicInfo: false,
+            location: false,
+            hours: false,
+            services: false,
+            staff: false,
+            policies: false,
+            inventory: false,
+            activation: false,
+          },
+        });
+      }
+
+      const spa = await storage.getSpaById(user.adminSpaId);
+      if (!spa) {
+        return res.status(404).json({ message: "Spa not found" });
+      }
+
+      const steps = (spa.setupSteps as any) || {
+        basicInfo: false,
+        location: false,
+        hours: false,
+        services: false,
+        staff: false,
+        policies: false,
+        inventory: false,
+        activation: false,
+      };
+
+      res.json({
+        spaId: spa.id,
+        setupComplete: spa.setupComplete,
+        steps,
+        spa,
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch setup status");
+    }
+  });
+
+  app.post("/api/admin/setup/step/:stepName", isAdmin, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      const { stepName } = req.params;
+      const stepData = req.body;
+
+      // If no spa exists yet, create one for basic info step
+      let spaId = user?.adminSpaId;
+      
+      if (!spaId && stepName === "basicInfo") {
+        const newSpa = await storage.createSpa({
+          name: stepData.name,
+          slug: stepData.slug || stepData.name.toLowerCase().replace(/\s+/g, '-'),
+          description: stepData.description,
+          contactEmail: stepData.contactEmail,
+          contactPhone: stepData.contactPhone,
+          currency: stepData.currency || 'AED',
+          active: false, // Not active until setup is complete
+          setupComplete: false,
+          setupSteps: { basicInfo: true } as any,
+        });
+        
+        spaId = newSpa.id;
+        
+        // Link admin user to spa
+        await storage.upsertUser({
+          id: userId,
+          adminSpaId: spaId,
+        } as any);
+      }
+
+      if (!spaId) {
+        return res.status(400).json({ message: "Spa not found. Please complete basic info first." });
+      }
+
+      const spa = await storage.getSpaById(spaId);
+      if (!spa) {
+        return res.status(404).json({ message: "Spa not found" });
+      }
+
+      const currentSteps = (spa.setupSteps as any) || {};
+      
+      // Update spa data based on step
+      let updateData: any = {
+        setupSteps: { ...currentSteps, [stepName]: true },
+      };
+
+      if (stepName === "basicInfo") {
+        updateData = {
+          ...updateData,
+          name: stepData.name,
+          slug: stepData.slug || stepData.name.toLowerCase().replace(/\s+/g, '-'),
+          description: stepData.description,
+          contactEmail: stepData.contactEmail,
+          contactPhone: stepData.contactPhone,
+          currency: stepData.currency || 'AED',
+        };
+      } else if (stepName === "location") {
+        updateData = {
+          ...updateData,
+          address: stepData.address,
+          city: stepData.city,
+          area: stepData.area,
+          latitude: stepData.latitude,
+          longitude: stepData.longitude,
+        };
+      } else if (stepName === "hours") {
+        updateData = {
+          ...updateData,
+          businessHours: stepData.businessHours,
+        };
+      } else if (stepName === "policies") {
+        updateData = {
+          ...updateData,
+          cancellationPolicy: stepData.cancellationPolicy,
+          taxRate: stepData.taxRate,
+        };
+      }
+
+      const updated = await storage.updateSpa(spaId, updateData);
+      res.json(updated);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to save setup step");
+    }
+  });
+
+  app.post("/api/admin/setup/complete", isAdmin, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+
+      const spa = await storage.getSpaById(user.adminSpaId);
+      if (!spa) {
+        return res.status(404).json({ message: "Spa not found" });
+      }
+
+      const steps = (spa.setupSteps as any) || {};
+      const allStepsComplete = steps.basicInfo && steps.location && steps.hours && 
+                               steps.services && steps.staff && steps.policies && 
+                               steps.inventory && steps.activation;
+
+      if (!allStepsComplete) {
+        return res.status(400).json({ 
+          message: "All setup steps must be completed first",
+          missingSteps: Object.entries(steps)
+            .filter(([, completed]) => !completed)
+            .map(([step]) => step)
+        });
+      }
+
+      const updated = await storage.updateSpa(user.adminSpaId, {
+        setupComplete: true,
+        active: true, // Activate spa after setup
+      });
+
+      res.json({ message: "Spa setup completed successfully", spa: updated });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to complete setup");
+    }
+  });
+
   // Admin-only routes (protected with isAdmin middleware)
   app.get("/api/admin/check", isAdmin, async (req, res) => {
     res.json({ message: "Admin access granted" });

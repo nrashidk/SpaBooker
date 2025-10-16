@@ -13,6 +13,7 @@ import {
   Store,
   Megaphone,
   Puzzle,
+  Shield,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -28,6 +29,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
   {
@@ -104,6 +106,7 @@ const menuItems = [
 
 export function AdminSidebar() {
   const [location] = useLocation();
+  const { isSuperAdmin } = useAuth();
 
   return (
     <Sidebar>
@@ -138,6 +141,20 @@ export function AdminSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isSuperAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin/super-admin"}
+                    data-testid="admin-nav-super-admin"
+                  >
+                    <Link href="/admin/super-admin">
+                      <Shield className="h-4 w-4" />
+                      <span>Super Admin</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -5,11 +5,12 @@ import { useToast } from "@/hooks/use-toast";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireSuperAdmin?: boolean;
 }
 
-export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, requireAdmin = false, requireSuperAdmin = false }: ProtectedRouteProps) {
   const { toast } = useToast();
-  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const { isAuthenticated, isAdmin, isSuperAdmin, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -24,6 +25,18 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
       return;
     }
 
+    if (!isLoading && requireSuperAdmin && !isSuperAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Super admin access is required to view this page.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 1000);
+      return;
+    }
+
     if (!isLoading && requireAdmin && !isAdmin) {
       toast({
         title: "Access Denied",
@@ -35,7 +48,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
       }, 1000);
       return;
     }
-  }, [isAuthenticated, isAdmin, isLoading, requireAdmin, toast]);
+  }, [isAuthenticated, isAdmin, isSuperAdmin, isLoading, requireAdmin, requireSuperAdmin, toast]);
 
   if (isLoading) {
     return (
@@ -48,7 +61,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     );
   }
 
-  if (!isAuthenticated || (requireAdmin && !isAdmin)) {
+  if (!isAuthenticated || (requireSuperAdmin && !isSuperAdmin) || (requireAdmin && !isAdmin)) {
     return null;
   }
 
