@@ -101,15 +101,26 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
+  // Helper to get registered strategy name, with fallback for local/unknown hostnames
+  const getStrategyName = (hostname: string): string => {
+    const domains = process.env.REPLIT_DOMAINS!.split(",");
+    // Check if hostname matches a registered domain
+    if (domains.includes(hostname)) {
+      return `replitauth:${hostname}`;
+    }
+    // Fallback to first registered domain for localhost/127.0.0.1/etc
+    return `replitauth:${domains[0]}`;
+  };
+
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(getStrategyName(req.hostname), {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(getStrategyName(req.hostname), {
       successReturnToOrRedirect: "/admin",
       failureRedirect: "/api/login",
     })(req, res, next);
@@ -180,11 +191,11 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
     }
   }
 
-  // Check if user has admin role and is approved
+  // Check if user has admin or super_admin role and is approved
   const userId = user.claims.sub;
   const dbUser = await storage.getUser(userId);
   
-  if (!dbUser || dbUser.role !== "admin") {
+  if (!dbUser || (dbUser.role !== "admin" && dbUser.role !== "super_admin")) {
     return res.status(403).json({ message: "Forbidden: Admin access required" });
   }
 
