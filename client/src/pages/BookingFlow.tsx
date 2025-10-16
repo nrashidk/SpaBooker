@@ -275,8 +275,11 @@ export default function BookingPage() {
       staffForSlots
     ],
     queryFn: async () => {
+      if (!selectedDate) {
+        throw new Error('Date is required');
+      }
       const params = new URLSearchParams({
-        date: selectedDate!.toISOString().split('T')[0],
+        date: selectedDate.toISOString().split('T')[0],
         duration: totalDuration.toString(),
         ...(staffForSlots && { staffId: staffForSlots.toString() })
       });
@@ -300,6 +303,12 @@ export default function BookingPage() {
   };
 
   if (isConfirmed) {
+    // Safety check: ensure we have required data before showing confirmation
+    if (!selectedDate || !selectedTime) {
+      console.error('Missing required booking data');
+      return null;
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b sticky top-0 bg-background z-50">
@@ -317,8 +326,8 @@ export default function BookingPage() {
         <main className="container mx-auto px-4 py-8">
           <BookingConfirmation
             services={selectedServices}
-            date={selectedDate!}
-            time={selectedTime!}
+            date={selectedDate}
+            time={selectedTime}
             staffName={getStaffName()}
             customerName={customerDetails?.name || "Customer"}
             customerPhone={customerDetails?.mobile || ""}
