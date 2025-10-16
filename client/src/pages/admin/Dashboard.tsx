@@ -87,9 +87,11 @@ export default function AdminDashboard() {
     });
     
     const completedBookings = dayBookings.filter(b => b.status === 'completed');
-    const dailyRevenue = completedBookings.reduce((sum, b) => 
-      sum + parseFloat(b.totalAmount?.toString() || '0'), 0
-    );
+    const dailyRevenue = completedBookings.reduce((sum, b) => {
+      const amount = parseFloat(b.totalAmount?.toString() || '0');
+      const discount = parseFloat(b.discountAmount?.toString() || '0');
+      return sum + (amount - discount);
+    }, 0);
     
     return {
       date: format(date, 'MMM dd'),
@@ -193,13 +195,17 @@ export default function AdminDashboard() {
              b.status === 'completed';
     });
 
-    const thisMonthRevenue = thisMonthBookings.reduce((sum, b) => 
-      sum + parseFloat(b.totalAmount?.toString() || '0'), 0
-    );
+    const thisMonthRevenue = thisMonthBookings.reduce((sum, b) => {
+      const amount = parseFloat(b.totalAmount?.toString() || '0');
+      const discount = parseFloat(b.discountAmount?.toString() || '0');
+      return sum + (amount - discount);
+    }, 0);
     
-    const lastMonthRevenue = lastMonthBookings.reduce((sum, b) => 
-      sum + parseFloat(b.totalAmount?.toString() || '0'), 0
-    );
+    const lastMonthRevenue = lastMonthBookings.reduce((sum, b) => {
+      const amount = parseFloat(b.totalAmount?.toString() || '0');
+      const discount = parseFloat(b.discountAmount?.toString() || '0');
+      return sum + (amount - discount);
+    }, 0);
 
     return {
       name: member.name,
@@ -212,7 +218,8 @@ export default function AdminDashboard() {
     .filter(b => b.status === 'completed')
     .reduce((sum, booking) => {
       const totalAmount = parseFloat(booking.totalAmount?.toString() || "0");
-      return sum + totalAmount;
+      const discountAmount = parseFloat(booking.discountAmount?.toString() || "0");
+      return sum + (totalAmount - discountAmount);
     }, 0);
 
   // Helper functions for widget management

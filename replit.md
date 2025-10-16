@@ -25,6 +25,7 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
 -   **Authentication:** Replit Auth handles user authentication with role-based access control (customer, staff, admin, super_admin) and secures routes with proper authorization middleware.
 -   **Staff Role-Based Permissions:** A five-tier permission system (Basic, View Own Calendar, View All Calendars, Manage Bookings, Admin Access) controls staff access.
 -   **Revenue Tracking:** Complete system for tracking all revenue streams including service bookings, retail product sales, and loyalty card purchases/redemptions. UAE VAT-compliant calculations are implemented where 5% VAT is part of the price, not added on top.
+-   **Discount/Offer Tracking:** Comprehensive discount system supporting flat rate and percentage discounts on bookings, loyalty cards, and product sales. All revenue and VAT calculations account for discounts, using net amounts (after discounts) for accurate financial reporting.
 -   **Calendar Validation System:** Ensures accurate time slot generation based on business hours, service durations, and staff availability.
 -   **Pay-As-You-Go Notification System:** Allows spa owners to configure and pay for their own notification services (Email, SMS, WhatsApp) using their credentials, including credential encryption, audit logging, and configurable fallback logic.
 -   **Audit Trail:** Comprehensive audit logs track all important changes with user context, IP, user agent, and specific filters for compliance.
