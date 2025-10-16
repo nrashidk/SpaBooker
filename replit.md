@@ -4,7 +4,17 @@
 Serene Spa is an online booking system, inspired by Fresha, offering a 4-step booking process for spa treatments. It supports multiple spa venues, allowing customers to search across all locations and book services. The platform aims to enhance customer satisfaction and operational efficiency through features like categorized services, flexible professional selection, and real-time availability. It also includes a robust admin panel for managing bookings, staff, services, and analyzing business performance, with ambitions for future integration with growth and analytics tools to maximize spa revenue and customer engagement.
 
 ## Recent Changes (October 16, 2025)
--   **Staff Role-Based Permissions System (Latest):**
+-   **Backend Permission Enforcement System (Latest):**
+    -   Created staffPermissions.ts module with role hierarchy mapping and permission checking functions
+    -   Implemented requireStaffRole middleware to enforce minimum permission levels on API endpoints
+    -   Protected booking endpoints: GET requires VIEW_OWN, PUT/DELETE require MANAGE_BOOKINGS
+    -   VIEW_OWN staff see only their own bookings, VIEW_ALL+ staff see all bookings
+    -   Created /api/staff/permissions endpoint for frontend to query current user's capabilities
+    -   Built useStaffPermissions hook to expose permission flags to React components
+    -   Updated AdminSidebar to dynamically hide menu items based on staff permissions
+    -   Admins and super admins bypass staff role checks and have all permissions
+    -   Permission hierarchy: BASIC (1) < VIEW_OWN (2) < VIEW_ALL (3) < MANAGE_BOOKINGS (4) < ADMIN_ACCESS (5)
+-   **Staff Role-Based Permissions System:**
     -   Added role field to staff table with 5 permission levels: Basic, View Own Calendar, View All Calendars, Manage Bookings, Admin Access
     -   Created staffRoleInfo metadata with labels, descriptions, and permissions for each role
     -   Updated Staff management page to display role badges with icons
