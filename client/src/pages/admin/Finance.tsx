@@ -674,6 +674,7 @@ export default function AdminFinance() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+          <TabsTrigger value="vat-report" data-testid="tab-vat-report">VAT Report</TabsTrigger>
           <TabsTrigger value="expenses" data-testid="tab-expenses">Expenses</TabsTrigger>
           <TabsTrigger value="vendors" data-testid="tab-vendors">Vendors</TabsTrigger>
           <TabsTrigger value="bills" data-testid="tab-bills">Bills</TabsTrigger>
@@ -800,6 +801,120 @@ export default function AdminFinance() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* VAT Payable Report Tab */}
+        <TabsContent value="vat-report" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>VAT Payable Report</CardTitle>
+              <p className="text-sm text-muted-foreground">Detailed breakdown of VAT collected vs VAT paid</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* VAT Collected Breakdown */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">VAT Collected from Sales & Services</h3>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 border rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Bookings VAT</div>
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency((Number(revenueSummary?.bookingsTotal || 0) * 5) / 105)}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">VAT from service bookings</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Product Sales VAT</div>
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency((Number(revenueSummary?.productSalesTotal || 0) * 5) / 105)}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">VAT from retail products</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Loyalty Cards VAT</div>
+                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency((Number(revenueSummary?.loyaltyCardsTotal || 0) * 5) / 105)}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">VAT from loyalty packages</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-blue-900 dark:text-blue-100">Total Revenue (Tax-Inclusive)</div>
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(Number(revenueSummary?.totalRevenue || 0))}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-blue-900 dark:text-blue-100">VAT Collected (5%)</div>
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(vatCollectedFromSales)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* VAT Paid Breakdown */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">VAT Paid on Expenses & Bills</h3>
+                  <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-green-900 dark:text-green-100">Total Bills Amount</div>
+                        <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                          {formatCurrency(bills.reduce((sum, bill) => sum + Number(bill.totalAmount), 0))}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-green-900 dark:text-green-100">VAT Paid (Deductible)</div>
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {formatCurrency(vatPaidOnBills)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Net VAT Payable */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Net VAT Calculation</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border-b">
+                      <span className="text-muted-foreground">VAT Collected from Customers</span>
+                      <span className="font-semibold">{formatCurrency(vatCollectedFromSales)}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border-b">
+                      <span className="text-muted-foreground">VAT Paid to Vendors</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400">- {formatCurrency(vatPaidOnBills)}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                      <div>
+                        <div className="text-sm font-medium text-orange-900 dark:text-orange-100">Net VAT Payable to Tax Authority</div>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">Amount to be paid to UAE Tax Authority</p>
+                      </div>
+                      <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                        {formatCurrency(Math.abs(netVATPayable))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Alert */}
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="text-sm">
+                      <strong>How to File:</strong> Submit this net VAT amount ({formatCurrency(Math.abs(netVATPayable))}) 
+                      to the UAE Federal Tax Authority through their online portal. Filing is typically done quarterly.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Expenses Tab */}
@@ -1198,7 +1313,7 @@ export default function AdminFinance() {
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Payment Terms:</p>
-                          <p className="text-sm font-medium">{getPaymentTermsLabel(vendor.paymentTerms)}</p>
+                          <p className="text-sm font-medium">{getPaymentTermsLabel(vendor.paymentTerms ?? undefined)}</p>
                         </div>
                         {vendor.email && (
                           <div className="text-right">
