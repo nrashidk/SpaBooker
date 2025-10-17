@@ -24,6 +24,7 @@ import {
   loyaltyCardUsage,
   productSales,
   auditLogs,
+  promoCodes,
   type User,
   type UpsertUser,
   type AdminApplication,
@@ -44,6 +45,8 @@ import {
   type InsertProduct,
   type Customer,
   type InsertCustomer,
+  type PromoCode,
+  type InsertPromoCode,
   type Booking,
   type InsertBooking,
   type BookingItem,
@@ -243,6 +246,20 @@ export interface IStorage {
     vatPaid: string;
     vatPayable: string;
   }>;
+
+  // Promo Code operations
+  getAllPromoCodes(spaId?: number): Promise<PromoCode[]>;
+  getPromoCodeById(id: number): Promise<PromoCode | undefined>;
+  getPromoCodeByCode(code: string, spaId: number): Promise<PromoCode | undefined>;
+  createPromoCode(promoCode: InsertPromoCode): Promise<PromoCode>;
+  updatePromoCode(id: number, promoCode: Partial<InsertPromoCode>): Promise<PromoCode | undefined>;
+  deletePromoCode(id: number): Promise<boolean>;
+  validatePromoCode(code: string, spaId: number, serviceIds: number[]): Promise<{
+    valid: boolean;
+    promoCode?: PromoCode;
+    error?: string;
+  }>;
+  incrementPromoCodeUsage(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1020,6 +1037,94 @@ export class DatabaseStorage implements IStorage {
       vatPaid: vatPaid.toFixed(2),
       vatPayable: vatPayable.toFixed(2),
     };
+  }
+
+  // Promo Code operations
+  async getAllPromoCodes(spaId?: number): Promise<PromoCode[]> {
+    if (spaId) {
+      return await db.select().from(promoCodes).where(eq(promoCodes.spaId, spaId));
+    }
+    return await db.select().from(promoCodes);
+  }
+
+  async getPromoCodeById(id: number): Promise<PromoCode | undefined> {
+    const [promoCode] = await db.select().from(promoCodes).where(eq(promoCodes.id, id));
+    return promoCode;
+  }
+
+  async getPromoCodeByCode(code: string, spaId: number): Promise<PromoCode | undefined> {
+    const [promoCode] = await db
+      .select()
+      .from(promoCodes)
+      .where(and(eq(promoCodes.code, code), eq(promoCodes.spaId, spaId)));
+    return promoCode;
+  }
+
+  async createPromoCode(promoCodeData: InsertPromoCode): Promise<PromoCode> {
+    const [promoCode] = await db.insert(promoCodes).values(promoCodeData).returning();
+    return promoCode;
+  }
+
+  async updatePromoCode(id: number, promoCodeData: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
+    const [promoCode] = await db
+      .update(promoCodes)
+      .set(promoCodeData)
+      .where(eq(promoCodes.id, id))
+      .returning();
+    return promoCode;
+  }
+
+  async deletePromoCode(id: number): Promise<boolean> {
+    const result = await db.delete(promoCodes).where(eq(promoCodes.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async validatePromoCode(code: string, spaId: number, serviceIds: number[]): Promise<{
+    valid: boolean;
+    promoCode?: PromoCode;
+    error?: string;
+  }> {
+    const promoCode = await this.getPromoCodeByCode(code, spaId);
+
+    if (!promoCode) {
+      return { valid: false, error: "Invalid promo code" };
+    }
+
+    if (!promoCode.isActive) {
+      return { valid: false, error: "This promo code is no longer active" };
+    }
+
+    const now = new Date();
+    if (now < new Date(promoCode.validFrom)) {
+      return { valid: false, error: "This promo code is not yet valid" };
+    }
+
+    if (now > new Date(promoCode.validUntil)) {
+      return { valid: false, error: "This promo code has expired" };
+    }
+
+    if (promoCode.usageLimit && promoCode.timesUsed >= promoCode.usageLimit) {
+      return { valid: false, error: "This promo code has reached its usage limit" };
+    }
+
+    // Check if promo code is applicable to selected services
+    if (promoCode.applicableServices) {
+      const applicableServiceIds = promoCode.applicableServices as number[];
+      const hasApplicableService = serviceIds.some(id => applicableServiceIds.includes(id));
+      
+      if (!hasApplicableService) {
+        return { valid: false, error: "This promo code is not valid for the selected services" };
+      }
+    }
+
+    return { valid: true, promoCode };
+  }
+
+  async incrementPromoCodeUsage(id: number): Promise<void> {
+    await db
+      .update(promoCodes)
+      .set({ timesUsed: db.raw('times_used + 1') as any })
+      .where(eq(promoCodes.id, id));
   }
 }
 
