@@ -23,8 +23,7 @@ export default function AdminSettings() {
 
   // Fetch integrations for current spa
   const { data: integrations = [] } = useQuery<SpaIntegration[]>({
-    queryKey: ["/api/integrations", settings?.spaId],
-    enabled: !!settings?.spaId,
+    queryKey: ["/api/integrations"],
   });
 
   // Check for OAuth callback results
@@ -204,7 +203,7 @@ export default function AdminSettings() {
   const handleConnectIntegration = async (provider: string, integrationType: string) => {
     try {
       const response = await fetch(
-        `/api/oauth/${provider}/connect?spaId=${settings?.spaId}&integrationType=${integrationType}`
+        `/api/oauth/${provider}/connect?integrationType=${integrationType}`
       );
       const data = await response.json();
       
@@ -226,7 +225,7 @@ export default function AdminSettings() {
       return await apiRequest("POST", `/api/integrations/${integrationId}/disconnect`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/integrations", settings?.spaId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/integrations"] });
       toast({
         title: "Integration disconnected",
         description: "The integration has been disconnected successfully.",
