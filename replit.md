@@ -28,6 +28,7 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
 -   **Discount/Offer Tracking:** Comprehensive discount system supporting flat rate and percentage discounts on bookings, loyalty cards, and product sales. All revenue and VAT calculations account for discounts, using net amounts (after discounts) for accurate financial reporting.
 -   **Calendar Validation System:** Ensures accurate time slot generation based on business hours, service durations, and staff availability.
 -   **Multi-Provider Notification System:** Supports both Twilio and MSG91 as notification providers for Email, SMS, and WhatsApp channels. Spa owners configure their own provider credentials (BYOA model) with AES-256-GCM encryption, real-time credential validation, delivery status webhooks, and per-spa provider selection.
+-   **Staff Notifications:** Staff members receive booking notifications (create/modify/cancel) through the same channels enabled for customers (SMS/email/WhatsApp). Independent settings control which channels and events trigger staff notifications, ensuring staff are always informed about their appointments.
 -   **Audit Trail:** Comprehensive audit logs track all important changes with user context, IP, user agent, and specific filters for compliance.
 -   **Security Hardening:** Includes secure ID parameter validation, consistent error handling with Zod, environment variable validation, and proper `.env` exclusion.
 
