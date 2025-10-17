@@ -222,6 +222,32 @@ export const customers = pgTable("customers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Promo Codes
+export const promoCodes = pgTable("promo_codes", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  code: text("code").notNull(),
+  description: text("description"),
+  discountType: text("discount_type").notNull(), // flat, percentage
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  applicableServices: jsonb("applicable_services"), // array of service IDs, null means all services
+  usageLimit: integer("usage_limit"), // null means unlimited
+  timesUsed: integer("times_used").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => [
+  index("idx_promo_codes_spa").on(table.spaId),
+  index("idx_promo_codes_code").on(table.code),
+  index("idx_promo_codes_active").on(table.isActive),
+]);
+
+export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, createdAt: true, timesUsed: true });
+export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type PromoCode = typeof promoCodes.$inferSelect;
+
 // Bookings
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
@@ -231,6 +257,7 @@ export const bookings = pgTable("bookings", {
   bookingDate: timestamp("booking_date").notNull(),
   status: text("status").notNull().default("confirmed"), // confirmed, completed, cancelled, no-show, modified
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  promoCodeId: integer("promo_code_id").references(() => promoCodes.id), // track which promo code was used
   discountType: text("discount_type"), // flat, percentage
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0.00"), // e.g., 50 for AED 50 or 20 for 20%
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"), // calculated discount amount
@@ -245,6 +272,7 @@ export const bookings = pgTable("bookings", {
   index("idx_bookings_date").on(table.bookingDate),
   index("idx_bookings_status").on(table.status),
   index("idx_bookings_spa").on(table.spaId),
+  index("idx_bookings_promo_code").on(table.promoCodeId),
 ]);
 
 // Booking items (services in a booking)
