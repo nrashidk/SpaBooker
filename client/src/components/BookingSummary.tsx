@@ -47,10 +47,12 @@ export default function BookingSummary({
       const flatDiscount = parseFloat(appliedPromo.discountValue.toString());
       discountOnNet = (flatDiscount * 100) / 105;
     }
+    // Cap discount to never exceed the net amount (prevent negative values)
+    discountOnNet = Math.min(discountOnNet, subtotalNetAmount);
   }
   
   // Calculate final amounts after discount
-  const netAmountAfterDiscount = subtotalNetAmount - discountOnNet;
+  const netAmountAfterDiscount = Math.max(0, subtotalNetAmount - discountOnNet);
   const vatOnDiscountedAmount = (netAmountAfterDiscount * 5) / 100; // 5% VAT on discounted net
   const total = netAmountAfterDiscount + vatOnDiscountedAmount;
   
