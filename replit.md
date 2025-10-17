@@ -44,13 +44,19 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
 -   **Twilio:** Optional SMS/WhatsApp/Email notification provider.
 -   **MSG91:** Optional SMS/WhatsApp/Email notification provider.
 
-## Free Third-Party Integrations (In Progress)
+## Free Third-Party Integrations
 Building custom OAuth implementations for all free-tier services (user dismissed Replit connectors):
--   **Google Calendar** - 2-way appointment sync (FREE - 1M requests/day)
--   **Google My Business** - Review collection & SEO (FREE)
--   **Google Analytics** - Conversion tracking (FREE)
--   **Google Meet** - Video consultations (FREE tier)
--   **HubSpot CRM** - Contact management (FREE tier)
--   **Mailchimp** - Email campaigns (FREE - 500 contacts)
--   **Wave Accounting** - Bookkeeping (FREE)
--   **Buffer Social** - Social media (FREE - 3 accounts)
+-   **Google Calendar** ✅ - 2-way appointment sync (FREE - 1M requests/day) - COMPLETE with timezone preservation and per-staff calendar support
+-   **Google My Business** - Review collection & SEO (FREE) - PENDING
+-   **Google Analytics** - Conversion tracking (FREE) - PENDING
+-   **Google Meet** - Video consultations (FREE tier) - PENDING
+-   **HubSpot CRM** - Contact management (FREE tier) - PENDING
+-   **Mailchimp** - Email campaigns (FREE - 500 contacts) - PENDING
+-   **Wave Accounting** - Bookkeeping (FREE) - PENDING
+-   **Buffer Social** - Social media (FREE - 3 accounts) - PENDING
+
+### Google Calendar Integration Details
+-   **Timezone Handling:** All datetime operations preserve the spa's timezone (Asia/Dubai default) to prevent timezone conversion errors
+-   **Staff Calendar Mapping:** Integration metadata stores per-staff calendar IDs (staffCalendars object) to enable multi-staff calendar support
+-   **Conflict Detection:** Time slot generation checks both internal bookings and staff-specific Google Calendar events
+-   **Bidirectional Sync:** Bookings automatically create/update/delete calendar events; calendar events prevent double-booking

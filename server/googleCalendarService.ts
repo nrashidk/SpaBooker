@@ -191,15 +191,22 @@ export class GoogleCalendarService {
     customerName: string;
     customerEmail?: string;
     customerPhone?: string;
-    appointmentDate: string;
-    appointmentTime: string;
+    appointmentDate: string; // ISO date string
+    appointmentTime: string; // HH:MM format
     duration: number;
     services: Array<{ name: string }>;
     spaName?: string;
     spaAddress?: string;
+    timeZone?: string; // Optional timezone, defaults to Asia/Dubai
   }): GoogleCalendarEvent {
-    const startDateTime = new Date(`${booking.appointmentDate}T${booking.appointmentTime}`);
-    const endDateTime = new Date(startDateTime.getTime() + booking.duration * 60 * 1000);
+    // Construct datetime in the spa's timezone (avoid local timezone conversion)
+    const timeZone = booking.timeZone || 'Asia/Dubai';
+    const startDateTime = `${booking.appointmentDate}T${booking.appointmentTime}:00`;
+    
+    // Calculate end time
+    const start = new Date(startDateTime);
+    const end = new Date(start.getTime() + booking.duration * 60 * 1000);
+    const endDateTime = end.toISOString().replace('Z', '').substring(0, 19);
 
     const serviceNames = booking.services.map(s => s.name).join(', ');
     const attendees = booking.customerEmail ? [{ email: booking.customerEmail, displayName: booking.customerName }] : [];
@@ -215,12 +222,12 @@ ${booking.customerPhone ? `Phone: ${booking.customerPhone}` : ''}
 Created by ${booking.spaName || 'Spa Booking System'}
       `.trim(),
       start: {
-        dateTime: startDateTime.toISOString(),
-        timeZone: 'Asia/Dubai', // TODO: Make this configurable per spa
+        dateTime: startDateTime,
+        timeZone,
       },
       end: {
-        dateTime: endDateTime.toISOString(),
-        timeZone: 'Asia/Dubai',
+        dateTime: endDateTime,
+        timeZone,
       },
       attendees,
       location: booking.spaAddress,

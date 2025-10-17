@@ -36,15 +36,19 @@ async function getCalendarConflicts(
       calendarIntegration.encryptedTokens
     );
 
-    // Fetch events for the day
-    const startOfDay = new Date(date + 'T00:00:00');
-    const endOfDay = new Date(date + 'T23:59:59');
+    // Get staff-specific calendar from integration metadata, fallback to 'primary'
+    const integrationMetadata = calendarIntegration.metadata as any;
+    const calendarId = integrationMetadata?.staffCalendars?.[staffEmail] || 'primary';
+
+    // Fetch events for the day using RFC3339 format without timezone conversion
+    const startOfDay = `${date}T00:00:00`;
+    const endOfDay = `${date}T23:59:59`;
 
     const events = await googleCalendarService.listEvents(
       accessToken,
-      'primary',
-      startOfDay.toISOString(),
-      endOfDay.toISOString()
+      calendarId,
+      startOfDay,
+      endOfDay
     );
 
     // Return conflicts as time ranges

@@ -69,23 +69,30 @@ async function syncBookingToCalendar(
     const serviceNames = services.map((s: any) => ({ name: s.name }));
     const totalDuration = items.reduce((sum: number, item: any) => sum + (item.duration || 0), 0);
     
+    // Use ISO string directly to preserve timezone
+    const bookingDateTime = new Date(bookingData.bookingDate);
+    
     const event = googleCalendarService.createEventFromBooking({
       id: bookingId,
       customerName: customer?.name || 'Customer',
       customerEmail: customer?.email,
       customerPhone: customer?.phone,
-      appointmentDate: new Date(bookingData.bookingDate).toISOString().split('T')[0],
-      appointmentTime: new Date(bookingData.bookingDate).toTimeString().slice(0, 5),
+      appointmentDate: bookingDateTime.toISOString().split('T')[0],
+      appointmentTime: bookingDateTime.toISOString().split('T')[1].substring(0, 5),
       duration: totalDuration || 60,
       services: serviceNames,
       spaName: bookingData.spaName,
       spaAddress: bookingData.spaAddress,
     });
 
-    // Create event in Google Calendar (use 'primary' calendar)
+    // Get staff calendar from integration metadata, fallback to 'primary'
+    const integrationMetadata = integration.metadata as any;
+    const calendarId = integrationMetadata?.staffCalendars?.[staffEmail] || 'primary';
+    
+    // Create event in Google Calendar
     const calendarEvent = await googleCalendarService.createEvent(
       accessToken,
-      'primary',
+      calendarId,
       event
     );
     
