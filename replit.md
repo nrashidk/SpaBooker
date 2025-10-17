@@ -43,3 +43,14 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
 -   **React Hook Form & Zod:** Form validation.
 -   **Twilio:** Optional SMS/WhatsApp/Email notification provider.
 -   **MSG91:** Optional SMS/WhatsApp/Email notification provider.
+
+## Free Third-Party Integrations (In Progress)
+Building custom OAuth implementations for all free-tier services (user dismissed Replit connectors):
+-   **Google Calendar** - 2-way appointment sync (FREE - 1M requests/day)
+-   **Google My Business** - Review collection & SEO (FREE)
+-   **Google Analytics** - Conversion tracking (FREE)
+-   **Google Meet** - Video consultations (FREE tier)
+-   **HubSpot CRM** - Contact management (FREE tier)
+-   **Mailchimp** - Email campaigns (FREE - 500 contacts)
+-   **Wave Accounting** - Bookkeeping (FREE)
+-   **Buffer Social** - Social media (FREE - 3 accounts)

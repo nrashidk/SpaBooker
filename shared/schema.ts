@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, jsonb, serial, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, jsonb, serial, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -703,12 +703,87 @@ export const auditLogs = pgTable("audit_logs", {
   index("idx_audit_created").on(table.createdAt),
 ]);
 
+// Third-party OAuth integrations (Google Calendar, HubSpot, Mailchimp, etc.)
+export const integrationTypes = [
+  "google_calendar",
+  "google_my_business", 
+  "google_analytics",
+  "google_meet",
+  "hubspot_crm",
+  "mailchimp",
+  "wave_accounting",
+  "buffer_social"
+] as const;
+
+export const spaIntegrations = pgTable("spa_integrations", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  integrationType: text("integration_type").notNull(), // google_calendar, hubspot_crm, mailchimp, etc.
+  status: text("status").notNull().default("active"), // active, error, disconnected
+  encryptedTokens: text("encrypted_tokens").notNull(), // OAuth tokens (access + refresh) encrypted with IV/tag/salt
+  tokenMetadata: jsonb("token_metadata").default(sql`'{}'::jsonb`), // { algorithm: "AES-256-GCM", version: 1, expiresAt: ISO8601 }
+  settings: jsonb("settings").default(sql`'{}'::jsonb`), // Integration-specific settings
+  lastSyncAt: timestamp("last_sync_at"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_spa_integrations_spa").on(table.spaId),
+  index("idx_spa_integrations_type").on(table.integrationType),
+  uniqueIndex("idx_spa_integrations_unique").on(table.spaId, table.integrationType),
+]);
+
+// Integration sync logs (track sync activities and errors)
+export const integrationSyncLogs = pgTable("integration_sync_logs", {
+  id: serial("id").primaryKey(),
+  integrationId: integer("integration_id").references(() => spaIntegrations.id).notNull(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  syncType: text("sync_type").notNull(), // full, incremental, webhook
+  direction: text("direction").notNull(), // inbound, outbound, bidirectional
+  recordsProcessed: integer("records_processed").default(0),
+  recordsSuccess: integer("records_success").default(0),
+  recordsFailed: integer("records_failed").default(0),
+  status: text("status").notNull(), // success, partial, failed
+  errorMessage: text("error_message"),
+  details: jsonb("details"), // Detailed sync information
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_sync_logs_integration").on(table.integrationId),
+  index("idx_sync_logs_spa").on(table.spaId),
+  index("idx_sync_logs_started").on(table.startedAt),
+]);
+
+// Webhook subscriptions (for real-time updates from integrations)
+export const webhookSubscriptions = pgTable("webhook_subscriptions", {
+  id: serial("id").primaryKey(),
+  integrationId: integer("integration_id").references(() => spaIntegrations.id).notNull(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  provider: text("provider").notNull(), // hubspot, mailchimp, google, etc.
+  resource: text("resource").notNull(), // contacts, campaigns, events, etc.
+  webhookId: text("webhook_id"), // External webhook ID from provider
+  callbackUrl: text("callback_url").notNull(),
+  callbackSecret: text("callback_secret"), // For webhook signature verification
+  status: text("status").notNull().default("active"), // active, paused, failed
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_webhook_subscriptions_integration").on(table.integrationId),
+  index("idx_webhook_subscriptions_spa").on(table.spaId),
+  index("idx_webhook_subscriptions_provider").on(table.provider, table.resource),
+]);
+
 // Insert schemas
 export const insertSpaNotificationSettingsSchema = createInsertSchema(spaNotificationSettings);
 export const insertSpaNotificationCredentialsSchema = createInsertSchema(spaNotificationCredentials);
 export const insertNotificationEventSchema = createInsertSchema(notificationEvents);
 export const insertNotificationUsageSchema = createInsertSchema(notificationUsage);
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertSpaIntegrationSchema = createInsertSchema(spaIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertIntegrationSyncLogSchema = createInsertSchema(integrationSyncLogs).omit({ id: true });
+export const insertWebhookSubscriptionSchema = createInsertSchema(webhookSubscriptions).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Select types
 export type SpaNotificationSettings = typeof spaNotificationSettings.$inferSelect;
@@ -717,3 +792,9 @@ export type NotificationEvent = typeof notificationEvents.$inferSelect;
 export type NotificationUsage = typeof notificationUsage.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type SpaIntegration = typeof spaIntegrations.$inferSelect;
+export type InsertSpaIntegration = z.infer<typeof insertSpaIntegrationSchema>;
+export type IntegrationSyncLog = typeof integrationSyncLogs.$inferSelect;
+export type InsertIntegrationSyncLog = z.infer<typeof insertIntegrationSyncLogSchema>;
+export type WebhookSubscription = typeof webhookSubscriptions.$inferSelect;
+export type InsertWebhookSubscription = z.infer<typeof insertWebhookSubscriptionSchema>;

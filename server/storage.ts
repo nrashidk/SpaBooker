@@ -27,6 +27,8 @@ import {
   promoCodes,
   spaNotificationCredentials,
   notificationEvents,
+  spaIntegrations,
+  integrationSyncLogs,
   type User,
   type UpsertUser,
   type AdminApplication,
@@ -70,6 +72,10 @@ import {
   type ProductSale,
   type InsertProductSale,
   type AuditLog,
+  type SpaIntegration,
+  type InsertSpaIntegration,
+  type IntegrationSyncLog,
+  type InsertIntegrationSyncLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
@@ -271,6 +277,19 @@ export interface IStorage {
   updateNotificationProvider(id: number, data: any): Promise<any | undefined>;
   deleteNotificationProvider(id: number): Promise<boolean>;
   updateNotificationEventStatus(externalId: string, updates: any): Promise<void>;
+
+  // Third-party Integration operations
+  getAllIntegrations(spaId: number): Promise<SpaIntegration[]>;
+  getIntegrationById(id: number): Promise<SpaIntegration | undefined>;
+  getIntegrationByType(spaId: number, type: string): Promise<SpaIntegration | undefined>;
+  createIntegration(data: InsertSpaIntegration): Promise<SpaIntegration>;
+  updateIntegration(id: number, data: Partial<InsertSpaIntegration>): Promise<SpaIntegration | undefined>;
+  deleteIntegration(id: number): Promise<boolean>;
+  
+  // Integration Sync Log operations
+  createSyncLog(log: InsertIntegrationSyncLog): Promise<IntegrationSyncLog>;
+  getSyncLogs(integrationId: number, limit?: number): Promise<IntegrationSyncLog[]>;
+  updateSyncLog(id: number, updates: Partial<InsertIntegrationSyncLog>): Promise<IntegrationSyncLog | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1196,6 +1215,87 @@ export class DatabaseStorage implements IStorage {
       .update(notificationEvents)
       .set(updates)
       .where(eq(notificationEvents.externalId, externalId));
+  }
+
+  // Third-party Integration operations
+  async getAllIntegrations(spaId: number): Promise<SpaIntegration[]> {
+    return await db
+      .select()
+      .from(spaIntegrations)
+      .where(eq(spaIntegrations.spaId, spaId))
+      .orderBy(desc(spaIntegrations.createdAt));
+  }
+
+  async getIntegrationById(id: number): Promise<SpaIntegration | undefined> {
+    const [integration] = await db
+      .select()
+      .from(spaIntegrations)
+      .where(eq(spaIntegrations.id, id));
+    return integration;
+  }
+
+  async getIntegrationByType(spaId: number, type: string): Promise<SpaIntegration | undefined> {
+    const [integration] = await db
+      .select()
+      .from(spaIntegrations)
+      .where(
+        and(
+          eq(spaIntegrations.spaId, spaId),
+          eq(spaIntegrations.integrationType, type)
+        )
+      );
+    return integration;
+  }
+
+  async createIntegration(data: InsertSpaIntegration): Promise<SpaIntegration> {
+    const [integration] = await db
+      .insert(spaIntegrations)
+      .values(data)
+      .returning();
+    return integration;
+  }
+
+  async updateIntegration(id: number, data: Partial<InsertSpaIntegration>): Promise<SpaIntegration | undefined> {
+    const [integration] = await db
+      .update(spaIntegrations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(spaIntegrations.id, id))
+      .returning();
+    return integration;
+  }
+
+  async deleteIntegration(id: number): Promise<boolean> {
+    const result = await db
+      .delete(spaIntegrations)
+      .where(eq(spaIntegrations.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Integration Sync Log operations
+  async createSyncLog(log: InsertIntegrationSyncLog): Promise<IntegrationSyncLog> {
+    const [syncLog] = await db
+      .insert(integrationSyncLogs)
+      .values(log)
+      .returning();
+    return syncLog;
+  }
+
+  async getSyncLogs(integrationId: number, limit: number = 50): Promise<IntegrationSyncLog[]> {
+    return await db
+      .select()
+      .from(integrationSyncLogs)
+      .where(eq(integrationSyncLogs.integrationId, integrationId))
+      .orderBy(desc(integrationSyncLogs.startedAt))
+      .limit(limit);
+  }
+
+  async updateSyncLog(id: number, updates: Partial<InsertIntegrationSyncLog>): Promise<IntegrationSyncLog | undefined> {
+    const [syncLog] = await db
+      .update(integrationSyncLogs)
+      .set(updates)
+      .where(eq(integrationSyncLogs.id, id))
+      .returning();
+    return syncLog;
   }
 }
 
