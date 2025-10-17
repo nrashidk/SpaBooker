@@ -25,6 +25,8 @@ import {
   productSales,
   auditLogs,
   promoCodes,
+  spaNotificationCredentials,
+  notificationEvents,
   type User,
   type UpsertUser,
   type AdminApplication,
@@ -260,6 +262,15 @@ export interface IStorage {
     error?: string;
   }>;
   incrementPromoCodeUsage(id: number): Promise<void>;
+
+  // Notification Provider operations
+  getNotificationProviders(spaId: number): Promise<any[]>;
+  getNotificationProviderById(id: number): Promise<any | undefined>;
+  getNotificationProviderByChannel(spaId: number, channel: string): Promise<any | undefined>;
+  createNotificationProvider(data: any): Promise<any>;
+  updateNotificationProvider(id: number, data: any): Promise<any | undefined>;
+  deleteNotificationProvider(id: number): Promise<boolean>;
+  updateNotificationEventStatus(externalId: string, updates: any): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1125,6 +1136,66 @@ export class DatabaseStorage implements IStorage {
       .update(promoCodes)
       .set({ timesUsed: sql`times_used + 1` })
       .where(eq(promoCodes.id, id));
+  }
+
+  // Notification Provider operations
+  async getNotificationProviders(spaId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(spaNotificationCredentials)
+      .where(eq(spaNotificationCredentials.spaId, spaId));
+  }
+
+  async getNotificationProviderById(id: number): Promise<any | undefined> {
+    const [provider] = await db
+      .select()
+      .from(spaNotificationCredentials)
+      .where(eq(spaNotificationCredentials.id, id));
+    return provider;
+  }
+
+  async getNotificationProviderByChannel(spaId: number, channel: string): Promise<any | undefined> {
+    const [provider] = await db
+      .select()
+      .from(spaNotificationCredentials)
+      .where(
+        and(
+          eq(spaNotificationCredentials.spaId, spaId),
+          eq(spaNotificationCredentials.channel, channel)
+        )
+      );
+    return provider;
+  }
+
+  async createNotificationProvider(data: any): Promise<any> {
+    const [provider] = await db
+      .insert(spaNotificationCredentials)
+      .values(data)
+      .returning();
+    return provider;
+  }
+
+  async updateNotificationProvider(id: number, data: any): Promise<any | undefined> {
+    const [provider] = await db
+      .update(spaNotificationCredentials)
+      .set(data)
+      .where(eq(spaNotificationCredentials.id, id))
+      .returning();
+    return provider;
+  }
+
+  async deleteNotificationProvider(id: number): Promise<boolean> {
+    const result = await db
+      .delete(spaNotificationCredentials)
+      .where(eq(spaNotificationCredentials.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async updateNotificationEventStatus(externalId: string, updates: any): Promise<void> {
+    await db
+      .update(notificationEvents)
+      .set(updates)
+      .where(eq(notificationEvents.externalId, externalId));
   }
 }
 

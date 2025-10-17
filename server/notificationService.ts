@@ -12,6 +12,7 @@ import {
   getBookingModificationEmail,
   getBookingCancellationEmail,
 } from "./emailTemplates";
+import twilio from "twilio";
 
 interface NotificationPayload {
   to: string; // email or phone
@@ -152,9 +153,30 @@ class SmsProvider extends NotificationProvider {
   }
 
   private async sendViaTwilio(payload: NotificationPayload): Promise<NotificationResult> {
-    // Twilio implementation (when credentials provided)
-    // Would use: import twilio from 'twilio';
-    throw new Error('Twilio SMS integration pending real credentials');
+    try {
+      const client = twilio(this.credentials.accountSid, this.credentials.authToken);
+      
+      const message = await client.messages.create({
+        body: payload.message,
+        from: this.credentials.fromPhone,
+        to: payload.to,
+      });
+      
+      return {
+        success: true,
+        channel: 'sms',
+        provider: 'twilio',
+        externalId: message.sid,
+      };
+    } catch (error: any) {
+      console.error('Twilio SMS error:', error);
+      return {
+        success: false,
+        channel: 'sms',
+        provider: 'twilio',
+        error: error.message || 'Failed to send SMS via Twilio',
+      };
+    }
   }
 }
 
@@ -199,9 +221,271 @@ class WhatsAppProvider extends NotificationProvider {
   }
 
   private async sendViaTwilioWhatsApp(payload: NotificationPayload): Promise<NotificationResult> {
-    // Twilio WhatsApp implementation (when credentials provided)
-    // Would use: import twilio from 'twilio';
-    throw new Error('Twilio WhatsApp integration pending real credentials');
+    try {
+      const client = twilio(this.credentials.accountSid, this.credentials.authToken);
+      
+      const message = await client.messages.create({
+        body: payload.message,
+        from: `whatsapp:${this.credentials.fromPhone}`,
+        to: `whatsapp:${payload.to}`,
+      });
+      
+      return {
+        success: true,
+        channel: 'whatsapp',
+        provider: 'twilio',
+        externalId: message.sid,
+      };
+    } catch (error: any) {
+      console.error('Twilio WhatsApp error:', error);
+      return {
+        success: false,
+        channel: 'whatsapp',
+        provider: 'twilio',
+        error: error.message || 'Failed to send WhatsApp via Twilio',
+      };
+    }
+  }
+}
+
+// MSG91 SMS provider adapter
+interface Msg91Credentials {
+  authKey: string;
+  senderId: string;
+  route?: string;
+}
+
+class Msg91SmsProvider extends NotificationProvider {
+  constructor(
+    private provider: string,
+    private credentials: Msg91Credentials
+  ) {
+    super();
+  }
+
+  async send(payload: NotificationPayload): Promise<NotificationResult> {
+    try {
+      // Development mode logging
+      if (!this.credentials.authKey || this.credentials.authKey === 'mock') {
+        console.log('💬 [MSG91 SMS - DEV MODE]', {
+          provider: this.provider,
+          from: this.credentials.senderId,
+          to: payload.to,
+          message: payload.message.substring(0, 100) + '...',
+        });
+        
+        return {
+          success: true,
+          channel: 'sms',
+          provider: 'msg91',
+          externalId: 'mock-msg91-' + Date.now(),
+        };
+      }
+
+      // Real SMS sending via MSG91
+      const response = await fetch(
+        'https://api.msg91.com/api/v5/flow/',
+        {
+          method: 'POST',
+          headers: {
+            'authkey': this.credentials.authKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            flow_id: this.credentials.route || 'promotional',
+            sender: this.credentials.senderId,
+            mobiles: payload.to,
+            message: payload.message,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          channel: 'sms',
+          provider: 'msg91',
+          error: errorData.message || `MSG91 SMS failed: ${response.statusText}`,
+        };
+      }
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        channel: 'sms',
+        provider: 'msg91',
+        externalId: data.request_id || data.message,
+      };
+    } catch (error: any) {
+      console.error('MSG91 SMS error:', error.message);
+      return {
+        success: false,
+        channel: 'sms',
+        provider: 'msg91',
+        error: error.message || 'Failed to send SMS via MSG91',
+      };
+    }
+  }
+}
+
+// MSG91 WhatsApp provider adapter
+class Msg91WhatsAppProvider extends NotificationProvider {
+  constructor(
+    private provider: string,
+    private credentials: Msg91Credentials
+  ) {
+    super();
+  }
+
+  async send(payload: NotificationPayload): Promise<NotificationResult> {
+    try {
+      // Development mode logging
+      if (!this.credentials.authKey || this.credentials.authKey === 'mock') {
+        console.log('📱 [MSG91 WHATSAPP - DEV MODE]', {
+          provider: this.provider,
+          to: payload.to,
+          message: payload.message.substring(0, 100) + '...',
+        });
+        
+        return {
+          success: true,
+          channel: 'whatsapp',
+          provider: 'msg91',
+          externalId: 'mock-msg91-wa-' + Date.now(),
+        };
+      }
+
+      // Real WhatsApp sending via MSG91
+      const response = await fetch(
+        'https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/',
+        {
+          method: 'POST',
+          headers: {
+            'authkey': this.credentials.authKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            integrated_number: this.credentials.senderId,
+            content_type: 'template',
+            payload: {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: payload.to,
+              type: 'text',
+              text: {
+                body: payload.message,
+              },
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          channel: 'whatsapp',
+          provider: 'msg91',
+          error: errorData.message || `MSG91 WhatsApp failed: ${response.statusText}`,
+        };
+      }
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        channel: 'whatsapp',
+        provider: 'msg91',
+        externalId: data.id || data.message_id,
+      };
+    } catch (error: any) {
+      console.error('MSG91 WhatsApp error:', error.message);
+      return {
+        success: false,
+        channel: 'whatsapp',
+        provider: 'msg91',
+        error: error.message || 'Failed to send WhatsApp via MSG91',
+      };
+    }
+  }
+}
+
+// MSG91 Email provider adapter
+class Msg91EmailProvider extends NotificationProvider {
+  constructor(
+    private provider: string,
+    private credentials: { authKey: string; fromEmail: string }
+  ) {
+    super();
+  }
+
+  async send(payload: NotificationPayload): Promise<NotificationResult> {
+    try {
+      // Development mode logging
+      if (!this.credentials.authKey || this.credentials.authKey === 'mock') {
+        console.log('📧 [MSG91 EMAIL - DEV MODE]', {
+          provider: this.provider,
+          from: this.credentials.fromEmail,
+          to: payload.to,
+          subject: payload.subject || 'Notification',
+          message: payload.message.substring(0, 100) + '...',
+        });
+        
+        return {
+          success: true,
+          channel: 'email',
+          provider: 'msg91',
+          externalId: 'mock-msg91-email-' + Date.now(),
+        };
+      }
+
+      // Real email sending via MSG91
+      const response = await fetch(
+        'https://api.msg91.com/api/v5/email/send',
+        {
+          method: 'POST',
+          headers: {
+            'authkey': this.credentials.authKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: this.credentials.fromEmail,
+            to: [{ email: payload.to }],
+            subject: payload.subject || 'Notification',
+            body: payload.message,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          channel: 'email',
+          provider: 'msg91',
+          error: errorData.message || `MSG91 Email failed: ${response.statusText}`,
+        };
+      }
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        channel: 'email',
+        provider: 'msg91',
+        externalId: data.request_id || data.message_id,
+      };
+    } catch (error: any) {
+      console.error('MSG91 Email error:', error.message);
+      return {
+        success: false,
+        channel: 'email',
+        provider: 'msg91',
+        error: error.message || 'Failed to send email via MSG91',
+      };
+    }
   }
 }
 
@@ -361,19 +645,41 @@ export class NotificationService {
   }
 
   private getProviderForChannel(channel: string, creds: any): NotificationProvider {
+    // Determine provider type from credentials
+    const providerType = creds.provider || 'twilio'; // Default to twilio for backward compatibility
+    
     switch (channel) {
       case 'email':
-        return new EmailProvider(creds.provider || 'sendgrid', {
+        if (providerType === 'msg91') {
+          return new Msg91EmailProvider('msg91', {
+            authKey: creds.authKey,
+            fromEmail: creds.fromEmail || 'noreply@spa.com',
+          });
+        }
+        return new EmailProvider(providerType === 'sendgrid' ? 'sendgrid' : 'resend', {
           apiKey: creds.apiKey,
           fromEmail: creds.fromEmail || 'noreply@spa.com',
         });
       case 'sms':
+        if (providerType === 'msg91') {
+          return new Msg91SmsProvider('msg91', {
+            authKey: creds.authKey,
+            senderId: creds.senderId,
+            route: creds.route,
+          });
+        }
         return new SmsProvider('twilio', {
           accountSid: creds.accountSid,
           authToken: creds.authToken,
           fromPhone: creds.fromPhone,
         });
       case 'whatsapp':
+        if (providerType === 'msg91') {
+          return new Msg91WhatsAppProvider('msg91', {
+            authKey: creds.authKey,
+            senderId: creds.senderId,
+          });
+        }
         return new WhatsAppProvider('twilio', {
           accountSid: creds.accountSid,
           authToken: creds.authToken,

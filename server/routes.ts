@@ -7,6 +7,12 @@ import { notificationService } from "./notificationService";
 import { requireStaff, requireStaffRole, getStaffByUserId, canViewStaffCalendar, canEditAppointments, canAccessDashboard } from "./staffPermissions";
 import { staffRoles, staffRoleInfo } from "@shared/schema";
 import { AuditLogger } from "./auditLog";
+import { 
+  validateTwilioCredentials, 
+  validateMsg91Credentials, 
+  validateEmailCredentials 
+} from "./providerValidation";
+import { encryptJSON } from "./encryptionService";
 import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
@@ -2252,6 +2258,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(logs);
     } catch (error) {
       handleRouteError(res, error, "Failed to fetch audit logs");
+    }
+  });
+
+  // ==================== NOTIFICATION PROVIDER MANAGEMENT ====================
+  
+  // Validate provider credentials (admin only)
+  app.post("/api/admin/notification-providers/validate", isAdmin, async (req, res) => {
+    try {
+      const { provider, channel, credentials } = req.body;
+      
+      let result;
+      
+      if (channel === 'email') {
+        if (provider === 'sendgrid' || provider === 'resend') {
+          result = await validateEmailCredentials(provider, credentials.apiKey);
+        } else if (provider === 'msg91') {
+          result = await validateMsg91Credentials(credentials.authKey);
+        } else {
+          return res.status(400).json({ message: "Unsupported email provider" });
+        }
+      } else if (channel === 'sms' || channel === 'whatsapp') {
+        if (provider === 'twilio') {
+          result = await validateTwilioCredentials(
+            credentials.accountSid,
+            credentials.authToken
+          );
+        } else if (provider === 'msg91') {
+          result = await validateMsg91Credentials(credentials.authKey);
+        } else {
+          return res.status(400).json({ message: "Unsupported SMS/WhatsApp provider" });
+        }
+      } else {
+        return res.status(400).json({ message: "Unsupported channel" });
+      }
+      
+      if (result.valid) {
+        res.json({ valid: true, details: result.details });
+      } else {
+        res.status(400).json({ valid: false, error: result.error });
+      }
+    } catch (error) {
+      handleRouteError(res, error, "Failed to validate credentials");
+    }
+  });
+
+  // Get all configured notification providers for a spa (admin only)
+  app.get("/api/admin/notification-providers", isAdmin, async (req, res) => {
+    try {
+      const spaId = parseInt(req.query.spaId as string) || 1; // TODO: Get from auth context
+      const providers = await storage.getNotificationProviders(spaId);
+      
+      // Don't expose encrypted credentials in response
+      const sanitized = providers.map(p => ({
+        id: p.id,
+        spaId: p.spaId,
+        provider: p.provider,
+        channel: p.channel,
+        isActive: p.isActive,
+        fromEmail: p.fromEmail,
+        fromPhone: p.fromPhone,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      }));
+      
+      res.json(sanitized);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch notification providers");
+    }
+  });
+
+  // Save or update notification provider credentials (admin only)
+  app.post("/api/admin/notification-providers", isAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.claims.sub;
+      const { spaId, provider, channel, credentials, fromEmail, fromPhone } = req.body;
+      
+      // Validate credentials first
+      let validationResult;
+      if (channel === 'email') {
+        if (provider === 'msg91') {
+          validationResult = await validateMsg91Credentials(credentials.authKey);
+        } else {
+          validationResult = await validateEmailCredentials(provider, credentials.apiKey);
+        }
+      } else if (provider === 'twilio') {
+        validationResult = await validateTwilioCredentials(
+          credentials.accountSid,
+          credentials.authToken
+        );
+      } else if (provider === 'msg91') {
+        validationResult = await validateMsg91Credentials(credentials.authKey);
+      } else {
+        return res.status(400).json({ message: "Unsupported provider" });
+      }
+      
+      if (!validationResult.valid) {
+        return res.status(400).json({ 
+          message: "Invalid credentials", 
+          error: validationResult.error 
+        });
+      }
+      
+      // Encrypt credentials
+      const encryptedCredentials = encryptJSON({ ...credentials, provider });
+      
+      // Check if provider already exists for this spa and channel
+      const existing = await storage.getNotificationProviderByChannel(spaId, channel);
+      
+      let savedProvider;
+      if (existing) {
+        // Update existing
+        savedProvider = await storage.updateNotificationProvider(existing.id, {
+          provider,
+          encryptedCredentials,
+          fromEmail: fromEmail || null,
+          fromPhone: fromPhone || null,
+          isActive: true,
+          updatedAt: new Date(),
+        });
+      } else {
+        // Create new
+        savedProvider = await storage.createNotificationProvider({
+          spaId,
+          provider,
+          channel,
+          encryptedCredentials,
+          fromEmail: fromEmail || null,
+          fromPhone: fromPhone || null,
+          isActive: true,
+        });
+      }
+      
+      // Log audit trail
+      await AuditLogger.log({
+        userId,
+        spaId,
+        action: existing ? 'UPDATE' : 'CREATE',
+        entityType: 'notification_provider',
+        entityId: savedProvider.id,
+        after: {
+          provider,
+          channel,
+          isActive: true,
+        },
+      });
+      
+      // Return sanitized response
+      res.json({
+        id: savedProvider.id,
+        spaId: savedProvider.spaId,
+        provider: savedProvider.provider,
+        channel: savedProvider.channel,
+        isActive: savedProvider.isActive,
+        fromEmail: savedProvider.fromEmail,
+        fromPhone: savedProvider.fromPhone,
+        validationDetails: validationResult.details,
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to save notification provider");
+    }
+  });
+
+  // Delete notification provider (admin only)
+  app.delete("/api/admin/notification-providers/:id", isAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.claims.sub;
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid provider ID" });
+      }
+      
+      const provider = await storage.getNotificationProviderById(id);
+      if (!provider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      
+      await storage.deleteNotificationProvider(id);
+      
+      // Log audit trail
+      await AuditLogger.log({
+        userId,
+        spaId: provider.spaId,
+        action: 'DELETE',
+        entityType: 'notification_provider',
+        entityId: id,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete notification provider");
+    }
+  });
+
+  // ==================== NOTIFICATION WEBHOOKS ====================
+  
+  // Twilio delivery status webhook
+  app.post("/api/webhooks/twilio", async (req, res) => {
+    try {
+      const { MessageSid, MessageStatus, To, From, ErrorCode, ErrorMessage } = req.body;
+      
+      // Update message status in database
+      await storage.updateNotificationEventStatus(MessageSid, {
+        status: MessageStatus,
+        errorMessage: ErrorMessage || null,
+        deliveredAt: MessageStatus === 'delivered' ? new Date() : null,
+      });
+      
+      console.log(`📥 Twilio webhook: ${MessageSid} - ${MessageStatus}`);
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('Twilio webhook error:', error);
+      res.status(500).send('Error');
+    }
+  });
+  
+  // MSG91 delivery status webhook
+  app.post("/api/webhooks/msg91", async (req, res) => {
+    try {
+      const { requestId, status, mobile, errorCode, errorMessage } = req.body;
+      
+      // Update message status in database
+      await storage.updateNotificationEventStatus(requestId, {
+        status: status,
+        errorMessage: errorMessage || null,
+        deliveredAt: status === 'DELIVRD' ? new Date() : null,
+      });
+      
+      console.log(`📥 MSG91 webhook: ${requestId} - ${status}`);
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('MSG91 webhook error:', error);
+      res.status(500).send('Error');
     }
   });
 

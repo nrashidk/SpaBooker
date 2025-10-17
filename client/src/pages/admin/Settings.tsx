@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { SpaSettings } from "@shared/schema";
+import NotificationProviderConfig from "@/components/NotificationProviderConfig";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -63,10 +64,7 @@ export default function AdminSettings() {
   // Mutation to update settings
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: Partial<SpaSettings>) => {
-      return await apiRequest("/api/admin/settings", {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("PUT", "/api/admin/settings", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
@@ -170,19 +168,6 @@ export default function AdminSettings() {
     );
   };
 
-  const handleConfigureTwilio = () => {
-    toast({
-      title: "Coming soon",
-      description: "Twilio configuration will be available in the notification settings panel.",
-    });
-  };
-
-  const handleConfigureEmail = () => {
-    toast({
-      title: "Coming soon",
-      description: "Email configuration will be available in the notification settings panel.",
-    });
-  };
 
   if (isLoading) {
     return <div className="p-6">Loading settings...</div>;
@@ -365,33 +350,10 @@ export default function AdminSettings() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Notification Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">WhatsApp/SMS Notifications</p>
-                <p className="text-sm text-muted-foreground">Send booking confirmations via WhatsApp/SMS</p>
-              </div>
-              <Button variant="outline" onClick={handleConfigureTwilio} data-testid="button-configure-twilio">
-                Configure Twilio
-              </Button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Send booking confirmations via email</p>
-              </div>
-              <Button variant="outline" onClick={handleConfigureEmail} data-testid="button-configure-email">
-                Configure Email
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Notification Providers</h2>
+        <NotificationProviderConfig />
+      </div>
     </div>
   );
 }
