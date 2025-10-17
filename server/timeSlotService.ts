@@ -12,6 +12,29 @@ interface BusinessHours {
   [key: string]: { open: string; close: string } | null;
 }
 
+// Helper: Get DST-aware timezone offset for RFC3339 format
+function getTimezoneOffset(date: Date, timeZone: string): string {
+  try {
+    // Format the date in both UTC and the target timezone
+    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(date.toLocaleString('en-US', { timeZone }));
+    
+    // Calculate offset in minutes
+    const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / (1000 * 60);
+    
+    // Convert to RFC3339 format (+HH:MM or -HH:MM)
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absOffset = Math.abs(offsetMinutes);
+    const hours = Math.floor(absOffset / 60);
+    const minutes = absOffset % 60;
+    
+    return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  } catch (error) {
+    console.error('Error calculating timezone offset:', error);
+    return '+04:00'; // Fallback to Dubai
+  }
+}
+
 // Helper: Fetch Google Calendar events for conflict checking
 async function getCalendarConflicts(
   spaId: number,
@@ -36,14 +59,24 @@ async function getCalendarConflicts(
       calendarIntegration.encryptedTokens
     );
 
+    // Get spa details for timezone
+    const spa = await storage.getSpaById(spaId);
+    const spaTimeZone = (spa?.timeZone as string) || 'Asia/Dubai';
+    
+    // Calculate DST-aware offsets for start and end of day separately
+    // (handles DST transition days where offset changes during the day)
+    const startDate = new Date(`${date}T00:00:00`);
+    const endDate = new Date(`${date}T23:59:59`);
+    const startOffset = getTimezoneOffset(startDate, spaTimeZone);
+    const endOffset = getTimezoneOffset(endDate, spaTimeZone);
+
     // Get staff-specific calendar from integration metadata, fallback to 'primary'
     const integrationMetadata = calendarIntegration.metadata as any;
     const calendarId = integrationMetadata?.staffCalendars?.[staffEmail] || 'primary';
 
-    // Fetch events for the day using RFC3339 format with timezone designator
-    // Google Calendar API requires explicit timezone or Z for UTC
-    const startOfDay = `${date}T00:00:00+04:00`; // Asia/Dubai is UTC+4
-    const endOfDay = `${date}T23:59:59+04:00`;
+    // Fetch events for the day using RFC3339 format with DST-aware timezone offsets
+    const startOfDay = `${date}T00:00:00${startOffset}`;
+    const endOfDay = `${date}T23:59:59${endOffset}`;
 
     const events = await googleCalendarService.listEvents(
       accessToken,

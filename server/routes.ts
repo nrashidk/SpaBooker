@@ -21,6 +21,55 @@ import {
 } from "./oauthService";
 import { googleCalendarService } from "./googleCalendarService";
 
+// Helper: Get DST-aware timezone offset for RFC3339 format
+function getTimezoneOffset(date: Date, timeZone: string): string {
+  try {
+    // Format the date in both UTC and the target timezone
+    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(date.toLocaleString('en-US', { timeZone }));
+    
+    // Calculate offset in minutes
+    const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / (1000 * 60);
+    
+    // Convert to RFC3339 format (+HH:MM or -HH:MM)
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absOffset = Math.abs(offsetMinutes);
+    const hours = Math.floor(absOffset / 60);
+    const minutes = absOffset % 60;
+    
+    return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  } catch (error) {
+    console.error('Error calculating timezone offset:', error);
+    return '+04:00'; // Fallback to Dubai
+  }
+}
+
+// Helper: Format date in timezone without UTC conversion
+function formatDateInTimezone(date: Date, timeZone: string): { date: string; time: string } {
+  // Use Intl.DateTimeFormat to get components in the target timezone
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
+  const hour = parts.find(p => p.type === 'hour')?.value || '';
+  const minute = parts.find(p => p.type === 'minute')?.value || '';
+  
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hour}:${minute}`,
+  };
+}
+
 // Helper: Sync booking to Google Calendar
 async function syncBookingToCalendar(
   spaId: number,
@@ -47,6 +96,10 @@ async function syncBookingToCalendar(
       calendarIntegration.encryptedTokens
     );
 
+    // Get spa details for timezone
+    const spa = await storage.getSpaById(spaId);
+    const spaTimeZone = (spa?.timeZone as string) || 'Asia/Dubai';
+
     // Get staff details for calendar event
     let staffEmail: string | undefined;
     if (bookingData.staffId) {
@@ -65,24 +118,26 @@ async function syncBookingToCalendar(
       return allServices.find((s: any) => s.id === item.serviceId);
     }).filter(Boolean);
 
-    // Convert booking to calendar event
+    // Convert booking to calendar event - preserve timezone
     const serviceNames = services.map((s: any) => ({ name: s.name }));
     const totalDuration = items.reduce((sum: number, item: any) => sum + (item.duration || 0), 0);
     
-    // Use ISO string directly to preserve timezone
+    // Extract date and time from booking date in the spa's timezone (no UTC conversion)
     const bookingDateTime = new Date(bookingData.bookingDate);
+    const { date: appointmentDate, time: appointmentTime } = formatDateInTimezone(bookingDateTime, spaTimeZone);
     
     const event = googleCalendarService.createEventFromBooking({
       id: bookingId,
       customerName: customer?.name || 'Customer',
       customerEmail: customer?.email,
       customerPhone: customer?.phone,
-      appointmentDate: bookingDateTime.toISOString().split('T')[0],
-      appointmentTime: bookingDateTime.toISOString().split('T')[1].substring(0, 5),
+      appointmentDate,
+      appointmentTime,
       duration: totalDuration || 60,
       services: serviceNames,
-      spaName: bookingData.spaName,
-      spaAddress: bookingData.spaAddress,
+      spaName: bookingData.spaName || spa?.name,
+      spaAddress: bookingData.spaAddress || spa?.address,
+      timeZone: spaTimeZone, // Google Calendar handles DST automatically with timeZone property
     });
 
     // Get staff calendar from integration metadata, fallback to 'primary'
