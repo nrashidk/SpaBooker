@@ -1437,6 +1437,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notification Settings routes
+  app.get("/api/admin/notification-settings", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+      
+      const settings = await storage.getNotificationSettings(user.adminSpaId);
+      res.json(settings || {});
+    } catch (error) {
+      console.error("Error fetching notification settings:", error);
+      res.status(500).json({ message: "Failed to fetch notification settings" });
+    }
+  });
+
+  app.put("/api/admin/notification-settings", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+      
+      const settings = await storage.upsertNotificationSettings(user.adminSpaId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating notification settings:", error);
+      res.status(500).json({ message: "Failed to update notification settings" });
+    }
+  });
+
   // Service Category routes
   app.get("/api/admin/service-categories", isAdmin, async (req, res) => {
     try {

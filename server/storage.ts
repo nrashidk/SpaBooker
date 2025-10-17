@@ -26,6 +26,7 @@ import {
   auditLogs,
   promoCodes,
   spaNotificationCredentials,
+  spaNotificationSettings,
   notificationEvents,
   spaIntegrations,
   integrationSyncLogs,
@@ -277,6 +278,10 @@ export interface IStorage {
   updateNotificationProvider(id: number, data: any): Promise<any | undefined>;
   deleteNotificationProvider(id: number): Promise<boolean>;
   updateNotificationEventStatus(externalId: string, updates: any): Promise<void>;
+
+  // Notification Settings operations
+  getNotificationSettings(spaId: number): Promise<any | undefined>;
+  upsertNotificationSettings(spaId: number, settings: any): Promise<any>;
 
   // Third-party Integration operations
   getAllIntegrations(spaId: number): Promise<SpaIntegration[]>;
@@ -1215,6 +1220,34 @@ export class DatabaseStorage implements IStorage {
       .update(notificationEvents)
       .set(updates)
       .where(eq(notificationEvents.externalId, externalId));
+  }
+
+  // Notification Settings operations
+  async getNotificationSettings(spaId: number): Promise<any | undefined> {
+    const [settings] = await db
+      .select()
+      .from(spaNotificationSettings)
+      .where(eq(spaNotificationSettings.spaId, spaId));
+    return settings;
+  }
+
+  async upsertNotificationSettings(spaId: number, settings: any): Promise<any> {
+    const existing = await this.getNotificationSettings(spaId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(spaNotificationSettings)
+        .set({ ...settings, spaId })
+        .where(eq(spaNotificationSettings.spaId, spaId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(spaNotificationSettings)
+        .values({ ...settings, spaId })
+        .returning();
+      return created;
+    }
   }
 
   // Third-party Integration operations

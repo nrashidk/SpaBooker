@@ -10,6 +10,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { SpaSettings, SpaIntegration } from "@shared/schema";
 import NotificationProviderConfig from "@/components/NotificationProviderConfig";
+import NotificationSettings from "@/components/NotificationSettings";
 import { Badge } from "@/components/ui/badge";
 
 export default function AdminSettings() {
@@ -429,6 +430,11 @@ export default function AdminSettings() {
       <div>
         <h2 className="text-2xl font-bold mb-4">Notification Providers</h2>
         <NotificationProviderConfig />
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Notification Preferences</h2>
+        <NotificationSettings />
       </div>
 
       <Card>
