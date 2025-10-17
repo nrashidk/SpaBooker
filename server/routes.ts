@@ -86,7 +86,7 @@ async function syncBookingToCalendar(
     });
 
     // Get staff calendar from integration metadata, fallback to 'primary'
-    const integrationMetadata = integration.metadata as any;
+    const integrationMetadata = calendarIntegration.metadata as any;
     const calendarId = integrationMetadata?.staffCalendars?.[staffEmail] || 'primary';
     
     // Create event in Google Calendar

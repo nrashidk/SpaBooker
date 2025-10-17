@@ -203,10 +203,12 @@ export class GoogleCalendarService {
     const timeZone = booking.timeZone || 'Asia/Dubai';
     const startDateTime = `${booking.appointmentDate}T${booking.appointmentTime}:00`;
     
-    // Calculate end time
-    const start = new Date(startDateTime);
-    const end = new Date(start.getTime() + booking.duration * 60 * 1000);
-    const endDateTime = end.toISOString().replace('Z', '').substring(0, 19);
+    // Calculate end time manually without timezone conversion
+    const [hours, minutes] = booking.appointmentTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + booking.duration;
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMinutes = totalMinutes % 60;
+    const endDateTime = `${booking.appointmentDate}T${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}:00`;
 
     const serviceNames = booking.services.map(s => s.name).join(', ');
     const attendees = booking.customerEmail ? [{ email: booking.customerEmail, displayName: booking.customerName }] : [];

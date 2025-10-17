@@ -40,9 +40,10 @@ async function getCalendarConflicts(
     const integrationMetadata = calendarIntegration.metadata as any;
     const calendarId = integrationMetadata?.staffCalendars?.[staffEmail] || 'primary';
 
-    // Fetch events for the day using RFC3339 format without timezone conversion
-    const startOfDay = `${date}T00:00:00`;
-    const endOfDay = `${date}T23:59:59`;
+    // Fetch events for the day using RFC3339 format with timezone designator
+    // Google Calendar API requires explicit timezone or Z for UTC
+    const startOfDay = `${date}T00:00:00+04:00`; // Asia/Dubai is UTC+4
+    const endOfDay = `${date}T23:59:59+04:00`;
 
     const events = await googleCalendarService.listEvents(
       accessToken,
