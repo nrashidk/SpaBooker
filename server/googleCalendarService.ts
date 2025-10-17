@@ -37,17 +37,13 @@ export interface GoogleCalendar {
 
 // Google Calendar API service
 export class GoogleCalendarService {
-  private baseUrl = 'https://www.googleapis.com/calendar/v3';
-
-  constructor(
-    private accessToken: string
-  ) {}
+  private static baseUrl = 'https://www.googleapis.com/calendar/v3';
 
   // List user's calendars
-  async listCalendars(): Promise<GoogleCalendar[]> {
+  static async listCalendars(accessToken: string): Promise<GoogleCalendar[]> {
     const response = await fetch(`${this.baseUrl}/users/me/calendarList`, {
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     });
@@ -62,8 +58,8 @@ export class GoogleCalendarService {
   }
 
   // Get primary calendar
-  async getPrimaryCalendar(): Promise<GoogleCalendar> {
-    const calendars = await this.listCalendars();
+  static async getPrimaryCalendar(accessToken: string): Promise<GoogleCalendar> {
+    const calendars = await this.listCalendars(accessToken);
     const primary = calendars.find(cal => cal.primary);
     
     if (!primary) {
@@ -74,14 +70,15 @@ export class GoogleCalendarService {
   }
 
   // Create calendar event
-  async createEvent(
+  static async createEvent(
+    accessToken: string,
     calendarId: string,
     event: GoogleCalendarEvent
   ): Promise<GoogleCalendarEvent> {
     const response = await fetch(`${this.baseUrl}/calendars/${encodeURIComponent(calendarId)}/events`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(event),
@@ -96,7 +93,8 @@ export class GoogleCalendarService {
   }
 
   // Update calendar event
-  async updateEvent(
+  static async updateEvent(
+    accessToken: string,
     calendarId: string,
     eventId: string,
     event: Partial<GoogleCalendarEvent>
@@ -106,7 +104,7 @@ export class GoogleCalendarService {
       {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(event),
@@ -122,13 +120,17 @@ export class GoogleCalendarService {
   }
 
   // Delete calendar event
-  async deleteEvent(calendarId: string, eventId: string): Promise<void> {
+  static async deleteEvent(
+    accessToken: string,
+    calendarId: string,
+    eventId: string
+  ): Promise<void> {
     const response = await fetch(
       `${this.baseUrl}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
       {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       }
     );
@@ -140,7 +142,8 @@ export class GoogleCalendarService {
   }
 
   // List events in a time range
-  async listEvents(
+  static async listEvents(
+    accessToken: string,
     calendarId: string,
     timeMin: string,
     timeMax: string
@@ -156,7 +159,7 @@ export class GoogleCalendarService {
       `${this.baseUrl}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
       }
@@ -172,12 +175,13 @@ export class GoogleCalendarService {
   }
 
   // Check for conflicts with existing events
-  async checkConflicts(
+  static async checkConflicts(
+    accessToken: string,
     calendarId: string,
     startTime: string,
     endTime: string
   ): Promise<boolean> {
-    const events = await this.listEvents(calendarId, startTime, endTime);
+    const events = await this.listEvents(accessToken, calendarId, startTime, endTime);
     return events.length > 0;
   }
 
@@ -225,13 +229,5 @@ Created by ${booking.spaName || 'Spa Booking System'}
   }
 }
 
-// Helper function to get calendar service with valid token
-export async function getGoogleCalendarService(
-  encryptedTokens: string
-): Promise<GoogleCalendarService> {
-  const tokens: OAuthTokens = decryptJSON(encryptedTokens);
-  
-  // For now, just use the access token directly
-  // In production, implement proper token refresh logic
-  return new GoogleCalendarService(tokens.accessToken);
-}
+// Export singleton instance for static method usage
+export const googleCalendarService = GoogleCalendarService;

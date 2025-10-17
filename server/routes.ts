@@ -13,6 +13,98 @@ import {
   validateEmailCredentials 
 } from "./providerValidation";
 import { encryptJSON } from "./encryptionService";
+import { 
+  generateAuthUrl, 
+  exchangeCodeForTokens, 
+  encryptTokensForStorage,
+  getValidAccessToken 
+} from "./oauthService";
+import { googleCalendarService } from "./googleCalendarService";
+
+// Helper: Sync booking to Google Calendar
+async function syncBookingToCalendar(
+  spaId: number,
+  bookingId: number,
+  bookingData: any,
+  items: any[]
+): Promise<void> {
+  try {
+    // Check if Google Calendar is connected
+    const integrations = await storage.getSpaIntegrations(spaId);
+    const calendarIntegration = integrations.find(
+      i => i.integrationType === 'google_calendar' && i.status === 'active'
+    );
+
+    if (!calendarIntegration) {
+      console.log('Google Calendar not connected, skipping sync');
+      return;
+    }
+
+    // Get valid access token
+    const accessToken = await getValidAccessToken(
+      calendarIntegration.provider as 'google',
+      calendarIntegration.integrationType,
+      calendarIntegration.encryptedTokens
+    );
+
+    // Get staff details for calendar event
+    let staffEmail: string | undefined;
+    if (bookingData.staffId) {
+      const staff = await storage.getStaffById(bookingData.staffId);
+      if (staff?.email) {
+        staffEmail = staff.email;
+      }
+    }
+
+    // Get customer details
+    const customer = await storage.getCustomerById(bookingData.customerId);
+    
+    // Get service details
+    const allServices = await storage.getAllServices();
+    const services = items.map(item => {
+      return allServices.find((s: any) => s.id === item.serviceId);
+    }).filter(Boolean);
+
+    // Convert booking to calendar event
+    const serviceNames = services.map((s: any) => ({ name: s.name }));
+    const totalDuration = items.reduce((sum: number, item: any) => sum + (item.duration || 0), 0);
+    
+    const event = googleCalendarService.createEventFromBooking({
+      id: bookingId,
+      customerName: customer?.name || 'Customer',
+      customerEmail: customer?.email,
+      customerPhone: customer?.phone,
+      appointmentDate: new Date(bookingData.bookingDate).toISOString().split('T')[0],
+      appointmentTime: new Date(bookingData.bookingDate).toTimeString().slice(0, 5),
+      duration: totalDuration || 60,
+      services: serviceNames,
+      spaName: bookingData.spaName,
+      spaAddress: bookingData.spaAddress,
+    });
+
+    // Create event in Google Calendar (use 'primary' calendar)
+    const calendarEvent = await googleCalendarService.createEvent(
+      accessToken,
+      'primary',
+      event
+    );
+    
+    // Store calendar event ID in booking metadata
+    if (calendarEvent.id) {
+      await storage.updateBooking(bookingId, {
+        metadata: {
+          ...bookingData.metadata,
+          googleCalendarEventId: calendarEvent.id,
+        },
+      });
+    }
+
+    console.log(`Booking ${bookingId} synced to Google Calendar: ${calendarEvent.id}`);
+  } catch (error) {
+    console.error('Failed to sync booking to calendar:', error);
+    // Don't throw - we don't want calendar sync failures to break booking creation
+  }
+}
 import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
@@ -218,6 +310,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Admin register error:", error);
       res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // OAuth Integration Routes
+  
+  // Get all integrations for a spa
+  app.get('/api/integrations/:spaId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const spaId = parseNumericId(req.params.spaId);
+      if (!spaId) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+
+      const integrations = await storage.getSpaIntegrations(spaId);
+      
+      // Return integrations with status but without encrypted tokens
+      const safeIntegrations = integrations.map(int => ({
+        id: int.id,
+        spaId: int.spaId,
+        integrationType: int.integrationType,
+        status: int.status,
+        metadata: int.metadata,
+        lastSyncedAt: int.lastSyncedAt,
+        createdAt: int.createdAt,
+      }));
+      
+      res.json(safeIntegrations);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch integrations");
+    }
+  });
+
+  // Initiate OAuth flow
+  app.get('/api/oauth/:provider/connect', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const provider = req.params.provider as 'google' | 'hubspot' | 'mailchimp';
+      const { spaId, integrationType } = req.query;
+
+      if (!spaId || !integrationType) {
+        return res.status(400).json({ message: "Missing spaId or integrationType" });
+      }
+
+      const parsedSpaId = parseNumericId(spaId as string);
+      if (!parsedSpaId) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+
+      // Create state with spaId, integrationType, and userId for verification
+      const state = Buffer.from(JSON.stringify({
+        spaId: parsedSpaId,
+        integrationType,
+        userId: req.user.claims.sub,
+        timestamp: Date.now(),
+      })).toString('base64');
+
+      const authUrl = generateAuthUrl(provider, integrationType as string, state);
+      
+      res.json({ authUrl });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to initiate OAuth");
+    }
+  });
+
+  // OAuth callback handler
+  app.get('/api/oauth/:provider/callback', async (req, res) => {
+    try {
+      const provider = req.params.provider as 'google' | 'hubspot' | 'mailchimp';
+      const { code, state, error } = req.query;
+
+      if (error) {
+        return res.redirect(`/admin/settings?oauth_error=${error}`);
+      }
+
+      if (!code || !state) {
+        return res.redirect('/admin/settings?oauth_error=missing_params');
+      }
+
+      // Decode state
+      const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
+      const { spaId, integrationType, userId, timestamp } = stateData;
+
+      // Verify state is recent (within 10 minutes)
+      if (Date.now() - timestamp > 10 * 60 * 1000) {
+        return res.redirect('/admin/settings?oauth_error=expired_state');
+      }
+
+      // Exchange code for tokens
+      const tokens = await exchangeCodeForTokens(provider, integrationType, code as string);
+      
+      // Encrypt tokens for storage
+      const { encryptedTokens, tokenMetadata } = encryptTokensForStorage(tokens);
+
+      // Save integration to database
+      await storage.createOrUpdateSpaIntegration({
+        spaId,
+        integrationType,
+        provider,
+        encryptedTokens,
+        tokenMetadata,
+        status: 'active',
+        metadata: {
+          connectedAt: new Date().toISOString(),
+          connectedBy: userId,
+        },
+      });
+
+      // Log the integration
+      await AuditLogger.log({
+        userId,
+        action: 'integration_connected',
+        entityType: 'spa_integration',
+        entityId: spaId.toString(),
+        metadata: { integrationType, provider },
+      });
+
+      // Redirect back to settings with success message
+      res.redirect(`/admin/settings?oauth_success=${integrationType}`);
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      res.redirect('/admin/settings?oauth_error=exchange_failed');
+    }
+  });
+
+  // Disconnect integration
+  app.post('/api/integrations/:integrationId/disconnect', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const integrationId = parseNumericId(req.params.integrationId);
+      if (!integrationId) {
+        return res.status(400).json({ message: "Invalid integration ID" });
+      }
+
+      const integration = await storage.getSpaIntegrationById(integrationId);
+      if (!integration) {
+        return res.status(404).json({ message: "Integration not found" });
+      }
+
+      // Update status to inactive
+      await storage.updateSpaIntegration(integrationId, {
+        status: 'inactive',
+        metadata: {
+          ...integration.metadata,
+          disconnectedAt: new Date().toISOString(),
+          disconnectedBy: req.user.claims.sub,
+        },
+      });
+
+      await AuditLogger.log({
+        userId: req.user.claims.sub,
+        action: 'integration_disconnected',
+        entityType: 'spa_integration',
+        entityId: integrationId.toString(),
+        metadata: { integrationType: integration.integrationType },
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to disconnect integration");
     }
   });
 
@@ -1558,14 +1807,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const booking = await storage.createBooking(validatedBooking);
       
       // Create booking items
+      const createdItems = [];
       if (req.body.items && Array.isArray(req.body.items)) {
         for (const item of req.body.items) {
           const validatedItem = insertBookingItemSchema.parse({
             ...item,
             bookingId: booking.id,
           });
-          await storage.createBookingItem(validatedItem);
+          const createdItem = await storage.createBookingItem(validatedItem);
+          createdItems.push(createdItem);
         }
+      }
+      
+      // Sync to Google Calendar (non-blocking)
+      if (booking.spaId) {
+        syncBookingToCalendar(booking.spaId, booking.id, booking, createdItems).catch(err => {
+          console.error('Calendar sync error:', err);
+        });
       }
       
       res.json(booking);
@@ -1588,6 +1846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking not found" });
       }
 
+      const updatedItems = [];
       // Update booking items if services are provided
       if (services && Array.isArray(services)) {
         // Delete existing booking items
@@ -1606,8 +1865,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             price: serviceDetails?.price || "0",
             duration: service.duration,
           });
-          await storage.createBookingItem(validatedItem);
+          const item = await storage.createBookingItem(validatedItem);
+          updatedItems.push(item);
         }
+      }
+
+      // Sync to Google Calendar (update existing event)
+      if (booking.spaId && booking.metadata?.googleCalendarEventId) {
+        syncBookingToCalendar(booking.spaId, booking.id, booking, updatedItems).catch(err => {
+          console.error('Calendar sync error:', err);
+        });
       }
 
       res.json(booking);
@@ -1624,10 +1891,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       
+      // Get booking before deletion to check for calendar event
+      const booking = await storage.getBookingById(id);
+      
       const deleted = await storage.deleteBooking(id);
       if (!deleted) {
         return res.status(404).json({ message: "Booking not found" });
       }
+
+      // Delete from Google Calendar if synced
+      if (booking && booking.spaId && booking.metadata?.googleCalendarEventId) {
+        try {
+          const integrations = await storage.getSpaIntegrations(booking.spaId);
+          const calendarIntegration = integrations.find(
+            i => i.integrationType === 'google_calendar' && i.status === 'active'
+          );
+
+          if (calendarIntegration) {
+            const accessToken = await getValidAccessToken(
+              calendarIntegration.provider as 'google',
+              calendarIntegration.integrationType,
+              calendarIntegration.encryptedTokens
+            );
+
+            await googleCalendarService.deleteEvent(
+              accessToken,
+              'primary',
+              booking.metadata.googleCalendarEventId
+            );
+            console.log(`Deleted calendar event ${booking.metadata.googleCalendarEventId} for booking ${id}`);
+          }
+        } catch (error) {
+          console.error('Failed to delete calendar event:', error);
+          // Don't fail the booking deletion if calendar deletion fails
+        }
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting booking:", error);

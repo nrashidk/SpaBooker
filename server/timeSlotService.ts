@@ -1,4 +1,6 @@
 import { storage } from "./storage";
+import { googleCalendarService } from "./googleCalendarService";
+import { getValidAccessToken } from "./oauthService";
 
 interface TimeSlot {
   time: string; // HH:MM format
@@ -8,6 +10,52 @@ interface TimeSlot {
 
 interface BusinessHours {
   [key: string]: { open: string; close: string } | null;
+}
+
+// Helper: Fetch Google Calendar events for conflict checking
+async function getCalendarConflicts(
+  spaId: number,
+  staffEmail: string | undefined,
+  date: string
+): Promise<Array<{ start: string; end: string }>> {
+  try {
+    // Check if Google Calendar is connected
+    const integrations = await storage.getSpaIntegrations(spaId);
+    const calendarIntegration = integrations.find(
+      i => i.integrationType === 'google_calendar' && i.status === 'active'
+    );
+
+    if (!calendarIntegration || !staffEmail) {
+      return [];
+    }
+
+    // Get valid access token
+    const accessToken = await getValidAccessToken(
+      calendarIntegration.provider as 'google',
+      calendarIntegration.integrationType,
+      calendarIntegration.encryptedTokens
+    );
+
+    // Fetch events for the day
+    const startOfDay = new Date(date + 'T00:00:00');
+    const endOfDay = new Date(date + 'T23:59:59');
+
+    const events = await googleCalendarService.listEvents(
+      accessToken,
+      'primary',
+      startOfDay.toISOString(),
+      endOfDay.toISOString()
+    );
+
+    // Return conflicts as time ranges
+    return events.map(event => ({
+      start: event.start?.dateTime || '',
+      end: event.end?.dateTime || '',
+    })).filter(e => e.start && e.end);
+  } catch (error) {
+    console.error('Failed to fetch calendar conflicts:', error);
+    return [];
+  }
 }
 
 /**
@@ -98,6 +146,15 @@ export async function generateAvailableTimeSlots(
     spaStaff = await storage.getStaffBySpaId(spaId);
   }
 
+  // Fetch Google Calendar conflicts for staff
+  let calendarConflicts: Array<{ start: string; end: string }> = [];
+  if (staffId) {
+    const staff = await storage.getStaffById(staffId);
+    if (staff?.email) {
+      calendarConflicts = await getCalendarConflicts(spaId, staff.email, date);
+    }
+  }
+
   // Generate all possible time slots
   const slots: TimeSlot[] = [];
   const [startHour, startMin] = workStartTime.split(':').map(Number);
@@ -126,7 +183,7 @@ export async function generateAvailableTimeSlots(
     
     if (staffId) {
       // Specific staff requested - check if this staff has a conflict
-      const hasConflict = bookingDurations.some(({ booking, duration: bookingDuration }) => {
+      const hasBookingConflict = bookingDurations.some(({ booking, duration: bookingDuration }) => {
         const bookingTime = new Date(booking.bookingDate);
         const bookingMinutes = bookingTime.getHours() * 60 + bookingTime.getMinutes();
         const bookingEndMinutes = bookingMinutes + bookingDuration;
@@ -138,7 +195,21 @@ export async function generateAvailableTimeSlots(
         
         return slotStart < bookingEnd && bookingStart < slotEnd;
       });
-      available = !hasConflict;
+
+      // Check Google Calendar conflicts
+      const hasCalendarConflict = calendarConflicts.some(event => {
+        const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+        const eventStartMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
+        const eventEndMinutes = eventEnd.getHours() * 60 + eventEnd.getMinutes();
+        
+        const slotStart = minutes;
+        const slotEnd = minutes + serviceDuration;
+        
+        return slotStart < eventEndMinutes && eventStartMinutes < slotEnd;
+      });
+
+      available = !hasBookingConflict && !hasCalendarConflict;
     } else {
       // "Any staff" mode - find if at least one staff member is available
       const availableStaff = spaStaff.find((staff: any) => {

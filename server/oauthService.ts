@@ -71,12 +71,14 @@ export function getHubSpotOAuthConfig(): OAuthConfig {
 
 // Mailchimp OAuth configuration
 export function getMailchimpOAuthConfig(): OAuthConfig {
+  const mailchimpRedirectUri = (process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000') + '/api/oauth/mailchimp/callback';
+  
   return {
     authUrl: 'https://login.mailchimp.com/oauth2/authorize',
     tokenUrl: 'https://login.mailchimp.com/oauth2/token',
     clientId: process.env.MAILCHIMP_CLIENT_ID || '',
     clientSecret: process.env.MAILCHIMP_CLIENT_SECRET || '',
-    redirectUri: `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/api/oauth/mailchimp/callback',
+    redirectUri: mailchimpRedirectUri,
     scopes: [],
   };
 }

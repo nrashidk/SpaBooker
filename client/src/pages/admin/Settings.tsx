@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Mail, Phone, MapPin, DollarSign, Palette } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, DollarSign, Palette, Calendar, Link as LinkIcon, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { SpaSettings } from "@shared/schema";
+import type { SpaSettings, SpaIntegration } from "@shared/schema";
 import NotificationProviderConfig from "@/components/NotificationProviderConfig";
+import { Badge } from "@/components/ui/badge";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -18,6 +19,36 @@ export default function AdminSettings() {
   const { data: settings, isLoading } = useQuery<SpaSettings>({
     queryKey: ["/api/admin/settings"],
   });
+
+  // Fetch integrations for current spa
+  const { data: integrations = [] } = useQuery<SpaIntegration[]>({
+    queryKey: ["/api/integrations", settings?.spaId],
+    enabled: !!settings?.spaId,
+  });
+
+  // Check for OAuth callback results
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthSuccess = urlParams.get('oauth_success');
+    const oauthError = urlParams.get('oauth_error');
+
+    if (oauthSuccess) {
+      toast({
+        title: "Integration connected",
+        description: `${oauthSuccess} has been successfully connected.`,
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/admin/settings');
+    } else if (oauthError) {
+      toast({
+        title: "Connection failed",
+        description: `Failed to connect: ${oauthError}`,
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/admin/settings');
+    }
+  }, [toast]);
 
   const [businessInfo, setBusinessInfo] = useState({
     name: "",
@@ -168,6 +199,51 @@ export default function AdminSettings() {
     );
   };
 
+  // Connect to integration
+  const handleConnectIntegration = async (provider: string, integrationType: string) => {
+    try {
+      const response = await fetch(
+        `/api/oauth/${provider}/connect?spaId=${settings?.spaId}&integrationType=${integrationType}`
+      );
+      const data = await response.json();
+      
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (error) {
+      toast({
+        title: "Connection failed",
+        description: "Failed to initiate OAuth connection.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Disconnect integration
+  const disconnectMutation = useMutation({
+    mutationFn: async (integrationId: number) => {
+      return await apiRequest("POST", `/api/integrations/${integrationId}/disconnect`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/integrations", settings?.spaId] });
+      toast({
+        title: "Integration disconnected",
+        description: "The integration has been disconnected successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect integration.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper to find if integration is connected
+  const getIntegrationStatus = (integrationType: string) => {
+    return integrations.find(i => i.integrationType === integrationType && i.status === 'active');
+  };
 
   if (isLoading) {
     return <div className="p-6">Loading settings...</div>;
@@ -354,6 +430,99 @@ export default function AdminSettings() {
         <h2 className="text-2xl font-bold mb-4">Notification Providers</h2>
         <NotificationProviderConfig />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LinkIcon className="h-5 w-5" />
+            Third-Party Integrations
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Connect your spa with free third-party services to enhance functionality
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Google Calendar Integration */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Google Calendar</h3>
+                <p className="text-sm text-muted-foreground">
+                  2-way sync for appointments (1M requests/day - FREE)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {getIntegrationStatus('google_calendar') ? (
+                <>
+                  <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Connected
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const integration = getIntegrationStatus('google_calendar');
+                      if (integration) disconnectMutation.mutate(integration.id);
+                    }}
+                    data-testid="button-disconnect-google-calendar"
+                  >
+                    Disconnect
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleConnectIntegration('google', 'google_calendar')}
+                  data-testid="button-connect-google-calendar"
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Coming Soon - Other Integrations */}
+          <div className="p-4 border rounded-lg bg-muted/50">
+            <h3 className="font-semibold mb-2">Coming Soon</h3>
+            <div className="grid gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>Google My Business - Review collection & SEO</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>Google Analytics - Conversion tracking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>Google Meet - Video consultations</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>HubSpot CRM - Contact management (free tier)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>Mailchimp - Email campaigns (500 contacts)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>Wave Accounting - Bookkeeping</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" size="sm">FREE</Badge>
+                <span>Buffer Social - Social media (3 accounts)</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
