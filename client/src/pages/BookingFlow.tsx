@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Sparkles, TicketPercent, Check, X } from "lucide-react";
 import ServiceCategorySelector, { type Service } from "@/components/ServiceCategorySelector";
 import ProfessionalSelector, { type Professional, type ServiceProfessionalMap } from "@/components/ProfessionalSelector";
 import TimeSelectionView from "@/components/TimeSelectionView";
@@ -10,6 +10,9 @@ import CustomerDetailsForm, { type CustomerFormData } from "@/components/Custome
 import BookingSummary from "@/components/BookingSummary";
 import BookingSteps from "@/components/BookingSteps";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { Spa, Service as DbService, Staff } from "@shared/schema";
 
 const mockServices: Service[] = [];
@@ -29,6 +32,9 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [customerDetails, setCustomerDetails] = useState<CustomerFormData | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   // Get spaId from URL parameters (wouter's useLocation only returns pathname, so use window.location.search)
   const urlParams = new URLSearchParams(window.location.search);
@@ -98,6 +104,40 @@ export default function BookingPage() {
     }
   };
 
+  const validatePromoCode = async (code: string) => {
+    if (!code.trim()) {
+      setPromoError(null);
+      setAppliedPromo(null);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/promo-codes/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code.trim(),
+          spaId: parseInt(spaId!),
+          serviceIds: selectedServiceIds.map(id => parseInt(id)),
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.valid) {
+        setAppliedPromo(result.promoCode);
+        setPromoError(null);
+      } else {
+        setAppliedPromo(null);
+        setPromoError(result.error || 'Invalid promo code');
+      }
+    } catch (error) {
+      console.error('Error validating promo code:', error);
+      setPromoError('Failed to validate promo code');
+      setAppliedPromo(null);
+    }
+  };
+
   const handleCustomerDetailsSubmit = async (data: CustomerFormData) => {
     setCustomerDetails(data);
     
@@ -126,6 +166,9 @@ export default function BookingPage() {
         time: selectedTime,
         staffId: professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : null,
         notes: '',
+        promoCodeId: appliedPromo?.id,
+        discountType: appliedPromo?.discountType,
+        discountValue: appliedPromo?.discountValue,
       };
 
       // Send to backend to save booking
@@ -163,6 +206,9 @@ export default function BookingPage() {
     setSelectedTime(null);
     setCustomerDetails(null);
     setIsConfirmed(false);
+    setPromoCode('');
+    setAppliedPromo(null);
+    setPromoError(null);
   };
 
   const selectedServices = services.filter(s => selectedServiceIds.includes(s.id));
@@ -352,14 +398,57 @@ export default function BookingPage() {
             <div>
               <h2 className="text-4xl font-bold mb-8">Confirm booking</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CustomerDetailsForm
-                  onSubmit={handleCustomerDetailsSubmit}
-                />
+                <div className="space-y-6">
+                  <CustomerDetailsForm
+                    onSubmit={handleCustomerDetailsSubmit}
+                  />
+                  
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <TicketPercent className="h-5 w-5 text-primary" />
+                      Promo Code
+                    </h3>
+                    <div className="flex gap-2">
+                      <Input
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        placeholder="Enter promo code"
+                        data-testid="input-promo-code"
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={() => validatePromoCode(promoCode)}
+                        disabled={!promoCode.trim()}
+                        data-testid="button-apply-promo"
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                    {appliedPromo && (
+                      <div className="mt-3 flex items-center gap-2 text-sm text-green-600">
+                        <Check className="h-4 w-4" />
+                        <span>Promo code "{appliedPromo.code}" applied successfully!</span>
+                      </div>
+                    )}
+                    {promoError && (
+                      <div className="mt-3 flex items-center gap-2 text-sm text-destructive">
+                        <X className="h-4 w-4" />
+                        <span>{promoError}</span>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+                
                 <BookingSummary
                   services={selectedServices}
                   date={selectedDate}
                   time={selectedTime}
                   staffName={getStaffName()}
+                  appliedPromo={appliedPromo ? {
+                    code: appliedPromo.code,
+                    discountType: appliedPromo.discountType,
+                    discountValue: parseFloat(appliedPromo.discountValue),
+                  } : null}
                 />
               </div>
             </div>

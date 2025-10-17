@@ -1379,7 +1379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/promo-codes", isAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      const spaId = user?.adminSpaId;
+      const spaId = user?.adminSpaId ?? undefined;
       const promoCodes = await storage.getAllPromoCodes(spaId);
       res.json(promoCodes);
     } catch (error) {
@@ -1399,13 +1399,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await AuditLogger.log({
         userId: user?.id!,
-        action: "create",
-        entityType: "promo_code",
+        action: "CREATE",
+        entityType: "service",
         entityId: promoCode.id,
-        details: { code: promoCode.code },
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
-        spaId: user?.adminSpaId,
+        spaId: user?.adminSpaId ?? undefined,
       });
       
       res.json(promoCode);
@@ -1431,13 +1430,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await AuditLogger.log({
         userId: user?.id!,
-        action: "update",
-        entityType: "promo_code",
+        action: "UPDATE",
+        entityType: "service",
         entityId: id,
-        details: validatedData,
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
-        spaId: user?.adminSpaId,
+        spaId: user?.adminSpaId ?? undefined,
       });
       
       res.json(promoCode);
@@ -1462,12 +1460,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await AuditLogger.log({
         userId: user?.id!,
-        action: "delete",
-        entityType: "promo_code",
+        action: "DELETE",
+        entityType: "service",
         entityId: id,
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
-        spaId: user?.adminSpaId,
+        spaId: user?.adminSpaId ?? undefined,
       });
       
       res.json({ success: true });

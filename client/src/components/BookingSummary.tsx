@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, User, Phone, Mail, Sparkles } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar, Clock, User, Phone, Mail, Sparkles, TicketPercent } from "lucide-react";
 import { format } from "date-fns";
 import { type Service } from "./ServiceSelector";
 
@@ -12,6 +13,11 @@ interface BookingSummaryProps {
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
+  appliedPromo?: {
+    code: string;
+    discountType: string;
+    discountValue: number;
+  } | null;
 }
 
 export default function BookingSummary({
@@ -22,12 +28,35 @@ export default function BookingSummary({
   customerName,
   customerPhone,
   customerEmail,
+  appliedPromo,
 }: BookingSummaryProps) {
   const totalDuration = services.reduce((sum, service) => sum + service.duration, 0);
+  const subtotal = services.reduce((sum, service) => sum + (service.price || 0), 0);
+  
+  // Calculate discount amount
+  let discountAmount = 0;
+  if (appliedPromo) {
+    if (appliedPromo.discountType === 'percentage') {
+      discountAmount = (subtotal * parseFloat(appliedPromo.discountValue.toString())) / 100;
+    } else {
+      discountAmount = parseFloat(appliedPromo.discountValue.toString());
+    }
+  }
+  
+  const total = subtotal - discountAmount;
 
   return (
     <Card className="p-6">
       <h3 className="text-xl font-semibold mb-4">Booking Summary</h3>
+      
+      {appliedPromo && (
+        <Alert className="mb-4 border-green-500 bg-green-50 dark:bg-green-950">
+          <TicketPercent className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-700 dark:text-green-400">
+            <strong>Offer Applied!</strong> SAVED AED {discountAmount.toFixed(2)}
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="space-y-4">
         {services.length > 0 && (
@@ -124,6 +153,29 @@ export default function BookingSummary({
           <p className="text-sm text-muted-foreground text-center py-4">
             Start by selecting services to see your booking details
           </p>
+        )}
+
+        {services.length > 0 && (
+          <div className="pt-4 border-t space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium">AED {subtotal.toFixed(2)}</span>
+            </div>
+            
+            {appliedPromo && discountAmount > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Discount ({appliedPromo.code})</span>
+                <span>-AED {discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between text-base font-semibold pt-2 border-t">
+              <span>Total</span>
+              <span>AED {total.toFixed(2)}</span>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">VAT included</p>
+          </div>
         )}
       </div>
     </Card>
