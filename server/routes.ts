@@ -15,6 +15,7 @@ import {
   insertStaffScheduleSchema,
   insertProductSchema,
   insertCustomerSchema,
+  insertPromoCodeSchema,
   insertBookingSchema,
   insertBookingItemSchema,
   insertTransactionSchema,
@@ -1371,6 +1372,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting product:", error);
       res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // Promo Code routes
+  app.get("/api/admin/promo-codes", isAdmin, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const spaId = user?.adminSpaId;
+      const promoCodes = await storage.getAllPromoCodes(spaId);
+      res.json(promoCodes);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch promo codes");
+    }
+  });
+
+  app.post("/api/admin/promo-codes", isAdmin, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const validatedData = insertPromoCodeSchema.parse({
+        ...req.body,
+        spaId: user?.adminSpaId,
+        createdBy: user?.id,
+      });
+      const promoCode = await storage.createPromoCode(validatedData);
+      
+      await AuditLogger.log({
+        userId: user?.id!,
+        action: "create",
+        entityType: "promo_code",
+        entityId: promoCode.id,
+        details: { code: promoCode.code },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+        spaId: user?.adminSpaId,
+      });
+      
+      res.json(promoCode);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create promo code");
+    }
+  });
+
+  app.put("/api/admin/promo-codes/:id", isAdmin, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid promo code ID" });
+      }
+      
+      const user = await storage.getUser(req.user.claims.sub);
+      const validatedData = insertPromoCodeSchema.partial().parse(req.body);
+      const promoCode = await storage.updatePromoCode(id, validatedData);
+      
+      if (!promoCode) {
+        return res.status(404).json({ message: "Promo code not found" });
+      }
+      
+      await AuditLogger.log({
+        userId: user?.id!,
+        action: "update",
+        entityType: "promo_code",
+        entityId: id,
+        details: validatedData,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+        spaId: user?.adminSpaId,
+      });
+      
+      res.json(promoCode);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update promo code");
+    }
+  });
+
+  app.delete("/api/admin/promo-codes/:id", isAdmin, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid promo code ID" });
+      }
+      
+      const user = await storage.getUser(req.user.claims.sub);
+      const deleted = await storage.deletePromoCode(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Promo code not found" });
+      }
+      
+      await AuditLogger.log({
+        userId: user?.id!,
+        action: "delete",
+        entityType: "promo_code",
+        entityId: id,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+        spaId: user?.adminSpaId,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete promo code");
+    }
+  });
+
+  // Customer-facing promo code validation
+  app.post("/api/promo-codes/validate", async (req, res) => {
+    try {
+      const { code, spaId, serviceIds } = req.body;
+      
+      if (!code || !spaId || !serviceIds || !Array.isArray(serviceIds)) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const validation = await storage.validatePromoCode(code, spaId, serviceIds);
+      res.json(validation);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to validate promo code");
     }
   });
 

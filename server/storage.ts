@@ -1123,7 +1123,7 @@ export class DatabaseStorage implements IStorage {
   async incrementPromoCodeUsage(id: number): Promise<void> {
     await db
       .update(promoCodes)
-      .set({ timesUsed: db.raw('times_used + 1') as any })
+      .set({ timesUsed: sql`times_used + 1` })
       .where(eq(promoCodes.id, id));
   }
 }
