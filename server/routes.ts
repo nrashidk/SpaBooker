@@ -801,6 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               : undefined,
           };
 
+          // Send customer notification
           await notificationService.sendNotification(
             spaId,
             'confirmation',
@@ -808,6 +809,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             booking.id,
             templateData
           );
+
+          // Send staff notification if staff is assigned
+          if (staff && (staff.email || staff.phone)) {
+            await notificationService.sendStaffNotification(
+              spaId,
+              'confirmation',
+              { email: staff.email || undefined, phone: staff.phone || undefined },
+              booking.id,
+              {
+                ...templateData,
+                staffName: staff.name,
+              }
+            );
+          }
         } catch (error) {
           console.error('Failed to send booking confirmation:', error);
         }
@@ -923,6 +938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (async () => {
           try {
             const customer = await storage.getCustomerById(booking.customerId);
+            const staff = booking.staffId ? await storage.getStaffById(booking.staffId) : null;
             const bookingItems = await storage.getBookingItemsByBookingId(id);
             const allServices = await storage.getAllServices();
 
@@ -944,6 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               bookingDate: new Date(updated!.bookingDate).toISOString().split('T')[0],
               bookingTime: new Date(updated!.bookingDate).toTimeString().substring(0, 5),
               services: servicesData as any,
+              staffName: staff?.name || undefined,
               totalAmount: String(updated!.totalAmount),
               currency: spa?.currency || 'AED',
               bookingId: updated!.id,
@@ -951,6 +968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               cancellationPolicy: cancellationPolicy?.description || undefined,
             };
 
+            // Send customer notification
             await notificationService.sendNotification(
               booking.spaId,
               'cancellation',
@@ -958,6 +976,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               updated!.id,
               templateData
             );
+
+            // Send staff notification if staff is assigned
+            if (staff && (staff.email || staff.phone)) {
+              await notificationService.sendStaffNotification(
+                booking.spaId,
+                'cancellation',
+                { email: staff.email || undefined, phone: staff.phone || undefined },
+                updated!.id,
+                templateData
+              );
+            }
           } catch (error) {
             console.error('Failed to send booking cancellation notification:', error);
           }
@@ -1073,6 +1102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               notes: updated!.notes || undefined,
             };
 
+            // Send customer notification
             await notificationService.sendNotification(
               booking.spaId,
               'modification',
@@ -1080,6 +1110,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               updated!.id,
               templateData
             );
+
+            // Send staff notification if staff is assigned
+            if (staff && (staff.email || staff.phone)) {
+              await notificationService.sendStaffNotification(
+                booking.spaId,
+                'modification',
+                { email: staff.email || undefined, phone: staff.phone || undefined },
+                updated!.id,
+                templateData
+              );
+            }
           } catch (error) {
             console.error('Failed to send booking modification notification:', error);
           }

@@ -623,6 +623,7 @@ export const notificationProviders = ["sendgrid", "resend", "twilio", "whatsapp_
 export const spaNotificationSettings = pgTable("spa_notification_settings", {
   id: serial("id").primaryKey(),
   spaId: integer("spa_id").references(() => spas.id).notNull().unique(),
+  // Customer notification settings
   emailEnabled: boolean("email_enabled").default(false),
   smsEnabled: boolean("sms_enabled").default(false),
   whatsappEnabled: boolean("whatsapp_enabled").default(false),
@@ -632,6 +633,13 @@ export const spaNotificationSettings = pgTable("spa_notification_settings", {
   sendCancellation: boolean("send_cancellation").default(true),
   sendReminder: boolean("send_reminder").default(false),
   reminderHoursBefore: integer("reminder_hours_before").default(24),
+  // Staff notification settings
+  staffEmailEnabled: boolean("staff_email_enabled").default(false),
+  staffSmsEnabled: boolean("staff_sms_enabled").default(false),
+  staffWhatsappEnabled: boolean("staff_whatsapp_enabled").default(false),
+  sendStaffConfirmation: boolean("send_staff_confirmation").default(true),
+  sendStaffModification: boolean("send_staff_modification").default(true),
+  sendStaffCancellation: boolean("send_staff_cancellation").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -559,6 +559,79 @@ export class NotificationService {
     console.log(`⚠️ All notification channels failed for spa ${spaId}`);
   }
 
+  /**
+   * Send notification to staff member
+   */
+  async sendStaffNotification(
+    spaId: number,
+    notificationType: 'confirmation' | 'modification' | 'cancellation',
+    recipient: { email?: string; phone?: string },
+    bookingId?: number,
+    templateData?: Record<string, any>
+  ): Promise<void> {
+    // Get spa notification settings
+    const [settings] = await db
+      .select()
+      .from(spaNotificationSettings)
+      .where(eq(spaNotificationSettings.spaId, spaId));
+
+    if (!settings) {
+      console.log(`No notification settings for spa ${spaId}, skipping staff notification`);
+      return;
+    }
+
+    // Check if this staff notification type is enabled
+    const typeEnabled = this.isStaffNotificationTypeEnabled(settings, notificationType);
+    if (!typeEnabled) {
+      console.log(`Staff notification type '${notificationType}' disabled for spa ${spaId}`);
+      return;
+    }
+
+    // Determine channels to try based on staff settings
+    const channels = this.getStaffChannelsToTry(settings, recipient);
+
+    if (channels.length === 0) {
+      console.log(`No staff notification channels enabled for spa ${spaId}`);
+      return;
+    }
+
+    // Try each channel in order until one succeeds
+    for (const channel of channels) {
+      try {
+        const result = await this.sendViaChannel(
+          spaId,
+          channel,
+          notificationType,
+          recipient,
+          templateData
+        );
+
+        // Log the event
+        await this.logNotificationEvent(
+          spaId,
+          bookingId,
+          channel,
+          result.provider,
+          recipient,
+          `staff_${notificationType}`,
+          result
+        );
+
+        // Update usage tracking
+        await this.trackUsage(spaId, channel, result.success);
+
+        if (result.success) {
+          console.log(`✅ Staff notification sent successfully via ${channel} for spa ${spaId}`);
+          return; // Success! Stop trying other channels
+        }
+      } catch (error: any) {
+        console.error(`Failed to send staff notification via ${channel}:`, error.message);
+      }
+    }
+
+    console.log(`⚠️ All staff notification channels failed for spa ${spaId}`);
+  }
+
   private isNotificationTypeEnabled(settings: any, type: string): boolean {
     switch (type) {
       case 'confirmation':
@@ -572,6 +645,30 @@ export class NotificationService {
       default:
         return false;
     }
+  }
+
+  private isStaffNotificationTypeEnabled(settings: any, type: string): boolean {
+    switch (type) {
+      case 'confirmation':
+        return settings.sendStaffConfirmation;
+      case 'modification':
+        return settings.sendStaffModification;
+      case 'cancellation':
+        return settings.sendStaffCancellation;
+      default:
+        return false;
+    }
+  }
+
+  private getStaffChannelsToTry(settings: any, recipient: { email?: string; phone?: string }): string[] {
+    const channels: string[] = [];
+
+    // Check staff notification channels
+    if (settings.staffEmailEnabled && recipient.email) channels.push('email');
+    if (settings.staffSmsEnabled && recipient.phone) channels.push('sms');
+    if (settings.staffWhatsappEnabled && recipient.phone) channels.push('whatsapp');
+
+    return channels;
   }
 
   private getChannelsToTry(settings: any, recipient: { email?: string; phone?: string }): string[] {
