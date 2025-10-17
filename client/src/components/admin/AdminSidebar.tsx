@@ -18,6 +18,7 @@ import {
   Key,
   LogOut,
   User,
+  TicketPercent,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -115,6 +116,12 @@ const menuItems = [
     title: "Marketing",
     url: "/admin/marketing",
     icon: Megaphone,
+    requirePermission: "isAdmin" as const,
+  },
+  {
+    title: "Promo Codes",
+    url: "/admin/promo-codes",
+    icon: TicketPercent,
     requirePermission: "isAdmin" as const,
   },
   {

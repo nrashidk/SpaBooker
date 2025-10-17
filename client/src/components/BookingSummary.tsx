@@ -31,19 +31,31 @@ export default function BookingSummary({
   appliedPromo,
 }: BookingSummaryProps) {
   const totalDuration = services.reduce((sum, service) => sum + service.duration, 0);
-  const subtotal = services.reduce((sum, service) => sum + (service.price || 0), 0);
   
-  // Calculate discount amount
-  let discountAmount = 0;
+  // In UAE, prices include VAT (5%). Formula: netAmount = (totalPrice × 100) / 105
+  const subtotalIncVAT = services.reduce((sum, service) => sum + (service.price || 0), 0);
+  const subtotalNetAmount = (subtotalIncVAT * 100) / 105; // Extract net amount (before VAT)
+  const subtotalVAT = subtotalIncVAT - subtotalNetAmount; // VAT on original subtotal
+  
+  // Calculate discount on the NET amount (before VAT)
+  let discountOnNet = 0;
   if (appliedPromo) {
     if (appliedPromo.discountType === 'percentage') {
-      discountAmount = (subtotal * parseFloat(appliedPromo.discountValue.toString())) / 100;
+      discountOnNet = (subtotalNetAmount * parseFloat(appliedPromo.discountValue.toString())) / 100;
     } else {
-      discountAmount = parseFloat(appliedPromo.discountValue.toString());
+      // For flat rate discount, extract the net portion of the discount
+      const flatDiscount = parseFloat(appliedPromo.discountValue.toString());
+      discountOnNet = (flatDiscount * 100) / 105;
     }
   }
   
-  const total = subtotal - discountAmount;
+  // Calculate final amounts after discount
+  const netAmountAfterDiscount = subtotalNetAmount - discountOnNet;
+  const vatOnDiscountedAmount = (netAmountAfterDiscount * 5) / 100; // 5% VAT on discounted net
+  const total = netAmountAfterDiscount + vatOnDiscountedAmount;
+  
+  // Total discount including VAT portion
+  const totalDiscountIncVAT = subtotalIncVAT - total;
 
   return (
     <Card className="p-6">
@@ -53,7 +65,7 @@ export default function BookingSummary({
         <Alert className="mb-4 border-green-500 bg-green-50 dark:bg-green-950">
           <TicketPercent className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700 dark:text-green-400">
-            <strong>Offer Applied!</strong> SAVED AED {discountAmount.toFixed(2)}
+            <strong>Offer Applied!</strong> SAVED AED {totalDiscountIncVAT.toFixed(2)}
           </AlertDescription>
         </Alert>
       )}
@@ -159,13 +171,13 @@ export default function BookingSummary({
           <div className="pt-4 border-t space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium">AED {subtotal.toFixed(2)}</span>
+              <span className="font-medium">AED {subtotalIncVAT.toFixed(2)}</span>
             </div>
             
-            {appliedPromo && discountAmount > 0 && (
+            {appliedPromo && totalDiscountIncVAT > 0 && (
               <div className="flex justify-between text-sm text-green-600">
                 <span>Discount ({appliedPromo.code})</span>
-                <span>-AED {discountAmount.toFixed(2)}</span>
+                <span>-AED {totalDiscountIncVAT.toFixed(2)}</span>
               </div>
             )}
             
@@ -174,7 +186,7 @@ export default function BookingSummary({
               <span>AED {total.toFixed(2)}</span>
             </div>
             
-            <p className="text-xs text-muted-foreground">VAT included</p>
+            <p className="text-xs text-muted-foreground">Includes VAT (AED {vatOnDiscountedAmount.toFixed(2)})</p>
           </div>
         )}
       </div>
