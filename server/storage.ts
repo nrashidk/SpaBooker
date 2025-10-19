@@ -872,8 +872,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProductSale(saleData: InsertProductSale): Promise<ProductSale> {
-    const [newSale] = await db.insert(productSales).values(saleData).returning();
-    return newSale;
+    // Use a transaction to ensure inventory is updated atomically with the sale
+    return await db.transaction(async (tx) => {
+      // 1. Check if product exists and has sufficient stock
+      const [product] = await tx.select().from(products).where(eq(products.id, saleData.productId));
+      if (!product) {
+        throw new Error(`Product with ID ${saleData.productId} not found`);
+      }
+      
+      const currentStock = product.stockQuantity || 0;
+      const quantityToSell = saleData.quantity || 1;
+      
+      if (currentStock < quantityToSell) {
+        throw new Error(`Insufficient stock. Available: ${currentStock}, Requested: ${quantityToSell}`);
+      }
+      
+      // 2. Create the product sale record
+      const [newSale] = await tx.insert(productSales).values(saleData).returning();
+      
+      // 3. Update product stock quantity (reduce by quantity sold)
+      await tx
+        .update(products)
+        .set({ stockQuantity: currentStock - quantityToSell })
+        .where(eq(products.id, saleData.productId));
+      
+      // 4. Create inventory transaction record (negative quantity for sale)
+      await tx.insert(inventoryTransactions).values({
+        productId: saleData.productId,
+        transactionType: "sale",
+        quantity: -quantityToSell, // Negative because it's leaving inventory
+        unitCost: saleData.unitPrice,
+        productSaleId: newSale.id, // Link to the sale
+        reference: `Sale #${newSale.id}`,
+        notes: `Product sale to customer #${saleData.customerId}`,
+        transactionDate: saleData.saleDate || new Date(),
+      });
+      
+      return newSale;
+    });
   }
 
   async updateProductSale(id: number, saleData: Partial<InsertProductSale>): Promise<ProductSale | undefined> {

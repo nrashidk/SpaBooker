@@ -407,6 +407,7 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
   transactionType: text("transaction_type").notNull(), // purchase, sale, adjustment, return
   quantity: integer("quantity").notNull(),
   unitCost: decimal("unit_cost", { precision: 10, scale: 2 }),
+  productSaleId: integer("product_sale_id").references(() => productSales.id), // links to product sale for sale transactions
   reference: text("reference"),
   notes: text("notes"),
   transactionDate: timestamp("transaction_date").defaultNow().notNull(),
