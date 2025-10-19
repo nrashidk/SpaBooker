@@ -80,39 +80,32 @@ export async function generateFAFExport(filters?: FAFExportFilters): Promise<FAF
   });
   
   // 2. Export Product Sales (filter by staff spa if spaId provided)
-  const productSalesData = filters?.spaId
-    ? await db.select({
-        id: productSales.id,
-        date: productSales.saleDate,
-        customerId: productSales.customerId,
-        totalPrice: productSales.totalPrice,
-        netAmount: productSales.netAmount,
-        vatAmount: productSales.vatAmount,
-        taxCode: productSales.taxCode,
-      })
-      .from(productSales)
-      .innerJoin(staff, eq(productSales.soldBy, staff.id))
-      .where(and(
-        eq(staff.spaId, filters.spaId),
-        ...(filters.startDate ? [gte(productSales.saleDate, filters.startDate)] : []),
-        ...(filters.endDate ? [lte(productSales.saleDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(productSales.saleDate))
-    : await db.select({
-        id: productSales.id,
-        date: productSales.saleDate,
-        customerId: productSales.customerId,
-        totalPrice: productSales.totalPrice,
-        netAmount: productSales.netAmount,
-        vatAmount: productSales.vatAmount,
-        taxCode: productSales.taxCode,
-      })
-      .from(productSales)
-      .where(and(
-        ...(filters?.startDate ? [gte(productSales.saleDate, filters.startDate)] : []),
-        ...(filters?.endDate ? [lte(productSales.saleDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(productSales.saleDate));
+  let productSalesQuery = db.select({
+    id: productSales.id,
+    date: productSales.saleDate,
+    customerId: productSales.customerId,
+    totalPrice: productSales.totalPrice,
+    netAmount: productSales.netAmount,
+    vatAmount: productSales.vatAmount,
+    taxCode: productSales.taxCode,
+  }).from(productSales);
+  
+  if (filters?.spaId) {
+    productSalesQuery = productSalesQuery.innerJoin(staff, eq(productSales.soldBy, staff.id)) as any;
+    const productConditions = [eq(staff.spaId, filters.spaId)];
+    if (filters.startDate) productConditions.push(gte(productSales.saleDate, filters.startDate));
+    if (filters.endDate) productConditions.push(lte(productSales.saleDate, filters.endDate));
+    productSalesQuery = productSalesQuery.where(and(...productConditions)) as any;
+  } else {
+    const productConditions = [];
+    if (filters?.startDate) productConditions.push(gte(productSales.saleDate, filters.startDate));
+    if (filters?.endDate) productConditions.push(lte(productSales.saleDate, filters.endDate));
+    if (productConditions.length > 0) {
+      productSalesQuery = productSalesQuery.where(and(...productConditions)) as any;
+    }
+  }
+  
+  const productSalesData = await productSalesQuery.orderBy(desc(productSales.saleDate));
   
   productSalesData.forEach(sale => {
     records.push({
@@ -130,41 +123,33 @@ export async function generateFAFExport(filters?: FAFExportFilters): Promise<FAF
   });
   
   // 3. Export Loyalty Card Purchases (filter by service spa if spaId provided)
-  const loyaltyCardsData = filters?.spaId
-    ? await db.select({
-        id: loyaltyCards.id,
-        date: loyaltyCards.purchaseDate,
-        customerId: loyaltyCards.customerId,
-        purchasePrice: loyaltyCards.purchasePrice,
-        netAmount: loyaltyCards.netAmount,
-        vatAmount: loyaltyCards.vatAmount,
-        taxCode: loyaltyCards.taxCode,
-        cardType: loyaltyCards.cardType,
-      })
-      .from(loyaltyCards)
-      .innerJoin(services, eq(loyaltyCards.serviceId, services.id))
-      .where(and(
-        eq(services.spaId, filters.spaId),
-        ...(filters.startDate ? [gte(loyaltyCards.purchaseDate, filters.startDate)] : []),
-        ...(filters.endDate ? [lte(loyaltyCards.purchaseDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(loyaltyCards.purchaseDate))
-    : await db.select({
-        id: loyaltyCards.id,
-        date: loyaltyCards.purchaseDate,
-        customerId: loyaltyCards.customerId,
-        purchasePrice: loyaltyCards.purchasePrice,
-        netAmount: loyaltyCards.netAmount,
-        vatAmount: loyaltyCards.vatAmount,
-        taxCode: loyaltyCards.taxCode,
-        cardType: loyaltyCards.cardType,
-      })
-      .from(loyaltyCards)
-      .where(and(
-        ...(filters?.startDate ? [gte(loyaltyCards.purchaseDate, filters.startDate)] : []),
-        ...(filters?.endDate ? [lte(loyaltyCards.purchaseDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(loyaltyCards.purchaseDate));
+  let loyaltyCardsQuery = db.select({
+    id: loyaltyCards.id,
+    date: loyaltyCards.purchaseDate,
+    customerId: loyaltyCards.customerId,
+    purchasePrice: loyaltyCards.purchasePrice,
+    netAmount: loyaltyCards.netAmount,
+    vatAmount: loyaltyCards.vatAmount,
+    taxCode: loyaltyCards.taxCode,
+    cardType: loyaltyCards.cardType,
+  }).from(loyaltyCards);
+  
+  if (filters?.spaId) {
+    loyaltyCardsQuery = loyaltyCardsQuery.innerJoin(services, eq(loyaltyCards.serviceId, services.id)) as any;
+    const loyaltyConditions = [eq(services.spaId, filters.spaId)];
+    if (filters.startDate) loyaltyConditions.push(gte(loyaltyCards.purchaseDate, filters.startDate));
+    if (filters.endDate) loyaltyConditions.push(lte(loyaltyCards.purchaseDate, filters.endDate));
+    loyaltyCardsQuery = loyaltyCardsQuery.where(and(...loyaltyConditions)) as any;
+  } else {
+    const loyaltyConditions = [];
+    if (filters?.startDate) loyaltyConditions.push(gte(loyaltyCards.purchaseDate, filters.startDate));
+    if (filters?.endDate) loyaltyConditions.push(lte(loyaltyCards.purchaseDate, filters.endDate));
+    if (loyaltyConditions.length > 0) {
+      loyaltyCardsQuery = loyaltyCardsQuery.where(and(...loyaltyConditions)) as any;
+    }
+  }
+  
+  const loyaltyCardsData = await loyaltyCardsQuery.orderBy(desc(loyaltyCards.purchaseDate));
   
   loyaltyCardsData.forEach(card => {
     records.push({
@@ -182,38 +167,30 @@ export async function generateFAFExport(filters?: FAFExportFilters): Promise<FAF
   });
   
   // 4. Export Invoices (with optional spa filtering)
-  const invoicesData = filters?.spaId
-    ? await db
-      .select({
-        id: invoices.id,
-        date: invoices.issueDate,
-        customerId: invoices.customerId,
-        totalAmount: invoices.totalAmount,
-        bookingId: invoices.bookingId,
-        spaId: bookings.spaId,
-      })
-      .from(invoices)
-      .innerJoin(bookings, eq(invoices.bookingId, bookings.id))
-      .where(and(
-        eq(bookings.spaId, filters.spaId),
-        ...(filters.startDate ? [gte(invoices.issueDate, filters.startDate)] : []),
-        ...(filters.endDate ? [lte(invoices.issueDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(invoices.issueDate))
-    : await db
-      .select({
-        id: invoices.id,
-        date: invoices.issueDate,
-        customerId: invoices.customerId,
-        totalAmount: invoices.totalAmount,
-        bookingId: invoices.bookingId,
-      })
-      .from(invoices)
-      .where(and(
-        ...(filters?.startDate ? [gte(invoices.issueDate, filters.startDate)] : []),
-        ...(filters?.endDate ? [lte(invoices.issueDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(invoices.issueDate));
+  let invoicesQuery = db.select({
+    id: invoices.id,
+    date: invoices.issueDate,
+    customerId: invoices.customerId,
+    totalAmount: invoices.totalAmount,
+    bookingId: invoices.bookingId,
+  }).from(invoices);
+  
+  if (filters?.spaId) {
+    invoicesQuery = invoicesQuery.innerJoin(bookings, eq(invoices.bookingId, bookings.id)) as any;
+    const invoiceConditions = [eq(bookings.spaId, filters.spaId)];
+    if (filters.startDate) invoiceConditions.push(gte(invoices.issueDate, filters.startDate));
+    if (filters.endDate) invoiceConditions.push(lte(invoices.issueDate, filters.endDate));
+    invoicesQuery = invoicesQuery.where(and(...invoiceConditions)) as any;
+  } else {
+    const invoiceConditions = [];
+    if (filters?.startDate) invoiceConditions.push(gte(invoices.issueDate, filters.startDate));
+    if (filters?.endDate) invoiceConditions.push(lte(invoices.issueDate, filters.endDate));
+    if (invoiceConditions.length > 0) {
+      invoicesQuery = invoicesQuery.where(and(...invoiceConditions)) as any;
+    }
+  }
+  
+  const invoicesData = await invoicesQuery.orderBy(desc(invoices.issueDate));
     
     invoicesData.forEach(invoice => {
       const grossAmount = parseFloat(invoice.totalAmount || '0');
@@ -235,38 +212,32 @@ export async function generateFAFExport(filters?: FAFExportFilters): Promise<FAF
     });
   
   // 5. Export Payment Transactions (with optional spa filtering)
-  const transactionsData = filters?.spaId
-    ? await db
-      .select({
-        id: transactions.id,
-        date: transactions.transactionDate,
-        type: transactions.transactionType,
-        amount: transactions.amount,
-        invoiceId: transactions.invoiceId,
-      })
-      .from(transactions)
+  let transactionsQuery = db.select({
+    id: transactions.id,
+    date: transactions.transactionDate,
+    type: transactions.transactionType,
+    amount: transactions.amount,
+    invoiceId: transactions.invoiceId,
+  }).from(transactions);
+  
+  if (filters?.spaId) {
+    transactionsQuery = transactionsQuery
       .innerJoin(invoices, eq(transactions.invoiceId, invoices.id))
-      .innerJoin(bookings, eq(invoices.bookingId, bookings.id))
-      .where(and(
-        eq(bookings.spaId, filters.spaId),
-        ...(filters.startDate ? [gte(transactions.transactionDate, filters.startDate)] : []),
-        ...(filters.endDate ? [lte(transactions.transactionDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(transactions.transactionDate))
-    : await db
-      .select({
-        id: transactions.id,
-        date: transactions.transactionDate,
-        type: transactions.transactionType,
-        amount: transactions.amount,
-        invoiceId: transactions.invoiceId,
-      })
-      .from(transactions)
-      .where(and(
-        ...(filters?.startDate ? [gte(transactions.transactionDate, filters.startDate)] : []),
-        ...(filters?.endDate ? [lte(transactions.transactionDate, filters.endDate)] : [])
-      ))
-      .orderBy(desc(transactions.transactionDate));
+      .innerJoin(bookings, eq(invoices.bookingId, bookings.id)) as any;
+    const txnConditions = [eq(bookings.spaId, filters.spaId)];
+    if (filters.startDate) txnConditions.push(gte(transactions.transactionDate, filters.startDate));
+    if (filters.endDate) txnConditions.push(lte(transactions.transactionDate, filters.endDate));
+    transactionsQuery = transactionsQuery.where(and(...txnConditions)) as any;
+  } else {
+    const txnConditions = [];
+    if (filters?.startDate) txnConditions.push(gte(transactions.transactionDate, filters.startDate));
+    if (filters?.endDate) txnConditions.push(lte(transactions.transactionDate, filters.endDate));
+    if (txnConditions.length > 0) {
+      transactionsQuery = transactionsQuery.where(and(...txnConditions)) as any;
+    }
+  }
+  
+  const transactionsData = await transactionsQuery.orderBy(desc(transactions.transactionDate));
     
     transactionsData.forEach(txn => {
       const grossAmount = parseFloat(txn.amount || '0');
