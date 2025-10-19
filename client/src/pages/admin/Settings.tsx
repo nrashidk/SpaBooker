@@ -497,31 +497,31 @@ export default function AdminSettings() {
             <h3 className="font-semibold mb-2">Coming Soon</h3>
             <div className="grid gap-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>Google My Business - Review collection & SEO</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>Google Analytics - Conversion tracking</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>Google Meet - Video consultations</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>HubSpot CRM - Contact management (free tier)</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>Mailchimp - Email campaigns (500 contacts)</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>Wave Accounting - Bookkeeping</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" size="sm">FREE</Badge>
+                <Badge variant="outline">FREE</Badge>
                 <span>Buffer Social - Social media (3 accounts)</span>
               </div>
             </div>
