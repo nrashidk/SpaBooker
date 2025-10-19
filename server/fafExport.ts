@@ -4,7 +4,7 @@
  * for VAT reporting and compliance
  */
 
-import { db } from "../db";
+import { db } from "./db";
 import { productSales, loyaltyCards, bookings, invoices, transactions, staff, services } from "@shared/schema";
 import { desc, gte, lte, and, eq } from "drizzle-orm";
 
