@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
-import { Calendar, Download } from "lucide-react";
+import { Calendar, Download, ShoppingCart } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Booking, BookingItem, Service, ProductSale, LoyaltyCard } from "@shared/schema";
+import { ProductSaleDialog } from "@/components/ProductSaleDialog";
+import { LoyaltyCardDialog } from "@/components/LoyaltyCardDialog";
 
 export default function AdminSales() {
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isAddSaleOpen, setIsAddSaleOpen] = useState(false);
+  const [isProductSaleOpen, setIsProductSaleOpen] = useState(false);
+  const [isLoyaltyCardOpen, setIsLoyaltyCardOpen] = useState(false);
   
   // Add sale form state
   const [saleType, setSaleType] = useState("");
@@ -287,6 +291,13 @@ export default function AdminSales() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
+          <Button variant="outline" onClick={() => setIsProductSaleOpen(true)} data-testid="sell-product">
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            Sell Product
+          </Button>
+          <Button variant="outline" onClick={() => setIsLoyaltyCardOpen(true)} data-testid="sell-loyalty-card">
+            Sell Package
+          </Button>
           <Button onClick={handleAddSale} data-testid="add-sale">Add sale</Button>
         </div>
       </div>
@@ -421,6 +432,26 @@ export default function AdminSales() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Product Sale Dialog */}
+      <ProductSaleDialog
+        open={isProductSaleOpen}
+        onOpenChange={setIsProductSaleOpen}
+        onSaleCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/product-sales'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+        }}
+      />
+
+      {/* Loyalty Card Dialog */}
+      <LoyaltyCardDialog
+        open={isLoyaltyCardOpen}
+        onOpenChange={setIsLoyaltyCardOpen}
+        onCardCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/loyalty-cards'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/customers'] });
+        }}
+      />
 
       {/* Add Sale Dialog */}
       <Dialog open={isAddSaleOpen} onOpenChange={setIsAddSaleOpen}>

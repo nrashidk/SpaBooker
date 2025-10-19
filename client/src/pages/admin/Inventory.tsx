@@ -2,9 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, AlertTriangle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { Product } from "@shared/schema";
 
 export default function AdminInventory() {
-  const products: any[] = [];
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ['/api/admin/products'],
+  });
 
   const getStockStatus = (stock: number, reorderLevel: number) => {
     if (stock <= reorderLevel) {
@@ -13,7 +17,7 @@ export default function AdminInventory() {
     return { label: "In Stock", variant: "secondary" as const };
   };
 
-  const lowStockCount = products.filter(p => p.stock <= p.reorderLevel).length;
+  const lowStockCount = products.filter(p => (p.stockQuantity || 0) <= (p.reorderLevel || 0)).length;
 
   return (
     <div className="space-y-6">
@@ -46,14 +50,18 @@ export default function AdminInventory() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {products.map((product) => {
-          const stockStatus = getStockStatus(product.stock, product.reorderLevel);
+          const stockStatus = getStockStatus(product.stockQuantity || 0, product.reorderLevel || 0);
+          const costPrice = parseFloat(product.costPrice || "0");
+          const sellingPrice = parseFloat(product.sellingPrice || "0");
+          const profitMargin = sellingPrice > 0 ? Math.round(((sellingPrice - costPrice) / sellingPrice) * 100) : 0;
+          
           return (
             <Card key={product.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg">{product.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">SKU: {product.sku}</p>
+                    <p className="text-sm text-muted-foreground mt-1">SKU: {product.sku || 'N/A'}</p>
                   </div>
                   <Badge variant={stockStatus.variant}>{stockStatus.label}</Badge>
                 </div>
@@ -62,30 +70,30 @@ export default function AdminInventory() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Category</span>
-                    <span className="font-medium">{product.category}</span>
+                    <span className="font-medium">{product.categoryId || 'Uncategorized'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Stock</span>
                     <span className="font-semibold" data-testid={`product-stock-${product.id}`}>
-                      {product.stock} units
+                      {product.stockQuantity || 0} units
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Reorder at</span>
-                    <span className="font-medium">{product.reorderLevel} units</span>
+                    <span className="font-medium">{product.reorderLevel || 0} units</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Cost</span>
-                    <span className="font-medium">AED {product.costPrice}</span>
+                    <span className="font-medium">AED {costPrice.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Selling Price</span>
-                    <span className="font-semibold">AED {product.sellingPrice}</span>
+                    <span className="font-semibold">AED {sellingPrice.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Profit Margin</span>
                     <Badge variant="secondary">
-                      {Math.round(((product.sellingPrice - product.costPrice) / product.sellingPrice) * 100)}%
+                      {profitMargin}%
                     </Badge>
                   </div>
                 </div>
