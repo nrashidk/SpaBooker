@@ -21,6 +21,7 @@ export function LoyaltyCardDialog({ open, onOpenChange, onCardCreated }: Loyalty
   const [cardType, setCardType] = useState("");
   const [totalSessions, setTotalSessions] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
+  const [taxCode, setTaxCode] = useState("SR");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -66,6 +67,7 @@ export function LoyaltyCardDialog({ open, onOpenChange, onCardCreated }: Loyalty
           totalSessions: sessions,
           usedSessions: 0,
           purchasePrice: price,
+          taxCode: taxCode,
           status: 'active',
           notes: notes || null,
         }),
@@ -87,6 +89,7 @@ export function LoyaltyCardDialog({ open, onOpenChange, onCardCreated }: Loyalty
       setCardType("");
       setTotalSessions("");
       setPurchasePrice("");
+      setTaxCode("SR");
       setNotes("");
       
       onCardCreated();
@@ -182,6 +185,24 @@ export function LoyaltyCardDialog({ open, onOpenChange, onCardCreated }: Loyalty
               onChange={(e) => setPurchasePrice(e.target.value)}
               data-testid="input-price"
             />
+            <p className="text-xs text-muted-foreground">
+              {taxCode === 'SR' ? 'Includes 5% VAT' : taxCode === 'ZR' ? 'Zero-rated' : taxCode === 'ES' ? 'VAT Exempt' : 'Out of scope'}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tax-code-loyalty">UAE Tax Code</Label>
+            <Select value={taxCode} onValueChange={setTaxCode}>
+              <SelectTrigger id="tax-code-loyalty" data-testid="select-tax-code-loyalty">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SR">SR - Standard Rate (5% VAT)</SelectItem>
+                <SelectItem value="ZR">ZR - Zero-Rated (0%)</SelectItem>
+                <SelectItem value="ES">ES - Exempt</SelectItem>
+                <SelectItem value="OP">OP - Out of Scope</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

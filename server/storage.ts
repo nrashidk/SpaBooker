@@ -825,7 +825,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLoyaltyCard(cardData: InsertLoyaltyCard): Promise<LoyaltyCard> {
-    const [newCard] = await db.insert(loyaltyCards).values(cardData).returning();
+    const { calculateVAT } = await import('./vatUtils');
+    
+    // Calculate VAT (UAE 5% inclusive)
+    const taxCode = (cardData.taxCode || 'SR') as any;
+    const vatCalc = calculateVAT(parseFloat(cardData.purchasePrice || '0'), taxCode);
+    
+    // Create loyalty card with VAT breakdown
+    const [newCard] = await db.insert(loyaltyCards).values({
+      ...cardData,
+      netAmount: vatCalc.netAmount.toString(),
+      vatAmount: vatCalc.vatAmount.toString(),
+      taxCode: taxCode,
+    }).returning();
     return newCard;
   }
 
@@ -872,6 +884,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProductSale(saleData: InsertProductSale): Promise<ProductSale> {
+    const { calculateVAT } = await import('./vatUtils');
+    
     // Use a transaction to ensure inventory is updated atomically with the sale
     return await db.transaction(async (tx) => {
       // 1. Check if product exists and has sufficient stock
@@ -887,16 +901,25 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Insufficient stock. Available: ${currentStock}, Requested: ${quantityToSell}`);
       }
       
-      // 2. Create the product sale record
-      const [newSale] = await tx.insert(productSales).values(saleData).returning();
+      // 2. Calculate VAT (UAE 5% inclusive)
+      const taxCode = (saleData.taxCode || 'SR') as any;
+      const vatCalc = calculateVAT(parseFloat(saleData.totalPrice || '0'), taxCode);
       
-      // 3. Update product stock quantity (reduce by quantity sold)
+      // 3. Create the product sale record with VAT breakdown
+      const [newSale] = await tx.insert(productSales).values({
+        ...saleData,
+        netAmount: vatCalc.netAmount.toString(),
+        vatAmount: vatCalc.vatAmount.toString(),
+        taxCode: taxCode,
+      }).returning();
+      
+      // 4. Update product stock quantity (reduce by quantity sold)
       await tx
         .update(products)
         .set({ stockQuantity: currentStock - quantityToSell })
         .where(eq(products.id, saleData.productId));
       
-      // 4. Create inventory transaction record (negative quantity for sale)
+      // 5. Create inventory transaction record (negative quantity for sale)
       await tx.insert(inventoryTransactions).values({
         productId: saleData.productId,
         transactionType: "sale",

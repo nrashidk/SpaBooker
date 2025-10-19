@@ -2672,6 +2672,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // FTA Audit File (FAF) Export for UAE Tax Compliance
+  app.get("/api/admin/faf-export", isAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate, spaId, format } = req.query;
+      const { generateFAFExport, convertFAFToCSV } = await import('./fafExport');
+      
+      const filters: any = {};
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (spaId) filters.spaId = parseInt(spaId as string);
+      
+      const records = await generateFAFExport(filters);
+      
+      if (format === 'csv') {
+        const csv = convertFAFToCSV(records);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="FTA_Audit_${new Date().toISOString().split('T')[0]}.csv"`);
+        return res.send(csv);
+      }
+      
+      res.json(records);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to generate FTA audit file");
+    }
+  });
+
   // Audit Logs routes (admin only)
   app.get("/api/admin/audit-logs", isAdmin, async (req, res) => {
     try {

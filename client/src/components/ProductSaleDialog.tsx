@@ -19,6 +19,7 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
   const [selectedProductId, setSelectedProductId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [taxCode, setTaxCode] = useState("SR");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -84,6 +85,7 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
           quantity: qty,
           unitPrice: selectedProduct.sellingPrice,
           totalPrice: parseFloat(totalPrice),
+          taxCode: taxCode,
           notes: notes || null,
         }),
       });
@@ -102,6 +104,7 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
       setSelectedProductId("");
       setCustomerId("");
       setQuantity("1");
+      setTaxCode("SR");
       setNotes("");
       
       onSaleCreated();
@@ -177,12 +180,30 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
             )}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="tax-code">UAE Tax Code</Label>
+            <Select value={taxCode} onValueChange={setTaxCode}>
+              <SelectTrigger id="tax-code" data-testid="select-tax-code">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SR">SR - Standard Rate (5% VAT)</SelectItem>
+                <SelectItem value="ZR">ZR - Zero-Rated (0%)</SelectItem>
+                <SelectItem value="ES">ES - Exempt</SelectItem>
+                <SelectItem value="OP">OP - Out of Scope</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {selectedProduct && (
             <div className="p-3 bg-muted rounded-md">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Amount:</span>
                 <span className="text-lg font-bold">AED {totalPrice}</span>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {taxCode === 'SR' ? 'Includes 5% VAT' : taxCode === 'ZR' ? 'Zero-rated' : taxCode === 'ES' ? 'VAT Exempt' : 'Out of scope'}
+              </p>
             </div>
           )}
 

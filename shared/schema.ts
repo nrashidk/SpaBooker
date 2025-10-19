@@ -318,6 +318,9 @@ export const invoiceItems = pgTable("invoice_items", {
   quantity: integer("quantity").default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 10, scale: 2 }), // Amount before VAT
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }), // VAT amount
+  taxCode: text("tax_code").default("SR"), // UAE Tax Codes: SR, ZR, ES, OP
 });
 
 // Transactions/Payments
@@ -424,9 +427,12 @@ export const loyaltyCards = pgTable("loyalty_cards", {
   usedSessions: integer("used_sessions").default(0).notNull(), // sessions already used
   expiryDate: timestamp("expiry_date"), // optional expiry
   purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 10, scale: 2 }), // Amount before VAT
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }), // VAT amount
   discountType: text("discount_type"), // flat, percentage
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0.00"), // e.g., 50 for AED 50 or 20 for 20%
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
+  taxCode: text("tax_code").default("SR"), // UAE Tax Codes: SR, ZR, ES, OP
   status: text("status").notNull().default("active"), // active, expired, fully_used, cancelled
   invoiceId: integer("invoice_id").references(() => invoices.id), // links to payment
   notes: text("notes"),
@@ -452,7 +458,10 @@ export const productSales = pgTable("product_sales", {
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 10, scale: 2 }), // Amount before VAT
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }), // VAT amount
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
+  taxCode: text("tax_code").default("SR"), // UAE Tax Codes: SR, ZR, ES, OP
   saleDate: timestamp("sale_date").defaultNow().notNull(),
   invoiceId: integer("invoice_id").references(() => invoices.id), // links to invoice
   transactionId: integer("transaction_id").references(() => transactions.id), // links to payment
