@@ -2910,6 +2910,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== UAE FTA COMPLIANCE ROUTES ====================
+  
+  // Get VAT Return Report (aggregates all revenue streams)
+  app.get("/api/admin/vat-report", isAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.claims.sub;
+      const user = await storage.getUserById(userId);
+      if (!user || !user.spaId) {
+        return res.status(403).json({ message: "Access denied: No spa assignment" });
+      }
+      
+      const { from, to, taxCode } = req.query;
+      const filters: any = { spaId: user.spaId };
+      
+      if (from) filters.startDate = new Date(from as string);
+      if (to) filters.endDate = new Date(to as string);
+      if (taxCode) filters.taxCode = taxCode as string;
+      
+      const { getVATReturnReport } = await import("./vatReport");
+      const report = await getVATReturnReport(filters);
+      
+      res.json(report);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to generate VAT report");
+    }
+  });
+  
+  // Export FAF (FTA Audit File)
+  app.post("/api/admin/export-faf", isAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.claims.sub;
+      const user = await storage.getUserById(userId);
+      if (!user || !user.spaId) {
+        return res.status(403).json({ message: "Access denied: No spa assignment" });
+      }
+      
+      const { startDate, endDate } = req.body;
+      const filters: any = { spaId: user.spaId };
+      
+      if (startDate) filters.startDate = new Date(startDate);
+      if (endDate) filters.endDate = new Date(endDate);
+      
+      const { generateFAFExport } = await import("./fafExport");
+      const csvContent = await generateFAFExport(filters);
+      
+      // Return CSV content directly
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="FAF_Export_${Date.now()}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to export FAF file");
+    }
+  });
+  
+  // Get Amendment Logs (audit trail)
+  app.get("/api/admin/amendments", isAdmin, async (req, res) => {
+    try {
+      const { type, tableName, from, to, recordId } = req.query;
+      const filters: any = {};
+      
+      if (type) filters.changeType = type as string;
+      if (tableName) filters.tableName = tableName as string;
+      if (from) filters.startDate = new Date(from as string);
+      if (to) filters.endDate = new Date(to as string);
+      if (recordId) filters.recordId = parseInt(recordId as string);
+      
+      const { getAmendmentLogs } = await import("./amendmentLogger");
+      const logs = await getAmendmentLogs(filters);
+      
+      res.json(logs);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch amendment logs");
+    }
+  });
+  
+  // Get Audit Trail for specific record
+  app.get("/api/admin/audit-trail/:tableName/:recordId", isAdmin, async (req, res) => {
+    try {
+      const { tableName, recordId } = req.params;
+      const { getRecordAuditTrail } = await import("./amendmentLogger");
+      const trail = await getRecordAuditTrail(tableName, parseInt(recordId));
+      
+      res.json(trail);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch audit trail");
+    }
+  });
+  
+  // Get Backup Logs
+  app.get("/api/admin/backup-logs", isAdmin, async (req, res) => {
+    try {
+      const logs = await storage.getBackupLogs();
+      res.json(logs);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch backup logs");
+    }
+  });
+  
+  // Create Backup Log (for automated backup systems)
+  app.post("/api/admin/backup-logs", isAdmin, async (req, res) => {
+    try {
+      const userId = (req as any).user.claims.sub;
+      const logData = {
+        ...req.body,
+        createdBy: parseInt(userId),
+      };
+      
+      const log = await storage.createBackupLog(logData);
+      res.json(log);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create backup log");
+    }
+  });
+  
+  // Import FTA Test Data (for certification testing)
+  app.post("/api/admin/import-test-data", isAdmin, async (req, res) => {
+    try {
+      const { data } = req.body;
+      
+      if (!data || !Array.isArray(data)) {
+        return res.status(400).json({ message: "Invalid test data format: expected array" });
+      }
+      
+      const { importFTATestData } = await import("./testDataImport");
+      const result = await importFTATestData(data);
+      
+      res.json(result);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to import test data");
+    }
+  });
+  
+  // Generate Sample Test Data (for testing)
+  app.get("/api/admin/sample-test-data", isAdmin, async (req, res) => {
+    try {
+      const { generateSampleTestData } = await import("./testDataImport");
+      const sampleData = generateSampleTestData();
+      
+      res.json(sampleData);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to generate sample test data");
+    }
+  });
+
   // ==================== NOTIFICATION WEBHOOKS ====================
   
   // Twilio delivery status webhook

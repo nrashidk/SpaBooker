@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, jsonb, serial, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, jsonb, serial, index, uniqueIndex, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -470,6 +470,44 @@ export const productSales = pgTable("product_sales", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Amendments (Audit Trail for data changes)
+export const amendments = pgTable("amendments", {
+  id: serial("id").primaryKey(),
+  changeType: text("change_type").notNull(), // UPDATE, DELETE, CREATE, etc.
+  tableName: text("table_name").notNull(), // which table was modified
+  recordId: integer("record_id").notNull(), // ID of the record modified
+  previous: jsonb("previous"), // previous state of record
+  current: jsonb("current"), // current state of record
+  amendedBy: varchar("amended_by").references(() => users.id), // user who made the change
+  amendedByName: text("amended_by_name"), // denormalized for quick access
+  ipAddress: text("ip_address"), // IP address of user
+  userAgent: text("user_agent"), // browser/client info
+  reason: text("reason"), // optional reason for change
+  amendDate: timestamp("amend_date").defaultNow().notNull(),
+}, (table) => [
+  index("idx_amendments_table").on(table.tableName),
+  index("idx_amendments_record").on(table.recordId),
+  index("idx_amendments_date").on(table.amendDate),
+  index("idx_amendments_user").on(table.amendedBy),
+]);
+
+// Backup Logs (for compliance and disaster recovery tracking)
+export const backupLogs = pgTable("backup_logs", {
+  id: serial("id").primaryKey(),
+  backupTime: timestamp("backup_time").defaultNow().notNull(),
+  fileName: text("file_name").notNull(),
+  fileSize: bigint("file_size", { mode: "number" }), // size in bytes
+  checksum: text("checksum"), // SHA-256 or MD5 hash for integrity
+  status: text("status").notNull().default("success"), // success, failed, partial
+  backupType: text("backup_type").notNull().default("full"), // full, incremental, differential
+  location: text("location"), // storage location (S3, local, etc.)
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id), // admin who initiated
+}, (table) => [
+  index("idx_backup_time").on(table.backupTime),
+  index("idx_backup_status").on(table.status),
+]);
+
 // Zod schemas for validation
 export const insertSpaSchema = createInsertSchema(spas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSpaSettingsSchema = createInsertSchema(spaSettings).omit({ id: true, updatedAt: true });
@@ -498,6 +536,8 @@ export const insertInventoryTransactionSchema = createInsertSchema(inventoryTran
 export const insertLoyaltyCardSchema = createInsertSchema(loyaltyCards).omit({ id: true, createdAt: true });
 export const insertLoyaltyCardUsageSchema = createInsertSchema(loyaltyCardUsage).omit({ id: true });
 export const insertProductSaleSchema = createInsertSchema(productSales).omit({ id: true, createdAt: true });
+export const insertAmendmentSchema = createInsertSchema(amendments).omit({ id: true, amendDate: true });
+export const insertBackupLogSchema = createInsertSchema(backupLogs).omit({ id: true, backupTime: true });
 
 // Insert Types (for creating new records)
 export type InsertSpa = z.infer<typeof insertSpaSchema>;
@@ -522,6 +562,8 @@ export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransacti
 export type InsertLoyaltyCard = z.infer<typeof insertLoyaltyCardSchema>;
 export type InsertLoyaltyCardUsage = z.infer<typeof insertLoyaltyCardUsageSchema>;
 export type InsertProductSale = z.infer<typeof insertProductSaleSchema>;
+export type InsertAmendment = z.infer<typeof insertAmendmentSchema>;
+export type InsertBackupLog = z.infer<typeof insertBackupLogSchema>;
 
 // Select Types (for reading records)
 export type Spa = typeof spas.$inferSelect;
@@ -546,6 +588,8 @@ export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
 export type LoyaltyCard = typeof loyaltyCards.$inferSelect;
 export type LoyaltyCardUsage = typeof loyaltyCardUsage.$inferSelect;
 export type ProductSale = typeof productSales.$inferSelect;
+export type Amendment = typeof amendments.$inferSelect;
+export type BackupLog = typeof backupLogs.$inferSelect;
 
 // Enhanced validation schemas with specific enums and categories
 

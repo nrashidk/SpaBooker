@@ -30,6 +30,7 @@ import {
   notificationEvents,
   spaIntegrations,
   integrationSyncLogs,
+  backupLogs,
   type User,
   type UpsertUser,
   type AdminApplication,
@@ -77,6 +78,8 @@ import {
   type InsertSpaIntegration,
   type IntegrationSyncLog,
   type InsertIntegrationSyncLog,
+  type BackupLog,
+  type InsertBackupLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
@@ -295,6 +298,10 @@ export interface IStorage {
   createSyncLog(log: InsertIntegrationSyncLog): Promise<IntegrationSyncLog>;
   getSyncLogs(integrationId: number, limit?: number): Promise<IntegrationSyncLog[]>;
   updateSyncLog(id: number, updates: Partial<InsertIntegrationSyncLog>): Promise<IntegrationSyncLog | undefined>;
+
+  // Backup Log operations (FTA compliance)
+  getBackupLogs(): Promise<BackupLog[]>;
+  createBackupLog(log: InsertBackupLog): Promise<BackupLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1388,6 +1395,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(integrationSyncLogs.id, id))
       .returning();
     return syncLog;
+  }
+
+  // Backup Log operations (FTA compliance)
+  async getBackupLogs(): Promise<BackupLog[]> {
+    return await db
+      .select()
+      .from(backupLogs)
+      .orderBy(desc(backupLogs.backupTime))
+      .limit(100); // Return last 100 backups
+  }
+
+  async createBackupLog(log: InsertBackupLog): Promise<BackupLog> {
+    const [backupLog] = await db
+      .insert(backupLogs)
+      .values(log)
+      .returning();
+    return backupLog;
   }
 }
 
