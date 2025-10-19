@@ -39,7 +39,7 @@ export async function generateFAFExport(filters?: FAFExportFilters): Promise<FAF
     id: bookings.id,
     date: bookings.bookingDate,
     customerId: bookings.customerId,
-    totalPrice: bookings.totalPrice,
+    totalAmount: bookings.totalAmount,
     discountAmount: bookings.discountAmount,
   }).from(bookings);
   
@@ -61,7 +61,7 @@ export async function generateFAFExport(filters?: FAFExportFilters): Promise<FAF
   
   // For bookings, calculate VAT (5% inclusive)
   bookingsData.forEach(booking => {
-    const grossAmount = parseFloat(booking.totalPrice || '0');
+    const grossAmount = parseFloat(booking.totalAmount || '0');
     const netAmount = grossAmount / 1.05;
     const vatAmount = grossAmount - netAmount;
     
