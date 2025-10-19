@@ -19,6 +19,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Vendor, Expense, Bill } from "@shared/schema";
+import { FTACompliance } from "@/components/FTACompliance";
 
 const expenseFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -676,6 +677,7 @@ export default function AdminFinance() {
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="vat-report" data-testid="tab-vat-report">VAT Report</TabsTrigger>
+          <TabsTrigger value="fta-compliance" data-testid="tab-fta-compliance">FTA Compliance</TabsTrigger>
           <TabsTrigger value="expenses" data-testid="tab-expenses">Expenses</TabsTrigger>
           <TabsTrigger value="vendors" data-testid="tab-vendors">Vendors</TabsTrigger>
           <TabsTrigger value="bills" data-testid="tab-bills">Bills</TabsTrigger>
@@ -1606,6 +1608,11 @@ export default function AdminFinance() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* FTA Compliance Tab */}
+        <TabsContent value="fta-compliance">
+          <FTACompliance />
         </TabsContent>
       </Tabs>
     </div>
