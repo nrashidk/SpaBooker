@@ -7,7 +7,7 @@
 
 import { db } from "./db";
 import { bookings, productSales, loyaltyCards, invoices, transactions } from "@shared/schema";
-import { calculateVATAmounts } from "./vatUtils";
+import { calculateVAT, type TaxCode } from "./vatUtils";
 
 export interface TestDataTransaction {
   type: 'booking' | 'product_sale' | 'loyalty_card' | 'invoice' | 'transaction';
@@ -83,8 +83,8 @@ export async function importFTATestData(
       }
 
       // Calculate VAT amounts
-      const taxCode = entry.taxCode || 'SR';
-      const vatData = calculateVATAmounts(entry.amount, taxCode);
+      const taxCode = (entry.taxCode || 'SR') as TaxCode;
+      const vatData = calculateVAT(entry.amount, taxCode);
 
       // Import based on type
       switch (entry.type) {
@@ -114,8 +114,8 @@ export async function importFTATestData(
             netAmount: vatData.netAmount.toString(),
             vatAmount: vatData.vatAmount.toString(),
             taxCode,
-            sessionsIncluded: entry.sessionsIncluded || 10,
-            sessionsRemaining: entry.sessionsRemaining || 10,
+            totalSessions: entry.sessionsIncluded || 10,
+            usedSessions: (entry.sessionsIncluded || 10) - (entry.sessionsRemaining || 10),
             purchaseDate: new Date(entry.date),
             expiryDate: entry.expiryDate ? new Date(entry.expiryDate) : undefined,
             notes: entry.notes || 'FTA Test Data',
