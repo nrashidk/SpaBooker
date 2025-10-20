@@ -189,11 +189,40 @@ import {
 
 // Helper function for consistent error handling
 function handleRouteError(res: any, error: any, message: string) {
+  // Zod validation errors
   if (error.name === "ZodError") {
-    return res.status(400).json({ message: "Validation error", errors: error.errors });
+    return res.status(400).json({ 
+      message: "Validation error", 
+      errors: error.errors 
+    });
   }
+  
+  // Postgres database errors
+  if (error.code === '23505') { // Unique constraint violation
+    return res.status(409).json({ 
+      message: "Duplicate entry - this record already exists" 
+    });
+  }
+  
+  if (error.code === '23503') { // Foreign key constraint violation
+    return res.status(400).json({ 
+      message: "Foreign key constraint failed - referenced record does not exist" 
+    });
+  }
+  
+  if (error.code === '23502') { // Not null violation
+    return res.status(400).json({ 
+      message: "Missing required field" 
+    });
+  }
+  
+  // Log full error for debugging
   console.error(message, error);
-  res.status(500).json({ message });
+  
+  // Return error message if available, otherwise use default message
+  res.status(500).json({ 
+    message: error.message || message 
+  });
 }
 
 // Helper function to parse and validate numeric ID params

@@ -476,6 +476,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createServiceCategory(category: InsertServiceCategory): Promise<ServiceCategory> {
+    // Validate required fields
+    if (!category.name || typeof category.name !== "string") {
+      throw new Error("Category name is required");
+    }
+    
+    // Validate spaId exists if provided
+    if (category.spaId) {
+      const [spa] = await db.select().from(spas).where(eq(spas.id, category.spaId));
+      if (!spa) {
+        throw new Error("Spa does not exist");
+      }
+    }
+    
     const [newCategory] = await db.insert(serviceCategories).values(category).returning();
     return newCategory;
   }
@@ -509,6 +522,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createService(service: InsertService): Promise<Service> {
+    // Validate required fields
+    if (!service.name || typeof service.name !== "string") {
+      throw new Error("Service name is required");
+    }
+    if (!service.spaId) {
+      throw new Error("Spa ID is required");
+    }
+    if (!service.duration || service.duration <= 0) {
+      throw new Error("Valid duration is required");
+    }
+    if (!service.price) {
+      throw new Error("Price is required");
+    }
+    
+    // Validate spaId exists
+    const [spa] = await db.select().from(spas).where(eq(spas.id, service.spaId));
+    if (!spa) {
+      throw new Error("Spa does not exist");
+    }
+    
+    // Validate categoryId exists if provided
+    if (service.categoryId) {
+      const [category] = await db.select().from(serviceCategories).where(eq(serviceCategories.id, service.categoryId));
+      if (!category) {
+        throw new Error("Service category does not exist");
+      }
+    }
+    
     const [newService] = await db.insert(services).values(service).returning();
     return newService;
   }
@@ -538,6 +579,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStaff(staffData: InsertStaff): Promise<Staff> {
+    // Validate required fields
+    if (!staffData.name || typeof staffData.name !== "string") {
+      throw new Error("Staff name is required");
+    }
+    if (!staffData.spaId) {
+      throw new Error("Spa ID is required");
+    }
+    
+    // Validate spaId exists
+    const [spa] = await db.select().from(spas).where(eq(spas.id, staffData.spaId));
+    if (!spa) {
+      throw new Error("Spa does not exist");
+    }
+    
+    // Validate email is unique if provided
+    if (staffData.email) {
+      const [existing] = await db.select().from(staff).where(eq(staff.email, staffData.email));
+      if (existing) {
+        throw new Error("Staff member with this email already exists");
+      }
+    }
+    
     const [newStaff] = await db.insert(staff).values(staffData).returning();
     return newStaff;
   }
