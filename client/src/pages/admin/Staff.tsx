@@ -24,8 +24,6 @@ const staffFormSchema = z.object({
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().optional(),
   role: z.enum(["basic", "view_own_calendar", "view_all_calendars", "manage_bookings", "admin_access"]).default("basic"),
-  commissionRate: z.string().optional(),
-  hourlyRate: z.string().optional(),
   active: z.boolean().default(true),
 });
 
@@ -52,8 +50,6 @@ export default function AdminStaff() {
       email: "",
       phone: "",
       role: "basic",
-      commissionRate: "0.00",
-      hourlyRate: "",
       active: true,
     },
   });
@@ -146,8 +142,6 @@ export default function AdminStaff() {
       email: member.email || "",
       phone: member.phone || "",
       role: member.role as any,
-      commissionRate: member.commissionRate || "0.00",
-      hourlyRate: member.hourlyRate || "",
       active: member.active ?? true,
     });
     setIsDialogOpen(true);
@@ -272,36 +266,6 @@ export default function AdminStaff() {
                         <FormLabel>Phone</FormLabel>
                         <FormControl>
                           <Input placeholder="+971 50 123 4567" data-testid="input-staff-phone" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="commissionRate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Commission Rate (%)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="10.00" data-testid="input-staff-commission" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="hourlyRate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Hourly Rate (AED)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="50.00" data-testid="input-staff-hourly-rate" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

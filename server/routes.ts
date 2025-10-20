@@ -1486,7 +1486,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(category);
     } catch (error) {
       console.error("Error creating service category:", error);
-      res.status(500).json({ message: "Failed to create service category" });
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+      }
+      handleRouteError(res, error, "Failed to create service category");
     }
   });
 
@@ -1547,7 +1550,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(service);
     } catch (error) {
       console.error("Error creating service:", error);
-      res.status(500).json({ message: "Failed to create service" });
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+      }
+      handleRouteError(res, error, "Failed to create service");
     }
   });
 
@@ -1622,7 +1628,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(staffMember);
     } catch (error) {
       console.error("Error creating staff member:", error);
-      res.status(500).json({ message: "Failed to create staff member" });
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+      }
+      handleRouteError(res, error, "Failed to create staff member");
     }
   });
 
