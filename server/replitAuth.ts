@@ -244,6 +244,54 @@ export const injectAdminSpa: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// Setup wizard enforcement middleware - blocks admin access when setup is incomplete
+// Applied globally to /api/admin/* routes; requires isAuthenticated before it
+export const enforceSetupWizard: RequestHandler = async (req, res, next) => {
+  // Allow CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
+  // Always allow setup wizard routes (req.path is relative to /api/admin mount)
+  if (req.path.startsWith('/setup')) {
+    return next();
+  }
+
+  const user = req.user as any;
+  const userId = user.claims.sub;
+  const dbUser = await storage.getUser(userId);
+
+  // Only enforce for regular admins, not super admins
+  if (dbUser && dbUser.role === 'admin') {
+    // Check if user is approved
+    if (dbUser.status !== 'approved') {
+      return res.status(403).json({ 
+        message: "Your account is pending approval by a super admin.",
+        pendingApproval: true
+      });
+    }
+
+    // Check if admin has a spa assigned
+    if (!dbUser.adminSpaId) {
+      return res.status(403).json({ 
+        setupRequired: true, 
+        message: "Complete the setup wizard first to activate your spa." 
+      });
+    }
+
+    // Fetch the spa and check if setup is complete
+    const spa = await storage.getSpaById(dbUser.adminSpaId);
+    if (!spa || !spa.setupComplete) {
+      return res.status(403).json({ 
+        setupRequired: true, 
+        message: "Complete the setup wizard first to activate your spa." 
+      });
+    }
+  }
+
+  next();
+};
+
 // Super Admin-only middleware - requires authentication + super_admin role
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   const user = req.user as any;

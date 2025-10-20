@@ -39,6 +39,7 @@ export const adminApplications = pgTable("admin_applications", {
   businessName: text("business_name").notNull(),
   businessType: text("business_type"), // spa, salon, barbershop, etc.
   contactPhone: text("contact_phone"),
+  licenseUrl: text("license_url"), // Business license document URL
   status: text("status").notNull().default("pending"), // pending, approved, rejected
   appliedAt: timestamp("applied_at").defaultNow().notNull(),
   reviewedAt: timestamp("reviewed_at"),

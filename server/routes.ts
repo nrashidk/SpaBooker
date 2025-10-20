@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin, injectAdminSpa } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin, injectAdminSpa, enforceSetupWizard } from "./replitAuth";
 import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import { notificationService } from "./notificationService";
 import { requireStaff, requireStaffRole, getStaffByUserId, canViewStaffCalendar, canEditAppointments, canAccessDashboard } from "./staffPermissions";
@@ -371,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin register route - creates pending application
   app.post('/api/admin/register', async (req, res) => {
     try {
-      const { name, email, password, spaName } = req.body;
+      const { name, email, password, spaName, licenseUrl } = req.body;
       
       // Create pending admin user
       const adminUser = await storage.upsertUser({
@@ -388,6 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: adminUser.id,
         businessName: spaName,
         businessType: 'spa', // Default to spa, can be extended later
+        licenseUrl: licenseUrl || null, // Store business license document URL if provided
         status: 'pending',
       });
       
@@ -403,6 +404,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Registration failed" });
     }
   });
+
+  // ===== SETUP WIZARD ENFORCEMENT =====
+  // Apply setup wizard enforcement globally to all /api/admin/* routes
+  // This blocks admin access when setupComplete !== true, except for /api/admin/setup/* routes
+  app.use('/api/admin', isAuthenticated, enforceSetupWizard);
 
   // OAuth Integration Routes
   
