@@ -32,6 +32,7 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
 -   **Staff Notifications:** Staff members receive booking notifications (create/modify/cancel) through the same channels enabled for customers (SMS/email/WhatsApp). Independent settings control which channels and events trigger staff notifications, ensuring staff are always informed about their appointments.
 -   **Audit Trail:** Comprehensive audit logs track all important changes with user context, IP, user agent, and specific filters for compliance.
 -   **Security Hardening:** Includes secure ID parameter validation, consistent error handling with Zod, environment variable validation, and proper `.env` exclusion.
+-   **Admin-Spa Linkage System:** Robust middleware (`injectAdminSpa`) validates admin users are properly linked to their spa before any operations. Prevents "Spa does not exist" errors by ensuring `adminSpaId` is set during setup wizard and validated on every admin API call. Multi-layer validation includes middleware checks, storage-layer foreign key validation, and database constraints. Clear error messages with `setupRequired` flag guide users through setup completion.
 
 ## External Dependencies
 -   **Replit Auth:** User authentication and role-based access control.
