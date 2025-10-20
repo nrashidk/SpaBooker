@@ -61,6 +61,10 @@ export default function AdminServices() {
     queryKey: ["/api/admin/service-categories"],
   });
 
+  const { data: user } = useQuery<{ spaId?: number }>({
+    queryKey: ['/api/user'],
+  });
+
   const createServiceMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest('POST', '/api/admin/services', data);
@@ -148,7 +152,7 @@ export default function AdminServices() {
   const createCategoryMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
       return apiRequest('POST', '/api/admin/service-categories', {
-        spaId: 1, // TODO: Get from auth context
+        spaId: user?.spaId || 1,
         ...data,
       });
     },
@@ -182,7 +186,7 @@ export default function AdminServices() {
     }
 
     const dataToSubmit = {
-      spaId: 1, // TODO: Get from auth context
+      spaId: user?.spaId || 1,
       name: serviceForm.name,
       categoryId: serviceForm.categoryId,
       description: serviceForm.description || null,

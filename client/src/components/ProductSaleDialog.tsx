@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import type { Product } from "@shared/schema";
+import type { Product, Staff } from "@shared/schema";
 
 interface ProductSaleDialogProps {
   open: boolean;
@@ -31,16 +31,32 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
     queryKey: ['/api/admin/customers'],
   });
 
+  const { data: staff = [] } = useQuery<Staff[]>({
+    queryKey: ['/api/admin/staff'],
+  });
+
+  const { data: user } = useQuery<{ id?: string, staffId?: number }>({
+    queryKey: ['/api/user'],
+  });
+
+  // Default to authenticated user's staffId if available
+  const [soldBy, setSoldBy] = useState(user?.staffId?.toString() || "");
+
   const selectedProduct = products.find(p => p.id.toString() === selectedProductId);
   const totalPrice = selectedProduct 
     ? (parseFloat(selectedProduct.sellingPrice || "0") * parseInt(quantity || "1")).toFixed(2)
     : "0.00";
+  
+  // Calculate VAT (UAE 5% inclusive)
+  const totalPriceNum = parseFloat(totalPrice);
+  const netAmount = totalPriceNum / 1.05; // Net before VAT
+  const vatAmount = totalPriceNum - netAmount; // VAT amount
 
   const handleSubmit = async () => {
-    if (!selectedProductId || !customerId || !quantity) {
+    if (!selectedProductId || !customerId || !quantity || !soldBy) {
       toast({
         title: "Missing fields",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (product, customer, staff, quantity)",
         variant: "destructive",
       });
       return;
@@ -79,13 +95,17 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
       const response = await fetch('/api/admin/product-sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           customerId: parseInt(customerId),
           productId: parseInt(selectedProductId),
           quantity: qty,
           unitPrice: selectedProduct.sellingPrice,
           totalPrice: parseFloat(totalPrice),
+          netAmount: netAmount.toFixed(2),
+          vatAmount: vatAmount.toFixed(2),
           taxCode: taxCode,
+          soldBy: parseInt(soldBy),
           notes: notes || null,
         }),
       });
@@ -103,6 +123,7 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
       // Reset form
       setSelectedProductId("");
       setCustomerId("");
+      setSoldBy("");
       setQuantity("1");
       setTaxCode("SR");
       setNotes("");
@@ -157,6 +178,22 @@ export function ProductSaleDialog({ open, onOpenChange, onSaleCreated }: Product
                 {customers.map(customer => (
                   <SelectItem key={customer.id} value={customer.id.toString()}>
                     {customer.name} {customer.phone ? `(${customer.phone})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="staff">Sold By (Staff) *</Label>
+            <Select value={soldBy} onValueChange={setSoldBy}>
+              <SelectTrigger id="staff" data-testid="select-sold-by">
+                <SelectValue placeholder="Select staff member" />
+              </SelectTrigger>
+              <SelectContent>
+                {staff.map(member => (
+                  <SelectItem key={member.id} value={member.id.toString()}>
+                    {member.name} {member.specialty ? `- ${member.specialty}` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
