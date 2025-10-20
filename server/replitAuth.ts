@@ -206,6 +206,44 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// Middleware to inject admin's spa into request context
+// Use this after isAdmin to ensure the admin has a spa set up
+export const injectAdminSpa: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+  const userId = user.claims.sub;
+  
+  // Get user from database
+  const dbUser = await storage.getUser(userId);
+  
+  if (!dbUser) {
+    return res.status(500).json({ message: "User not found in database" });
+  }
+  
+  // Check if admin has a spa assigned
+  if (!dbUser.adminSpaId) {
+    return res.status(400).json({ 
+      message: "No spa assigned to this admin account. Please complete the setup wizard first.",
+      setupRequired: true 
+    });
+  }
+  
+  // Fetch the spa and validate it exists
+  const spa = await storage.getSpaById(dbUser.adminSpaId);
+  
+  if (!spa) {
+    return res.status(404).json({ 
+      message: "Spa not found. Please contact support or complete the setup wizard again.",
+      setupRequired: true 
+    });
+  }
+  
+  // Attach spa and user to request for use in routes
+  (req as any).adminSpa = spa;
+  (req as any).dbUser = dbUser;
+  
+  next();
+};
+
 // Super Admin-only middleware - requires authentication + super_admin role
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   const user = req.user as any;

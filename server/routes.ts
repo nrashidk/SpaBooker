@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin, injectAdminSpa } from "./replitAuth";
 import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import { notificationService } from "./notificationService";
 import { requireStaff, requireStaffRole, getStaffByUserId, canViewStaffCalendar, canEditAppointments, canAccessDashboard } from "./staffPermissions";
@@ -1508,9 +1508,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/service-categories", isAdmin, async (req, res) => {
+  app.post("/api/admin/service-categories", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const validatedData = insertServiceCategorySchema.parse(req.body);
+      // Inject spaId from admin's spa (from middleware)
+      const validatedData = insertServiceCategorySchema.parse({
+        ...req.body,
+        spaId: req.adminSpa.id,
+      });
       const category = await storage.createServiceCategory(validatedData);
       res.json(category);
     } catch (error) {
@@ -1568,9 +1572,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/services", isAdmin, async (req, res) => {
+  app.post("/api/admin/services", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const validatedData = insertServiceSchema.parse(req.body);
+      // Inject spaId from admin's spa (from middleware)
+      const validatedData = insertServiceSchema.parse({
+        ...req.body,
+        spaId: req.adminSpa.id,
+      });
       const service = await storage.createService(validatedData);
       
       // Log service creation to audit trail
@@ -1646,9 +1654,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/staff", isAdmin, async (req, res) => {
+  app.post("/api/admin/staff", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const validatedData = insertStaffSchema.parse(req.body);
+      // Inject spaId from admin's spa (from middleware)
+      const validatedData = insertStaffSchema.parse({
+        ...req.body,
+        spaId: req.adminSpa.id,
+      });
       const staffMember = await storage.createStaff(validatedData);
       
       // Log staff creation to audit trail
