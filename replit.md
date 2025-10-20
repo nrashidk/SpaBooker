@@ -33,6 +33,7 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
 -   **Audit Trail:** Comprehensive audit logs track all important changes with user context, IP, user agent, and specific filters for compliance.
 -   **Security Hardening:** Includes secure ID parameter validation, consistent error handling with Zod, environment variable validation, and proper `.env` exclusion.
 -   **Admin-Spa Linkage System:** Robust middleware (`injectAdminSpa`) validates admin users are properly linked to their spa before any operations. Prevents "Spa does not exist" errors by ensuring `adminSpaId` is set during setup wizard and validated on every admin API call. Multi-layer validation includes middleware checks, storage-layer foreign key validation, and database constraints. Clear error messages with `setupRequired` flag guide users through setup completion.
+-   **Admin Registration & Approval Flow:** Complete admin onboarding system with pending approval workflow. Admins register with spa name and optional business license document (`licenseUrl` field). Super admin reviews and approves applications. The `enforceSetupWizard` middleware ensures approved admins complete the 8-step setup wizard before accessing any admin features. Middleware blocks all `/api/admin/*` routes except `/api/admin/setup/*` for admins with incomplete setup, returning `setupRequired: true` for frontend redirect handling. Super admins bypass all wizard enforcement.
 
 ## External Dependencies
 -   **Replit Auth:** User authentication and role-based access control.
