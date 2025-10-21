@@ -213,6 +213,71 @@ export const products = pgTable("products", {
   index("idx_products_active").on(table.active),
 ]);
 
+// Memberships (recurring/time-based service packages)
+export const memberships = pgTable("memberships", {
+  id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  paymentType: text("payment_type").notNull().default("one-time"), // one-time, recurring
+  validForMonths: integer("valid_for_months").notNull().default(1), // Duration in months
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  taxRate: text("tax_rate").default("no-tax"), // no-tax, standard (5%), etc.
+  sessionType: text("session_type").notNull().default("limited"), // limited, unlimited
+  numberOfSessions: integer("number_of_sessions"), // null for unlimited
+  color: text("color").default("#3b82f6"), // Hex color for membership card display
+  enableOnlineSales: boolean("enable_online_sales").default(true),
+  enableOnlineRedemption: boolean("enable_online_redemption").default(true),
+  termsAndConditions: text("terms_and_conditions"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_memberships_spa").on(table.spaId),
+  index("idx_memberships_active").on(table.active),
+]);
+
+// Membership included services (junction table)
+export const membershipServices = pgTable("membership_services", {
+  id: serial("id").primaryKey(),
+  membershipId: integer("membership_id").references(() => memberships.id).notNull(),
+  serviceId: integer("service_id").references(() => services.id).notNull(),
+}, (table) => [
+  index("idx_membership_services_membership").on(table.membershipId),
+  index("idx_membership_services_service").on(table.serviceId),
+]);
+
+// Customer memberships (purchased memberships)
+export const customerMemberships = pgTable("customer_memberships", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  membershipId: integer("membership_id").references(() => memberships.id).notNull(),
+  invoiceId: integer("invoice_id").references(() => invoices.id), // Link to sale transaction
+  purchaseDate: timestamp("purchase_date").defaultNow().notNull(),
+  expiryDate: timestamp("expiry_date").notNull(),
+  sessionsRemaining: integer("sessions_remaining"), // Tracks remaining sessions (null for unlimited)
+  status: text("status").notNull().default("active"), // active, expired, cancelled
+  autoRenew: boolean("auto_renew").default(false),
+  nextRenewalDate: timestamp("next_renewal_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_customer_memberships_customer").on(table.customerId),
+  index("idx_customer_memberships_membership").on(table.membershipId),
+  index("idx_customer_memberships_status").on(table.status),
+  index("idx_customer_memberships_invoice").on(table.invoiceId),
+]);
+
+// Membership usage tracking (when a customer redeems a session)
+export const membershipUsage = pgTable("membership_usage", {
+  id: serial("id").primaryKey(),
+  customerMembershipId: integer("customer_membership_id").references(() => customerMemberships.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id).notNull(),
+  serviceId: integer("service_id").references(() => services.id).notNull(),
+  usedAt: timestamp("used_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_membership_usage_customer_membership").on(table.customerMembershipId),
+  index("idx_membership_usage_booking").on(table.bookingId),
+]);
+
 // Customers
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
@@ -521,6 +586,14 @@ export const insertServiceSchema = createInsertSchema(services).omit({ id: true,
   duration: z.coerce.number().int().positive(),
   discountPercent: z.coerce.string().nullable().optional(),
 });
+export const insertMembershipSchema = createInsertSchema(memberships).omit({ id: true, createdAt: true, price: true }).extend({
+  price: z.coerce.string(),
+  validForMonths: z.coerce.number().int().positive(),
+  numberOfSessions: z.coerce.number().int().positive().nullable().optional(),
+});
+export const insertMembershipServiceSchema = createInsertSchema(membershipServices).omit({ id: true });
+export const insertCustomerMembershipSchema = createInsertSchema(customerMemberships).omit({ id: true, createdAt: true });
+export const insertMembershipUsageSchema = createInsertSchema(membershipUsage).omit({ id: true });
 export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, createdAt: true }).extend({
   role: z.enum(["basic", "view_own_calendar", "view_all_calendars", "manage_bookings", "admin_access"]).default("basic"),
 });
@@ -553,6 +626,10 @@ export type InsertSpa = z.infer<typeof insertSpaSchema>;
 export type InsertSpaSettings = z.infer<typeof insertSpaSettingsSchema>;
 export type InsertServiceCategory = z.infer<typeof insertServiceCategorySchema>;
 export type InsertService = z.infer<typeof insertServiceSchema>;
+export type InsertMembership = z.infer<typeof insertMembershipSchema>;
+export type InsertMembershipService = z.infer<typeof insertMembershipServiceSchema>;
+export type InsertCustomerMembership = z.infer<typeof insertCustomerMembershipSchema>;
+export type InsertMembershipUsage = z.infer<typeof insertMembershipUsageSchema>;
 export type InsertStaff = z.infer<typeof insertStaffSchema>;
 export type InsertStaffSchedule = z.infer<typeof insertStaffScheduleSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -579,6 +656,10 @@ export type Spa = typeof spas.$inferSelect;
 export type SpaSettings = typeof spaSettings.$inferSelect;
 export type ServiceCategory = typeof serviceCategories.$inferSelect;
 export type Service = typeof services.$inferSelect;
+export type Membership = typeof memberships.$inferSelect;
+export type MembershipService = typeof membershipServices.$inferSelect;
+export type CustomerMembership = typeof customerMemberships.$inferSelect;
+export type MembershipUsage = typeof membershipUsage.$inferSelect;
 export type Staff = typeof staff.$inferSelect;
 export type StaffSchedule = typeof staffSchedules.$inferSelect;
 export type Product = typeof products.$inferSelect;
