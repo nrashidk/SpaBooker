@@ -20,6 +20,9 @@ import {
   getValidAccessToken 
 } from "./oauthService";
 import { googleCalendarService } from "./googleCalendarService";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 // Helper: Get DST-aware timezone offset for RFC3339 format
 function getTimezoneOffset(date: Date, timeZone: string): string {
@@ -252,9 +255,75 @@ function parseNumericId(param: string): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
+// Configure multer for file uploads
+const uploadDir = path.join(process.cwd(), 'uploads', 'licenses');
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'license-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, JPG, JPEG, and PNG files are allowed.'));
+    }
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware setup
   await setupAuth(app);
+
+  // File upload endpoint for license documents
+  app.post('/api/upload/license', upload.single('file'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+      
+      // Return the file URL (relative path that can be accessed)
+      const fileUrl = `/uploads/licenses/${req.file.filename}`;
+      res.json({ fileUrl });
+    } catch (error) {
+      console.error('License upload error:', error);
+      res.status(500).json({ message: 'Failed to upload license document' });
+    }
+  });
+
+  // Serve uploaded files (with authentication for super admin)
+  app.use('/uploads', isAuthenticated, (req, res, next) => {
+    // Only super admins can access license documents
+    const user = (req as any).user;
+    if (user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    next();
+  }, (req, res, next) => {
+    // Serve static files from uploads directory
+    const filePath = path.join(process.cwd(), req.url);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ message: 'File not found' });
+    }
+  });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
