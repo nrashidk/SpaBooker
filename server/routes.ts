@@ -175,6 +175,10 @@ import {
   insertSpaSettingsSchema,
   insertServiceCategorySchema,
   insertServiceSchema,
+  insertMembershipSchema,
+  insertMembershipServiceSchema,
+  insertCustomerMembershipSchema,
+  insertMembershipUsageSchema,
   insertStaffSchema,
   insertStaffScheduleSchema,
   insertProductSchema,
@@ -1939,6 +1943,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       handleRouteError(res, error, "Failed to delete service");
+    }
+  });
+
+  // Membership routes
+  app.get("/api/admin/memberships", isAdmin, async (req, res) => {
+    try {
+      const memberships = await storage.getAllMemberships();
+      res.json(memberships);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch memberships");
+    }
+  });
+
+  app.get("/api/admin/memberships/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid membership ID" });
+      }
+      
+      const membership = await storage.getMembershipById(id);
+      if (!membership) {
+        return res.status(404).json({ message: "Membership not found" });
+      }
+      
+      // Get linked services for this membership
+      const membershipServices = await storage.getMembershipServices(id);
+      
+      res.json({ ...membership, linkedServices: membershipServices });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch membership");
+    }
+  });
+
+  app.post("/api/admin/memberships", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const { serviceIds, ...membershipData } = req.body;
+      
+      // Inject spaId from admin's spa
+      const validatedData = insertMembershipSchema.parse({
+        ...membershipData,
+        spaId: req.adminSpa.id,
+      });
+      
+      const membership = await storage.createMembership(validatedData);
+      
+      // Link services to membership
+      if (serviceIds && Array.isArray(serviceIds) && serviceIds.length > 0) {
+        for (const serviceId of serviceIds) {
+          await storage.createMembershipService({
+            membershipId: membership.id,
+            serviceId: Number(serviceId),
+          });
+        }
+      }
+      
+      // Log membership creation
+      await AuditLogger.logCreate(req, "membership", membership.id, validatedData, validatedData.spaId);
+      
+      res.json(membership);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create membership");
+    }
+  });
+
+  app.put("/api/admin/memberships/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid membership ID" });
+      }
+      
+      const { serviceIds, ...membershipData } = req.body;
+      
+      const before = await storage.getMembershipById(id);
+      const validatedData = insertMembershipSchema.partial().parse(membershipData);
+      const membership = await storage.updateMembership(id, validatedData);
+      
+      if (!membership) {
+        return res.status(404).json({ message: "Membership not found" });
+      }
+      
+      // Update linked services if provided
+      if (serviceIds !== undefined && Array.isArray(serviceIds)) {
+        // Remove all existing services
+        await storage.deleteMembershipServicesByMembershipId(id);
+        
+        // Add new services
+        for (const serviceId of serviceIds) {
+          await storage.createMembershipService({
+            membershipId: id,
+            serviceId: Number(serviceId),
+          });
+        }
+      }
+      
+      // Log membership update
+      if (before) {
+        await AuditLogger.logUpdate(req, "membership", id, before, validatedData, membership.spaId);
+      }
+      
+      res.json(membership);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update membership");
+    }
+  });
+
+  app.delete("/api/admin/memberships/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid membership ID" });
+      }
+      
+      const membership = await storage.getMembershipById(id);
+      
+      // Delete linked services first
+      await storage.deleteMembershipServicesByMembershipId(id);
+      
+      const deleted = await storage.deleteMembership(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Membership not found" });
+      }
+      
+      // Log membership deletion
+      if (membership) {
+        await AuditLogger.logDelete(req, "membership", id, membership, membership.spaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete membership");
+    }
+  });
+
+  // Customer Membership routes
+  app.get("/api/admin/customer-memberships", isAdmin, async (req, res) => {
+    try {
+      const customerMemberships = await storage.getAllCustomerMemberships();
+      res.json(customerMemberships);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch customer memberships");
+    }
+  });
+
+  app.get("/api/admin/customer-memberships/customer/:customerId", isAdmin, async (req, res) => {
+    try {
+      const customerId = parseNumericId(req.params.customerId);
+      if (!customerId) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+      
+      const customerMemberships = await storage.getCustomerMembershipsByCustomerId(customerId);
+      res.json(customerMemberships);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch customer memberships");
+    }
+  });
+
+  app.post("/api/admin/customer-memberships", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const validatedData = insertCustomerMembershipSchema.parse(req.body);
+      const customerMembership = await storage.createCustomerMembership(validatedData);
+      
+      // Log customer membership creation
+      await AuditLogger.logCreate(req, "customer_membership", customerMembership.id, validatedData, req.adminSpa.id);
+      
+      res.json(customerMembership);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create customer membership");
+    }
+  });
+
+  app.put("/api/admin/customer-memberships/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid customer membership ID" });
+      }
+      
+      const before = await storage.getCustomerMembershipById(id);
+      const validatedData = insertCustomerMembershipSchema.partial().parse(req.body);
+      const customerMembership = await storage.updateCustomerMembership(id, validatedData);
+      
+      if (!customerMembership) {
+        return res.status(404).json({ message: "Customer membership not found" });
+      }
+      
+      // Log update
+      if (before) {
+        await AuditLogger.logUpdate(req, "customer_membership", id, before, validatedData, req.adminSpa.id);
+      }
+      
+      res.json(customerMembership);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update customer membership");
+    }
+  });
+
+  // Membership usage tracking
+  app.get("/api/admin/membership-usage/:customerMembershipId", isAdmin, async (req, res) => {
+    try {
+      const customerMembershipId = parseNumericId(req.params.customerMembershipId);
+      if (!customerMembershipId) {
+        return res.status(400).json({ message: "Invalid customer membership ID" });
+      }
+      
+      const usage = await storage.getMembershipUsageByCustomerMembershipId(customerMembershipId);
+      res.json(usage);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch membership usage");
+    }
+  });
+
+  app.post("/api/admin/membership-usage", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const validatedData = insertMembershipUsageSchema.parse(req.body);
+      const usage = await storage.createMembershipUsage(validatedData);
+      
+      // Update remaining sessions for limited memberships
+      const customerMembership = await storage.getCustomerMembershipById(validatedData.customerMembershipId);
+      if (customerMembership && customerMembership.sessionsRemaining !== null) {
+        await storage.updateCustomerMembership(validatedData.customerMembershipId, {
+          sessionsRemaining: Math.max(0, customerMembership.sessionsRemaining - 1),
+        });
+      }
+      
+      res.json(usage);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to record membership usage");
     }
   });
 

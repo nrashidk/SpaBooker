@@ -3,7 +3,7 @@ import { db } from "./db";
 import { auditLogs, InsertAuditLog } from "@shared/schema";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT" | "APPROVAL" | "REJECTION";
-export type AuditEntityType = "booking" | "invoice" | "service" | "staff" | "customer" | "spa" | "product" | "loyalty_card" | "expense" | "vendor";
+export type AuditEntityType = "booking" | "invoice" | "service" | "membership" | "customer_membership" | "staff" | "customer" | "spa" | "product" | "loyalty_card" | "expense" | "vendor";
 
 interface AuditLogData {
   userId?: string;
