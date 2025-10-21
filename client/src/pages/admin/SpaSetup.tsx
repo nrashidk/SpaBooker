@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, ArrowRight, ArrowLeft, Building2, MapPin, Clock, CreditCard, Check } from "lucide-react";
+import { CheckCircle2, Circle, ArrowRight, ArrowLeft, Building2, MapPin, Clock, CreditCard, Check, Sparkles, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 type SetupStep = {
@@ -16,12 +16,15 @@ type SetupStep = {
   title: string;
   icon: any;
   description: string;
+  optional?: boolean;
 };
 
 const steps: SetupStep[] = [
   { id: "basicInfo", title: "Basic Information", icon: Building2, description: "Spa name and contact details" },
   { id: "location", title: "Location", icon: MapPin, description: "Address and geographic details" },
   { id: "hours", title: "Business Hours", icon: Clock, description: "Operating hours and schedule" },
+  { id: "services", title: "Services", icon: Sparkles, description: "Service offerings (optional)", optional: true },
+  { id: "staff", title: "Staff", icon: Users, description: "Team members (optional)", optional: true },
   { id: "activation", title: "Activation", icon: CreditCard, description: "Ready to go live!" },
 ];
 
@@ -43,6 +46,8 @@ type SetupStatus = {
     basicInfo: boolean;
     location: boolean;
     hours: boolean;
+    services: boolean;
+    staff: boolean;
     activation: boolean;
   };
   spa?: any;
@@ -155,6 +160,12 @@ export default function SpaSetup() {
         return {
           businessHours: formData.businessHours || {},
         };
+      case "services":
+        // Services step is optional, can be skipped
+        return {};
+      case "staff":
+        // Staff step is optional, can be skipped
+        return {};
       case "activation":
         return {
           active: true,
@@ -455,6 +466,62 @@ export default function SpaSetup() {
                 </div>
               )}
 
+              {/* Services Step */}
+              {currentStep.id === "services" && (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">Optional Step</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                          You can skip this step and add services later from the admin dashboard. Services are essential for accepting bookings, but you can configure them at any time.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center py-8">
+                    <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-semibold mb-2">Add Your Services</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto mb-4">
+                      Services can be added and managed from the Services section in your admin dashboard after activation.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Click "Next" to skip this step for now, or complete setup and add services from the dashboard.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Staff Step */}
+              {currentStep.id === "staff" && (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Users className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">Optional Step</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                          You can skip this step and add staff members later from the admin dashboard. Staff are essential for managing bookings, but you can configure them at any time.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center py-8">
+                    <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-semibold mb-2">Add Your Team</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto mb-4">
+                      Staff members can be added and managed from the Staff section in your admin dashboard after activation.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Click "Next" to skip this step for now, or complete setup and add staff from the dashboard.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Activation Step */}
               {currentStep.id === "activation" && (
                 <div className="text-center py-8 space-y-6">
@@ -489,9 +556,29 @@ export default function SpaSetup() {
                         <p className="text-sm text-muted-foreground">Operating schedule configured</p>
                       </div>
                     </div>
+                    {setupStatus?.steps?.services && (
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                        <div className="text-left">
+                          <p className="font-medium">Services configured</p>
+                          <p className="text-sm text-muted-foreground">Service offerings ready</p>
+                        </div>
+                      </div>
+                    )}
+                    {setupStatus?.steps?.staff && (
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                        <div className="text-left">
+                          <p className="font-medium">Staff added</p>
+                          <p className="text-sm text-muted-foreground">Team members ready</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    You can add services, staff, and other details from the admin dashboard after activation.
+                    {!setupStatus?.steps?.services || !setupStatus?.steps?.staff 
+                      ? "You can add services, staff, and other details from the admin dashboard after activation."
+                      : "Everything is configured! Ready to start accepting bookings."}
                   </p>
                 </div>
               )}

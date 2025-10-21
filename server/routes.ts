@@ -1547,6 +1547,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             basicInfo: false,
             location: false,
             hours: false,
+            services: false,
+            staff: false,
             activation: false,
           },
         });
@@ -1561,6 +1563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         basicInfo: false,
         location: false,
         hours: false,
+        services: false,
+        staff: false,
         activation: false,
       };
 
@@ -1648,6 +1652,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...updateData,
           businessHours: stepData.businessHours,
         };
+      } else if (stepName === "services") {
+        // Services step is optional, just marks the step as complete
+        // Services are managed from the admin dashboard
+      } else if (stepName === "staff") {
+        // Staff step is optional, just marks the step as complete
+        // Staff are managed from the admin dashboard
       } else if (stepName === "activation") {
         // Activation step just marks the step as complete
         // No additional data to update
@@ -1675,14 +1685,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const steps = (spa.setupSteps as any) || {};
+      // Only require essential steps: basicInfo, location, hours, activation
+      // Services and staff are optional
       const allStepsComplete = steps.basicInfo && steps.location && steps.hours && steps.activation;
 
       if (!allStepsComplete) {
+        const requiredSteps = ['basicInfo', 'location', 'hours', 'activation'];
+        const missingRequiredSteps = requiredSteps.filter(step => !steps[step]);
+        
         return res.status(400).json({ 
-          message: "All setup steps must be completed first",
-          missingSteps: Object.entries(steps)
-            .filter(([, completed]) => !completed)
-            .map(([step]) => step)
+          message: "All required setup steps must be completed first",
+          missingSteps: missingRequiredSteps
         });
       }
 
