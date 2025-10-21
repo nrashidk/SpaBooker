@@ -487,6 +487,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEV/TEST: Make current user a super admin
+  app.post('/api/dev/make-super-admin', isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.claims.sub;
+      const userEmail = user.claims.email || `dev-${userId}@test.com`;
+      
+      // Upsert user with super_admin role
+      const superAdminUser = await storage.upsertUser({
+        id: userId,
+        email: userEmail,
+        role: 'super_admin',
+        status: 'approved'
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "You are now a super admin! Refresh the page to access the admin panel.",
+        user: superAdminUser
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create super admin");
+    }
+  });
+
   // Get current user's admin application (if any)
   app.get('/api/admin/my-application', isAuthenticated, async (req, res) => {
     try {
