@@ -148,14 +148,15 @@ export default function SuperAdmin() {
     }
   };
 
-  const filteredApplications = applications.filter((app) => {
+  // Filter out applications without license attachments
+  const applicationsWithLicense = applications.filter((app) => app.licenseUrl);
+  
+  const filteredApplications = applicationsWithLicense.filter((app) => {
     if (selectedTab === "all") return true;
     return app.status === selectedTab;
   });
 
-  const pendingCount = applications.filter((app) => app.status === "pending").length;
-  const approvedCount = applications.filter((app) => app.status === "approved").length;
-  const rejectedCount = applications.filter((app) => app.status === "rejected").length;
+  const pendingCount = applicationsWithLicense.filter((app) => app.status === "pending").length;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -169,14 +170,8 @@ export default function SuperAdmin() {
           <TabsTrigger value="pending" data-testid="tab-pending">
             Pending {pendingCount > 0 && `(${pendingCount})`}
           </TabsTrigger>
-          <TabsTrigger value="approved" data-testid="tab-approved">
-            Approved {approvedCount > 0 && `(${approvedCount})`}
-          </TabsTrigger>
-          <TabsTrigger value="rejected" data-testid="tab-rejected">
-            Rejected {rejectedCount > 0 && `(${rejectedCount})`}
-          </TabsTrigger>
           <TabsTrigger value="all" data-testid="tab-all">
-            All ({applications.length})
+            All ({applicationsWithLicense.length})
           </TabsTrigger>
         </TabsList>
 
@@ -209,27 +204,22 @@ export default function SuperAdmin() {
               {filteredApplications.map((application) => (
                 <Card key={application.id} data-testid={`card-application-${application.id}`}>
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="flex items-center gap-2 mb-2">
-                          <Building2 className="w-5 h-5" />
-                          {application.businessName}
-                        </CardTitle>
-                        <CardDescription className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <User className="w-3 h-3" />
-                            <span data-testid={`text-applicant-${application.id}`}>
-                              {application.user?.firstName} {application.user?.lastName}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-3 h-3" />
-                            <span data-testid={`text-email-${application.id}`}>{application.user?.email}</span>
-                          </div>
-                        </CardDescription>
+                    <CardTitle className="flex items-center gap-2 mb-2">
+                      <Building2 className="w-5 h-5" />
+                      {application.businessName}
+                    </CardTitle>
+                    <CardDescription className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <User className="w-3 h-3" />
+                        <span data-testid={`text-applicant-${application.id}`}>
+                          {application.user?.firstName} {application.user?.lastName}
+                        </span>
                       </div>
-                      {getStatusBadge(application.status)}
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3 h-3" />
+                        <span data-testid={`text-email-${application.id}`}>{application.user?.email}</span>
+                      </div>
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -263,6 +253,14 @@ export default function SuperAdmin() {
                             Reviewed by {application.reviewer.firstName} {application.reviewer.lastName}
                           </p>
                         )}
+                      </div>
+                    )}
+
+                    {application.status === "approved" && (
+                      <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-md">
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          <strong>Approved</strong>
+                        </p>
                       </div>
                     )}
 
