@@ -1572,7 +1572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/service-categories", isAdmin, injectAdminSpa, async (req: any, res) => {
+  app.post("/api/admin/service-categories", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       // Inject spaId from admin's spa (from middleware)
       const validatedData = insertServiceCategorySchema.parse({
@@ -1590,7 +1590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/service-categories/:id", isAdmin, async (req, res) => {
+  app.put("/api/admin/service-categories/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseNumericId(req.params.id);
       if (!id) {
@@ -1608,7 +1608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/service-categories/:id", isAdmin, async (req, res) => {
+  app.delete("/api/admin/service-categories/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseNumericId(req.params.id);
       if (!id) {
@@ -1636,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/services", isAdmin, injectAdminSpa, async (req: any, res) => {
+  app.post("/api/admin/services", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       // Inject spaId from admin's spa (from middleware)
       const validatedData = insertServiceSchema.parse({
@@ -1658,7 +1658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/services/:id", isAdmin, async (req, res) => {
+  app.put("/api/admin/services/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseNumericId(req.params.id);
       if (!id) {
@@ -1683,7 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/services/:id", isAdmin, async (req, res) => {
+  app.delete("/api/admin/services/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseNumericId(req.params.id);
       if (!id) {
@@ -1718,7 +1718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/staff", isAdmin, injectAdminSpa, async (req: any, res) => {
+  app.post("/api/admin/staff", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       // Inject spaId from admin's spa (from middleware)
       const validatedData = insertStaffSchema.parse({
@@ -1740,7 +1740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/staff/:id", isAdmin, async (req, res) => {
+  app.put("/api/admin/staff/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseNumericId(req.params.id);
       if (!id) {
@@ -1765,7 +1765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/staff/:id", isAdmin, async (req, res) => {
+  app.delete("/api/admin/staff/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseNumericId(req.params.id);
       if (!id) {
@@ -1801,7 +1801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/staff/:staffId/schedules", isAdmin, async (req, res) => {
+  app.post("/api/admin/staff/:staffId/schedules", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const staffId = parseInt(req.params.staffId);
       const validatedData = insertStaffScheduleSchema.parse({ ...req.body, staffId });
@@ -1813,7 +1813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/staff/:staffId/schedules/:id", isAdmin, async (req, res) => {
+  app.delete("/api/admin/staff/:staffId/schedules/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteStaffSchedule(id);
