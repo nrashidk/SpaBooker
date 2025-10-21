@@ -475,6 +475,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, password, spaName, licenseUrl } = req.body;
       
+      // Check if email already exists in any entity type
+      const emailCheck = await storage.checkEmailExists(email);
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        return res.status(409).json({ 
+          message: `This email is already registered as a ${entityName}. Please use a different email address.`
+        });
+      }
+      
       // Create pending admin user
       const adminUser = await storage.upsertUser({
         id: `admin-${Date.now()}`,
