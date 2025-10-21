@@ -5,6 +5,10 @@ import {
   spaSettings,
   serviceCategories,
   services,
+  memberships,
+  membershipServices,
+  customerMemberships,
+  membershipUsage,
   staff,
   staffSchedules,
   products,
@@ -43,6 +47,14 @@ import {
   type InsertServiceCategory,
   type Service,
   type InsertService,
+  type Membership,
+  type InsertMembership,
+  type MembershipService,
+  type InsertMembershipService,
+  type CustomerMembership,
+  type InsertCustomerMembership,
+  type MembershipUsage,
+  type InsertMembershipUsage,
   type Staff,
   type InsertStaff,
   type StaffSchedule,
@@ -132,6 +144,30 @@ export interface IStorage {
   createService(service: InsertService): Promise<Service>;
   updateService(id: number, service: Partial<InsertService>): Promise<Service | undefined>;
   deleteService(id: number): Promise<boolean>;
+
+  // Membership operations
+  getAllMemberships(): Promise<Membership[]>;
+  getMembershipById(id: number): Promise<Membership | undefined>;
+  createMembership(membership: InsertMembership): Promise<Membership>;
+  updateMembership(id: number, membership: Partial<InsertMembership>): Promise<Membership | undefined>;
+  deleteMembership(id: number): Promise<boolean>;
+  
+  // Membership Service operations (junction table)
+  getMembershipServices(membershipId: number): Promise<MembershipService[]>;
+  createMembershipService(membershipService: InsertMembershipService): Promise<MembershipService>;
+  deleteMembershipService(id: number): Promise<boolean>;
+  deleteMembershipServicesByMembershipId(membershipId: number): Promise<boolean>;
+  
+  // Customer Membership operations
+  getAllCustomerMemberships(): Promise<CustomerMembership[]>;
+  getCustomerMembershipById(id: number): Promise<CustomerMembership | undefined>;
+  getCustomerMembershipsByCustomerId(customerId: number): Promise<CustomerMembership[]>;
+  createCustomerMembership(customerMembership: InsertCustomerMembership): Promise<CustomerMembership>;
+  updateCustomerMembership(id: number, customerMembership: Partial<InsertCustomerMembership>): Promise<CustomerMembership | undefined>;
+  
+  // Membership Usage operations
+  getMembershipUsageByCustomerMembershipId(customerMembershipId: number): Promise<MembershipUsage[]>;
+  createMembershipUsage(usage: InsertMembershipUsage): Promise<MembershipUsage>;
 
   // Staff operations
   getAllStaff(): Promise<Staff[]>;
@@ -627,6 +663,108 @@ export class DatabaseStorage implements IStorage {
   async deleteService(id: number): Promise<boolean> {
     const result = await db.delete(services).where(eq(services.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Membership operations
+  async getAllMemberships(): Promise<Membership[]> {
+    return db.select().from(memberships).orderBy(memberships.name);
+  }
+
+  async getMembershipById(id: number): Promise<Membership | undefined> {
+    const [membership] = await db.select().from(memberships).where(eq(memberships.id, id));
+    return membership;
+  }
+
+  async createMembership(membership: InsertMembership): Promise<Membership> {
+    if (!membership.name || typeof membership.name !== "string") {
+      throw new Error("Membership name is required");
+    }
+    if (!membership.spaId) {
+      throw new Error("Spa ID is required");
+    }
+    if (!membership.price) {
+      throw new Error("Price is required");
+    }
+    
+    const [spa] = await db.select().from(spas).where(eq(spas.id, membership.spaId));
+    if (!spa) {
+      throw new Error("Spa does not exist");
+    }
+    
+    const [newMembership] = await db.insert(memberships).values(membership).returning();
+    return newMembership;
+  }
+
+  async updateMembership(id: number, membership: Partial<InsertMembership>): Promise<Membership | undefined> {
+    const [updated] = await db
+      .update(memberships)
+      .set(membership)
+      .where(eq(memberships.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMembership(id: number): Promise<boolean> {
+    const result = await db.delete(memberships).where(eq(memberships.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Membership Service operations
+  async getMembershipServices(membershipId: number): Promise<MembershipService[]> {
+    return db.select().from(membershipServices).where(eq(membershipServices.membershipId, membershipId));
+  }
+
+  async createMembershipService(membershipService: InsertMembershipService): Promise<MembershipService> {
+    const [newMembershipService] = await db.insert(membershipServices).values(membershipService).returning();
+    return newMembershipService;
+  }
+
+  async deleteMembershipService(id: number): Promise<boolean> {
+    const result = await db.delete(membershipServices).where(eq(membershipServices.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async deleteMembershipServicesByMembershipId(membershipId: number): Promise<boolean> {
+    const result = await db.delete(membershipServices).where(eq(membershipServices.membershipId, membershipId));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Customer Membership operations
+  async getAllCustomerMemberships(): Promise<CustomerMembership[]> {
+    return db.select().from(customerMemberships).orderBy(desc(customerMemberships.purchaseDate));
+  }
+
+  async getCustomerMembershipById(id: number): Promise<CustomerMembership | undefined> {
+    const [customerMembership] = await db.select().from(customerMemberships).where(eq(customerMemberships.id, id));
+    return customerMembership;
+  }
+
+  async getCustomerMembershipsByCustomerId(customerId: number): Promise<CustomerMembership[]> {
+    return db.select().from(customerMemberships).where(eq(customerMemberships.customerId, customerId)).orderBy(desc(customerMemberships.purchaseDate));
+  }
+
+  async createCustomerMembership(customerMembership: InsertCustomerMembership): Promise<CustomerMembership> {
+    const [newCustomerMembership] = await db.insert(customerMemberships).values(customerMembership).returning();
+    return newCustomerMembership;
+  }
+
+  async updateCustomerMembership(id: number, customerMembership: Partial<InsertCustomerMembership>): Promise<CustomerMembership | undefined> {
+    const [updated] = await db
+      .update(customerMemberships)
+      .set(customerMembership)
+      .where(eq(customerMemberships.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Membership Usage operations
+  async getMembershipUsageByCustomerMembershipId(customerMembershipId: number): Promise<MembershipUsage[]> {
+    return db.select().from(membershipUsage).where(eq(membershipUsage.customerMembershipId, customerMembershipId)).orderBy(desc(membershipUsage.usedAt));
+  }
+
+  async createMembershipUsage(usage: InsertMembershipUsage): Promise<MembershipUsage> {
+    const [newUsage] = await db.insert(membershipUsage).values(usage).returning();
+    return newUsage;
   }
 
   // Staff operations
