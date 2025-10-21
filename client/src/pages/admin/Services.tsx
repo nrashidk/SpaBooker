@@ -43,6 +43,7 @@ export default function AdminServices() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editingCategory, setEditingCategory] = useState<ServiceCategory | null>(null);
   const [serviceForm, setServiceForm] = useState({
     name: "",
     categoryId: null as number | null,
@@ -249,6 +250,7 @@ export default function AdminServices() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
       setNewCategoryName("");
       setShowAddCategory(false);
+      setEditingCategory(null);
       toast({
         title: "Category added",
         description: "The category has been added successfully.",
@@ -291,6 +293,51 @@ export default function AdminServices() {
       toast({
         title: "Error",
         description: error.message || "Failed to add category. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { name: string } }) => {
+      return apiRequest('PUT', `/api/admin/service-categories/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
+      setNewCategoryName("");
+      setShowAddCategory(false);
+      setEditingCategory(null);
+      toast({
+        title: "Category updated",
+        description: "The category has been updated successfully.",
+        duration: 3000,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update category. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/service-categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
+      toast({
+        title: "Category deleted",
+        description: "The category has been deleted successfully.",
+        duration: 3000,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete category. Please try again.",
         variant: "destructive",
       });
     },
@@ -344,7 +391,7 @@ export default function AdminServices() {
     }
   };
 
-  const handleAddCategory = () => {
+  const handleSaveCategory = () => {
     if (!newCategoryName.trim()) {
       toast({
         title: "Validation error",
@@ -354,9 +401,38 @@ export default function AdminServices() {
       return;
     }
 
-    createCategoryMutation.mutate({
-      name: newCategoryName.trim(),
-    });
+    if (editingCategory) {
+      updateCategoryMutation.mutate({
+        id: editingCategory.id,
+        data: { name: newCategoryName.trim() },
+      });
+    } else {
+      createCategoryMutation.mutate({
+        name: newCategoryName.trim(),
+      });
+    }
+  };
+
+  const handleEditCategory = (category: ServiceCategory) => {
+    setNewCategoryName(category.name);
+    setEditingCategory(category);
+    setShowAddCategory(true);
+  };
+
+  const handleDeleteCategory = (id: number) => {
+    const categoryServices = services.filter(s => s.categoryId === id);
+    if (categoryServices.length > 0) {
+      toast({
+        title: "Cannot delete category",
+        description: `This category has ${categoryServices.length} service(s). Please move or delete them first.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (confirm('Are you sure you want to delete this category?')) {
+      deleteCategoryMutation.mutate(id);
+    }
   };
 
   const menuSections = [
@@ -494,23 +570,65 @@ export default function AdminServices() {
         {/* Categories Sidebar */}
         <div className="w-64 flex-shrink-0 space-y-2">
           <h3 className="font-semibold mb-3">Categories</h3>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
-                selectedCategory === category.id ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
-              }`}
-              data-testid={`category-${category.id}`}
-            >
-              <span>{category.label}</span>
-              <span className="text-xs text-muted-foreground">{category.count}</span>
-            </button>
-          ))}
+          {categories.map((category) => {
+            const isRealCategory = category.id !== "all";
+            const realCategory = isRealCategory ? sortedServiceCategories.find(c => c.id === category.id) : null;
+            
+            return (
+              <div key={category.id} className="relative group">
+                <button
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
+                    selectedCategory === category.id ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
+                  }`}
+                  data-testid={`category-${category.id}`}
+                >
+                  <span className="flex-1 text-left">{category.label}</span>
+                  <span className="text-xs text-muted-foreground mr-2">{category.count}</span>
+                  {isRealCategory && realCategory && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                          data-testid={`button-category-menu-${category.id}`}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditCategory(realCategory);
+                        }} data-testid={`button-edit-category-${category.id}`}>
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategory(realCategory.id);
+                          }}
+                          className="text-destructive"
+                          data-testid={`button-delete-category-${category.id}`}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </button>
+              </div>
+            );
+          })}
           <Button 
             variant="ghost" 
             className="text-primary w-full justify-start px-3" 
-            onClick={() => setShowAddCategory(true)}
+            onClick={() => {
+              setEditingCategory(null);
+              setNewCategoryName("");
+              setShowAddCategory(true);
+            }}
             data-testid="button-add-category"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -950,19 +1068,22 @@ export default function AdminServices() {
       )}
       {showNewService && renderContent()}
 
-      {/* Add Category Dialog */}
+      {/* Add/Edit Category Dialog */}
       <Dialog 
         open={showAddCategory} 
         onOpenChange={(open) => {
           setShowAddCategory(open);
-          if (!open) setNewCategoryName("");
+          if (!open) {
+            setNewCategoryName("");
+            setEditingCategory(null);
+          }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Category</DialogTitle>
+            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add New Category'}</DialogTitle>
             <DialogDescription>
-              Create a new service category to organize your services
+              {editingCategory ? 'Update the category name' : 'Create a new service category to organize your services'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -983,17 +1104,18 @@ export default function AdminServices() {
               onClick={() => {
                 setShowAddCategory(false);
                 setNewCategoryName("");
+                setEditingCategory(null);
               }}
               data-testid="button-cancel-category"
             >
               Cancel
             </Button>
             <Button 
-              onClick={handleAddCategory}
-              disabled={createCategoryMutation.isPending}
+              onClick={handleSaveCategory}
+              disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
               data-testid="button-save-category"
             >
-              Add Category
+              {editingCategory ? 'Update Category' : 'Add Category'}
             </Button>
           </DialogFooter>
         </DialogContent>
