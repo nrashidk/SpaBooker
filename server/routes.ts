@@ -1372,8 +1372,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!spa) {
         // Create new spa for this admin
+        // Generate URL-friendly slug from business name
+        const slug = application.businessName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') + '-' + Date.now();
+        
         spa = await storage.createSpa({
           name: application.businessName,
+          slug,
           businessType: application.businessType,
           ownerUserId: application.userId,
           setupComplete: false,
