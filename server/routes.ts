@@ -1666,15 +1666,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (stepName === "staff") {
         // Create first staff member for the spa
-        if (stepData.staffFirstName && stepData.staffLastName && stepData.staffEmail) {
+        if (stepData.staffFirstName && stepData.staffEmail) {
+          const staffName = stepData.staffLastName 
+            ? `${stepData.staffFirstName} ${stepData.staffLastName}`.trim()
+            : stepData.staffFirstName;
+          
           await storage.createStaff({
             spaId,
-            firstName: stepData.staffFirstName,
-            lastName: stepData.staffLastName,
+            name: staffName,
             email: stepData.staffEmail,
             phone: stepData.staffPhone || null,
             role: 'therapist',
-            permissionLevel: 'basic',
           });
         }
       } else if (stepName === "activation") {

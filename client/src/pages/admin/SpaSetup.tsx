@@ -594,7 +594,7 @@ export default function SpaSetup() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="staff-last-name">Last Name *</Label>
+                        <Label htmlFor="staff-last-name">Last Name (optional)</Label>
                         <Input
                           id="staff-last-name"
                           value={formData.staffLastName || ""}
