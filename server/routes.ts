@@ -475,6 +475,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, password, spaName, licenseUrl } = req.body;
       
+      console.log("Admin registration attempt:", { name, email, spaName, hasLicenseUrl: !!licenseUrl });
+      
       // Normalize email
       const normalizedEmail = email.toLowerCase().trim();
       
@@ -488,11 +490,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           vendor: 'vendor'
         };
         const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        console.log("Email already exists:", { email: normalizedEmail, entityType: emailCheck.entityType });
         return res.status(409).json({ 
           message: `This email is already registered as a ${entityName}. Please use a different email address.`
         });
       }
       
+      console.log("Creating admin user...");
       // Create pending admin user
       const adminUser = await storage.upsertUser({
         id: `admin-${Date.now()}`,
@@ -503,6 +507,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending', // Set as pending until super admin approves
       });
       
+      console.log("Admin user created:", adminUser.id);
+      
+      console.log("Creating admin application...");
       // Create admin application
       await storage.createAdminApplication({
         userId: adminUser.id,
@@ -511,6 +518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         licenseUrl: licenseUrl || null, // Store business license document URL if provided
         status: 'pending',
       });
+      
+      console.log("Admin application created successfully");
       
       // Return success message without logging in
       // User must wait for super admin approval
@@ -521,7 +530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Admin register error:", error);
-      res.status(500).json({ message: "Registration failed" });
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({ message: "Registration failed", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
