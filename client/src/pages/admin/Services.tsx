@@ -27,8 +27,9 @@ import {
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Service, ServiceCategory } from "@shared/schema";
+import type { Service, ServiceCategory, Membership } from "@shared/schema";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type ServicesSection = "service-menu" | "memberships";
 
@@ -54,12 +55,33 @@ export default function AdminServices() {
     duration: "60",
   });
 
+  const [membershipForm, setMembershipForm] = useState({
+    name: "",
+    description: "",
+    sessionType: "limited" as "limited" | "unlimited",
+    sessionCount: "10",
+    paymentType: "one_time" as "one_time" | "recurring",
+    validityMonths: "12",
+    price: "",
+    color: "#10b981",
+    onlineSales: true,
+    onlineRedemption: true,
+    termsConditions: "",
+    selectedServiceIds: [] as number[],
+  });
+  const [showNewMembership, setShowNewMembership] = useState(false);
+  const [editingMembership, setEditingMembership] = useState<Membership | null>(null);
+
   const { data: services = [], isLoading } = useQuery<Service[]>({
     queryKey: ["/api/admin/services"],
   });
 
   const { data: serviceCategories = [] } = useQuery<ServiceCategory[]>({
     queryKey: ["/api/admin/service-categories"],
+  });
+
+  const { data: memberships = [] } = useQuery<Membership[]>({
+    queryKey: ["/api/admin/memberships"],
   });
 
   const createServiceMutation = useMutation({
@@ -343,6 +365,100 @@ export default function AdminServices() {
     },
   });
 
+  const createMembershipMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/admin/memberships', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/memberships'] });
+      setShowNewMembership(false);
+      setMembershipForm({
+        name: "",
+        description: "",
+        sessionType: "limited",
+        sessionCount: "10",
+        paymentType: "one_time",
+        validityMonths: "12",
+        price: "",
+        color: "#10b981",
+        onlineSales: true,
+        onlineRedemption: true,
+        termsConditions: "",
+        selectedServiceIds: [],
+      });
+      toast({
+        title: "Membership created",
+        description: "The membership has been created successfully.",
+        duration: 3000,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create membership. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMembershipMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest('PUT', `/api/admin/memberships/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/memberships'] });
+      setShowNewMembership(false);
+      setEditingMembership(null);
+      setMembershipForm({
+        name: "",
+        description: "",
+        sessionType: "limited",
+        sessionCount: "10",
+        paymentType: "one_time",
+        validityMonths: "12",
+        price: "",
+        color: "#10b981",
+        onlineSales: true,
+        onlineRedemption: true,
+        termsConditions: "",
+        selectedServiceIds: [],
+      });
+      toast({
+        title: "Membership updated",
+        description: "The membership has been updated successfully.",
+        duration: 3000,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update membership. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMembershipMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/memberships/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/memberships'] });
+      toast({
+        title: "Membership deleted",
+        description: "The membership has been deleted successfully.",
+        duration: 3000,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete membership. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSaveService = () => {
     if (!serviceForm.name || !serviceForm.categoryId || !serviceForm.price) {
       toast({
@@ -432,6 +548,97 @@ export default function AdminServices() {
     
     if (confirm('Are you sure you want to delete this category?')) {
       deleteCategoryMutation.mutate(id);
+    }
+  };
+
+  const handleSaveMembership = () => {
+    if (!membershipForm.name || !membershipForm.price) {
+      toast({
+        title: "Validation error",
+        description: "Please fill in all required fields (name, price).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const price = parseFloat(membershipForm.price);
+    const validityMonths = parseInt(membershipForm.validityMonths, 10);
+    const sessionCount = membershipForm.sessionType === "limited" ? parseInt(membershipForm.sessionCount, 10) : null;
+
+    if (isNaN(price) || price <= 0) {
+      toast({
+        title: "Validation error",
+        description: "Please enter a valid price greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isNaN(validityMonths) || validityMonths <= 0) {
+      toast({
+        title: "Validation error",
+        description: "Please enter a valid validity period in months.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (membershipForm.sessionType === "limited" && (sessionCount === null || isNaN(sessionCount) || sessionCount <= 0)) {
+      toast({
+        title: "Validation error",
+        description: "Please enter a valid number of sessions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const dataToSubmit = {
+      name: membershipForm.name,
+      description: membershipForm.description || null,
+      sessionType: membershipForm.sessionType,
+      sessionCount: sessionCount,
+      paymentType: membershipForm.paymentType,
+      validityMonths: validityMonths,
+      price: price,
+      color: membershipForm.color,
+      onlineSales: membershipForm.onlineSales,
+      onlineRedemption: membershipForm.onlineRedemption,
+      termsConditions: membershipForm.termsConditions || null,
+      serviceIds: membershipForm.selectedServiceIds,
+    };
+
+    if (editingMembership) {
+      updateMembershipMutation.mutate({
+        id: editingMembership.id,
+        data: dataToSubmit,
+      });
+    } else {
+      createMembershipMutation.mutate(dataToSubmit);
+    }
+  };
+
+  const handleEditMembership = (membership: Membership) => {
+    setMembershipForm({
+      name: membership.name,
+      description: membership.description || "",
+      sessionType: membership.sessionType as "limited" | "unlimited",
+      sessionCount: membership.sessionCount?.toString() || "10",
+      paymentType: membership.paymentType as "one_time" | "recurring",
+      validityMonths: membership.validityMonths?.toString() || "12",
+      price: membership.price.toString(),
+      color: membership.color || "#10b981",
+      onlineSales: membership.onlineSales ?? true,
+      onlineRedemption: membership.onlineRedemption ?? true,
+      termsConditions: membership.termsConditions || "",
+      selectedServiceIds: [],
+    });
+    setEditingMembership(membership);
+    setShowNewMembership(true);
+  };
+
+  const handleDeleteMembership = (id: number) => {
+    if (confirm('Are you sure you want to delete this membership?')) {
+      deleteMembershipMutation.mutate(id);
     }
   };
 
@@ -996,13 +1203,123 @@ export default function AdminServices() {
     </div>
   );
 
+  const renderMemberships = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Memberships</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create and manage membership packages for your customers
+          </p>
+        </div>
+        <Button onClick={() => {
+          setEditingMembership(null);
+          setShowNewMembership(true);
+        }} data-testid="button-add-membership">
+          <Plus className="h-4 w-4 mr-2" />
+          Add membership
+        </Button>
+      </div>
+
+      {memberships.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="font-semibold text-lg mb-2">No memberships yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create your first membership package to start offering recurring services
+            </p>
+            <Button onClick={() => setShowNewMembership(true)} data-testid="button-create-first-membership">
+              <Plus className="h-4 w-4 mr-2" />
+              Create membership
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {memberships.map((membership) => (
+            <Card key={membership.id} className="hover-elevate">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div 
+                      className="w-12 h-12 rounded-md flex items-center justify-center"
+                      style={{ backgroundColor: membership.color || "#10b981" }}
+                    >
+                      <CreditCard className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold">{membership.name}</h3>
+                        {membership.active && <Badge variant="secondary">Active</Badge>}
+                      </div>
+                      {membership.description && (
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {membership.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-muted-foreground">
+                          {membership.sessionType === "unlimited" ? "Unlimited" : `${membership.sessionCount} sessions`}
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-muted-foreground">
+                          {membership.paymentType === "one_time" ? "One-time payment" : "Recurring"}
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-muted-foreground">
+                          Valid for {membership.validityMonths} months
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="font-semibold">
+                          AED {Number(membership.price).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" data-testid={`button-membership-menu-${membership.id}`}>
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditMembership(membership)} data-testid={`button-edit-membership-${membership.id}`}>
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteMembership(membership.id)}
+                        className="text-destructive"
+                        data-testid={`button-delete-membership-${membership.id}`}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const renderContent = () => {
     if (showNewService) {
       return renderNewService();
     }
 
+    if (showNewMembership) {
+      return renderNewMembershipForm();
+    }
+
     if (selectedSection === "service-menu") {
       return renderServiceMenu();
+    }
+
+    if (selectedSection === "memberships") {
+      return renderMemberships();
     }
 
     return (
@@ -1012,6 +1329,233 @@ export default function AdminServices() {
       </div>
     );
   };
+
+  const renderNewMembershipForm = () => (
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="mb-6">
+        <Button 
+          variant="ghost" 
+          onClick={() => {
+            setShowNewMembership(false);
+            setEditingMembership(null);
+          }}
+          className="mb-4"
+          data-testid="button-back-from-membership"
+        >
+          ← Back to memberships
+        </Button>
+        <h2 className="text-2xl font-bold">
+          {editingMembership ? "Edit Membership" : "Create New Membership"}
+        </h2>
+      </div>
+
+      <Card>
+        <CardContent className="p-6 space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="membership-name">Membership Name*</Label>
+            <Input
+              id="membership-name"
+              value={membershipForm.name}
+              onChange={(e) => setMembershipForm({ ...membershipForm, name: e.target.value })}
+              placeholder="e.g., Gold Membership, Premium Package"
+              data-testid="input-membership-name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="membership-description">Description</Label>
+            <Textarea
+              id="membership-description"
+              value={membershipForm.description}
+              onChange={(e) => setMembershipForm({ ...membershipForm, description: e.target.value })}
+              placeholder="Describe what's included in this membership"
+              data-testid="input-membership-description"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="membership-session-type">Session Type*</Label>
+              <Select
+                value={membershipForm.sessionType}
+                onValueChange={(value) => setMembershipForm({ ...membershipForm, sessionType: value as "limited" | "unlimited" })}
+              >
+                <SelectTrigger id="membership-session-type" data-testid="select-session-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="limited">Limited Sessions</SelectItem>
+                  <SelectItem value="unlimited">Unlimited Sessions</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {membershipForm.sessionType === "limited" && (
+              <div className="space-y-2">
+                <Label htmlFor="membership-session-count">Number of Sessions*</Label>
+                <Input
+                  id="membership-session-count"
+                  type="number"
+                  min="1"
+                  value={membershipForm.sessionCount}
+                  onChange={(e) => setMembershipForm({ ...membershipForm, sessionCount: e.target.value })}
+                  data-testid="input-session-count"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="membership-payment-type">Payment Type*</Label>
+              <Select
+                value={membershipForm.paymentType}
+                onValueChange={(value) => setMembershipForm({ ...membershipForm, paymentType: value as "one_time" | "recurring" })}
+              >
+                <SelectTrigger id="membership-payment-type" data-testid="select-payment-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="one_time">One-Time Payment</SelectItem>
+                  <SelectItem value="recurring">Recurring</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="membership-validity">Validity (Months)*</Label>
+              <Input
+                id="membership-validity"
+                type="number"
+                min="1"
+                value={membershipForm.validityMonths}
+                onChange={(e) => setMembershipForm({ ...membershipForm, validityMonths: e.target.value })}
+                data-testid="input-validity-months"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="membership-price">Price (AED)*</Label>
+              <Input
+                id="membership-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={membershipForm.price}
+                onChange={(e) => setMembershipForm({ ...membershipForm, price: e.target.value })}
+                data-testid="input-membership-price"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="membership-color">Color</Label>
+              <Input
+                id="membership-color"
+                type="color"
+                value={membershipForm.color}
+                onChange={(e) => setMembershipForm({ ...membershipForm, color: e.target.value })}
+                data-testid="input-membership-color"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Included Services</Label>
+            <div className="border rounded-md p-4 max-h-60 overflow-y-auto space-y-2">
+              {services.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No services available</p>
+              ) : (
+                services.map((service) => (
+                  <div key={service.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`service-${service.id}`}
+                      checked={membershipForm.selectedServiceIds.includes(service.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setMembershipForm({
+                            ...membershipForm,
+                            selectedServiceIds: [...membershipForm.selectedServiceIds, service.id],
+                          });
+                        } else {
+                          setMembershipForm({
+                            ...membershipForm,
+                            selectedServiceIds: membershipForm.selectedServiceIds.filter((id) => id !== service.id),
+                          });
+                        }
+                      }}
+                      data-testid={`checkbox-service-${service.id}`}
+                    />
+                    <Label htmlFor={`service-${service.id}`} className="text-sm font-normal cursor-pointer">
+                      {service.name} - {service.duration}min - AED {Number(service.price).toFixed(2)}
+                    </Label>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="online-sales"
+                checked={membershipForm.onlineSales}
+                onCheckedChange={(checked) => setMembershipForm({ ...membershipForm, onlineSales: checked as boolean })}
+                data-testid="checkbox-online-sales"
+              />
+              <Label htmlFor="online-sales" className="text-sm font-normal cursor-pointer">
+                Enable online sales
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="online-redemption"
+                checked={membershipForm.onlineRedemption}
+                onCheckedChange={(checked) => setMembershipForm({ ...membershipForm, onlineRedemption: checked as boolean })}
+                data-testid="checkbox-online-redemption"
+              />
+              <Label htmlFor="online-redemption" className="text-sm font-normal cursor-pointer">
+                Enable online redemption
+              </Label>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="membership-terms">Terms & Conditions</Label>
+            <Textarea
+              id="membership-terms"
+              value={membershipForm.termsConditions}
+              onChange={(e) => setMembershipForm({ ...membershipForm, termsConditions: e.target.value })}
+              placeholder="Add any terms and conditions for this membership"
+              data-testid="input-membership-terms"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNewMembership(false);
+                setEditingMembership(null);
+              }}
+              data-testid="button-cancel-membership"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveMembership}
+              disabled={createMembershipMutation.isPending || updateMembershipMutation.isPending}
+              data-testid="button-save-membership"
+            >
+              {editingMembership ? "Update Membership" : "Create Membership"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   if (isLoading) {
     return <div className="p-8">Loading services...</div>;
