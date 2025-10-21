@@ -98,6 +98,9 @@ export interface IStorage {
   getAdminApplicationByUserId(userId: string): Promise<AdminApplication | undefined>;
   getAdminApplicationsByStatus(status: string): Promise<AdminApplication[]>;
   updateAdminApplication(id: number, application: Partial<InsertAdminApplication>): Promise<AdminApplication | undefined>;
+  
+  // Email validation across all entities
+  checkEmailExists(email: string, excludeId?: { type: 'user' | 'customer' | 'staff' | 'vendor'; id: string | number }): Promise<{ exists: boolean; entityType?: string; entityId?: string | number }>;
 
   // Spa operations
   getAllSpas(): Promise<Spa[]>;
@@ -132,6 +135,7 @@ export interface IStorage {
   // Staff operations
   getAllStaff(): Promise<Staff[]>;
   getStaffById(id: number): Promise<Staff | undefined>;
+  getStaffByEmail(email: string): Promise<Staff | undefined>;
   createStaff(staff: InsertStaff): Promise<Staff>;
   updateStaff(id: number, staff: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: number): Promise<boolean>;
@@ -175,6 +179,7 @@ export interface IStorage {
   // Vendor operations
   getAllVendors(): Promise<Vendor[]>;
   getVendorById(id: number): Promise<Vendor | undefined>;
+  getVendorByEmail(email: string): Promise<Vendor | undefined>;
   createVendor(vendor: InsertVendor): Promise<Vendor>;
   updateVendor(id: number, vendor: Partial<InsertVendor>): Promise<Vendor | undefined>;
   deleteVendor(id: number): Promise<boolean>;
@@ -375,6 +380,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(adminApplications.id, id))
       .returning();
     return updated;
+  }
+
+  // Email validation across all entities
+  async checkEmailExists(
+    email: string, 
+    excludeId?: { type: 'user' | 'customer' | 'staff' | 'vendor'; id: string | number }
+  ): Promise<{ exists: boolean; entityType?: string; entityId?: string | number }> {
+    // Normalize email to lowercase for comparison
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check users table (including admins via admin_applications)
+    const user = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+    if (user.length > 0 && !(excludeId?.type === 'user' && excludeId.id === user[0].id)) {
+      return { exists: true, entityType: 'user', entityId: user[0].id };
+    }
+    
+    // Check customers table
+    const customer = await db.select().from(customers).where(eq(customers.email, normalizedEmail)).limit(1);
+    if (customer.length > 0 && !(excludeId?.type === 'customer' && excludeId.id === customer[0].id)) {
+      return { exists: true, entityType: 'customer', entityId: customer[0].id };
+    }
+    
+    // Check staff table
+    const staffMember = await db.select().from(staff).where(eq(staff.email, normalizedEmail)).limit(1);
+    if (staffMember.length > 0 && !(excludeId?.type === 'staff' && excludeId.id === staffMember[0].id)) {
+      return { exists: true, entityType: 'staff', entityId: staffMember[0].id };
+    }
+    
+    // Check vendors table
+    const vendor = await db.select().from(vendors).where(eq(vendors.email, normalizedEmail)).limit(1);
+    if (vendor.length > 0 && !(excludeId?.type === 'vendor' && excludeId.id === vendor[0].id)) {
+      return { exists: true, entityType: 'vendor', entityId: vendor[0].id };
+    }
+    
+    return { exists: false };
   }
 
   // Spa operations
@@ -578,6 +618,11 @@ export class DatabaseStorage implements IStorage {
     return member;
   }
 
+  async getStaffByEmail(email: string): Promise<Staff | undefined> {
+    const [member] = await db.select().from(staff).where(eq(staff.email, email));
+    return member;
+  }
+
   async createStaff(staffData: InsertStaff): Promise<Staff> {
     // Validate required fields
     if (!staffData.name || typeof staffData.name !== "string") {
@@ -768,6 +813,11 @@ export class DatabaseStorage implements IStorage {
 
   async getVendorById(id: number): Promise<Vendor | undefined> {
     const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
+    return vendor;
+  }
+
+  async getVendorByEmail(email: string): Promise<Vendor | undefined> {
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.email, email));
     return vendor;
   }
 
