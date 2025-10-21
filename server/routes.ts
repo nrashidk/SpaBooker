@@ -470,59 +470,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin register route - creates pending application
-  app.post('/api/admin/register', async (req, res) => {
+  // Get current authenticated user info
+  app.get('/api/user', isAuthenticated, async (req, res) => {
     try {
-      const { name, email, password, spaName, licenseUrl } = req.body;
+      const user = req.user as any;
+      const userId = user.claims.sub;
+      const dbUser = await storage.getUser(userId);
       
-      console.log("Admin registration attempt:", { name, email, spaName, hasLicenseUrl: !!licenseUrl });
+      if (!dbUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
       
-      // Normalize email
-      const normalizedEmail = email.toLowerCase().trim();
+      res.json(dbUser);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to get user info");
+    }
+  });
+
+  // Get current user's admin application (if any)
+  app.get('/api/admin/my-application', isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.claims.sub;
       
-      // Check if email already exists in any entity type
-      const emailCheck = await storage.checkEmailExists(normalizedEmail);
-      if (emailCheck.exists) {
-        const entityTypeMap: Record<string, string> = {
-          user: 'user account',
-          customer: 'customer',
-          staff: 'staff member',
-          vendor: 'vendor'
-        };
-        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
-        console.log("Email already exists:", { email: normalizedEmail, entityType: emailCheck.entityType });
+      const application = await storage.getAdminApplicationByUserId(userId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "No application found" });
+      }
+      
+      res.json(application);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to get application");
+    }
+  });
+
+  // Admin register route - creates pending application (requires authentication)
+  app.post('/api/admin/register', isAuthenticated, async (req, res) => {
+    try {
+      const { spaName, licenseUrl } = req.body;
+      const user = req.user as any;
+      const userId = user.claims.sub;
+      
+      console.log("Admin application submission:", { userId, spaName, hasLicenseUrl: !!licenseUrl });
+      
+      // Get the authenticated user
+      const dbUser = await storage.getUser(userId);
+      if (!dbUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if user already has an application
+      const existingApp = await storage.getAdminApplicationByUserId(userId);
+      if (existingApp) {
         return res.status(409).json({ 
-          message: `This email is already registered as a ${entityName}. Please use a different email address.`
+          message: `You already have an application with status: ${existingApp.status}.`,
+          existingApplication: existingApp
         });
       }
       
-      console.log("Creating admin user...");
-      // Create pending admin user
-      const adminUser = await storage.upsertUser({
-        id: `admin-${Date.now()}`,
-        email: normalizedEmail,
-        firstName: name.split(' ')[0],
-        lastName: name.split(' ').slice(1).join(' ') || '',
-        role: 'admin',
-        status: 'pending', // Set as pending until super admin approves
-      });
-      
-      console.log("Admin user created:", adminUser.id);
-      
-      console.log("Creating admin application...");
-      // Create admin application
+      console.log("Creating admin application for authenticated user...");
+      // Create admin application linked to authenticated Replit user
       await storage.createAdminApplication({
-        userId: adminUser.id,
+        userId: userId, // Use the authenticated OAuth user ID
         businessName: spaName,
         businessType: 'spa', // Default to spa, can be extended later
-        licenseUrl: licenseUrl || null, // Store business license document URL if provided
+        licenseUrl: licenseUrl || null,
         status: 'pending',
       });
       
+      // Update user status to pending (they're now awaiting approval)
+      await storage.upsertUser({
+        id: userId,
+        status: 'pending',
+      } as any);
+      
       console.log("Admin application created successfully");
       
-      // Return success message without logging in
-      // User must wait for super admin approval
       res.json({ 
         success: true, 
         message: 'Application submitted successfully and is pending for review.',
@@ -531,7 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Admin register error:", error);
       console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
-      res.status(500).json({ message: "Registration failed", error: error instanceof Error ? error.message : "Unknown error" });
+      res.status(500).json({ message: "Application submission failed", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
