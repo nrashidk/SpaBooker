@@ -105,6 +105,7 @@ export interface IStorage {
   // Spa operations
   getAllSpas(): Promise<Spa[]>;
   getSpaById(id: number): Promise<Spa | undefined>;
+  getSpaByOwnerUserId(ownerUserId: string): Promise<Spa | undefined>;
   createSpa(spa: InsertSpa): Promise<Spa>;
   updateSpa(id: number, spa: Partial<InsertSpa>): Promise<Spa | undefined>;
   searchSpas(params: {
@@ -441,6 +442,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSpaById(id: number): Promise<Spa | undefined> {
     const [spa] = await db.select().from(spas).where(eq(spas.id, id));
+    return spa;
+  }
+
+  async getSpaByOwnerUserId(ownerUserId: string): Promise<Spa | undefined> {
+    const [spa] = await db.select().from(spas).where(eq(spas.ownerUserId, ownerUserId));
     return spa;
   }
 

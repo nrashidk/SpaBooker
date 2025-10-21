@@ -57,6 +57,8 @@ export const spas = pgTable("spas", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(), // URL-friendly identifier
+  ownerUserId: varchar("owner_user_id").references(() => users.id), // Admin user who owns this spa
+  businessType: text("business_type"), // spa, salon, barbershop, etc.
   description: text("description"),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),

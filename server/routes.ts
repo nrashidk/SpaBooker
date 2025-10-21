@@ -525,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // User must wait for super admin approval
       res.json({ 
         success: true, 
-        message: 'Application submitted successfully. Your account is pending approval by a super admin.',
+        message: 'Application submitted successfully and is pending for review.',
         pendingApproval: true
       });
     } catch (error) {
