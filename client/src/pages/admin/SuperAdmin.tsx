@@ -157,6 +157,8 @@ export default function SuperAdmin() {
   });
 
   const pendingCount = applicationsWithLicense.filter((app) => app.status === "pending").length;
+  const approvedCount = applicationsWithLicense.filter((app) => app.status === "approved").length;
+  const rejectedCount = applicationsWithLicense.filter((app) => app.status === "rejected").length;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -169,6 +171,12 @@ export default function SuperAdmin() {
         <TabsList data-testid="tabs-applications">
           <TabsTrigger value="pending" data-testid="tab-pending">
             Pending {pendingCount > 0 && `(${pendingCount})`}
+          </TabsTrigger>
+          <TabsTrigger value="approved" data-testid="tab-approved">
+            Approved {approvedCount > 0 && `(${approvedCount})`}
+          </TabsTrigger>
+          <TabsTrigger value="rejected" data-testid="tab-rejected">
+            Rejected {rejectedCount > 0 && `(${rejectedCount})`}
           </TabsTrigger>
           <TabsTrigger value="all" data-testid="tab-all">
             All ({applicationsWithLicense.length})
