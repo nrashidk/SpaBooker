@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, Clock, User, Building2, Mail, Calendar } from "lucide-react";
+import { Check, X, Clock, User, Building2, Mail, Calendar, FileText, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ type AdminApplication = {
   appliedAt: Date;
   reviewedAt: Date | null;
   rejectionReason: string | null;
+  licenseUrl: string | null;
   user: {
     id: string;
     email: string;
@@ -220,6 +221,22 @@ export default function SuperAdmin() {
                       <Calendar className="w-4 h-4" />
                       <span>Applied: {new Date(application.appliedAt).toLocaleDateString()}</span>
                     </div>
+
+                    {application.licenseUrl && (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={application.licenseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover-elevate active-elevate-2 px-3 py-2 rounded-md border"
+                          data-testid={`link-license-${application.id}`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>View License Document</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
 
                     {application.status === "rejected" && application.rejectionReason && (
                       <div className="p-3 bg-red-50 dark:bg-red-950/20 rounded-md">
