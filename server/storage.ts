@@ -638,11 +638,18 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Spa does not exist");
     }
     
-    // Validate email is unique if provided
+    // Check for duplicate email across all entities if provided
     if (staffData.email) {
-      const [existing] = await db.select().from(staff).where(eq(staff.email, staffData.email));
-      if (existing) {
-        throw new Error("Staff member with this email already exists");
+      const emailCheck = await this.checkEmailExists(staffData.email);
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        throw new Error(`This email is already registered as a ${entityName}. Please use a different email address.`);
       }
     }
     
@@ -651,6 +658,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStaff(id: number, staffData: Partial<InsertStaff>): Promise<Staff | undefined> {
+    // Check for duplicate email if provided and different from current
+    if (staffData.email) {
+      const emailCheck = await this.checkEmailExists(staffData.email, { type: 'staff', id });
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        throw new Error(`This email is already registered as a ${entityName}. Please use a different email address.`);
+      }
+    }
+    
     const [updated] = await db
       .update(staff)
       .set(staffData)
@@ -734,11 +756,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    // Check for duplicate email if provided
+    if (customer.email) {
+      const emailCheck = await this.checkEmailExists(customer.email);
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        throw new Error(`This email is already registered as a ${entityName}. Please use a different email address.`);
+      }
+    }
+    
     const [newCustomer] = await db.insert(customers).values(customer).returning();
     return newCustomer;
   }
 
   async updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    // Check for duplicate email if provided and different from current
+    if (customer.email) {
+      const emailCheck = await this.checkEmailExists(customer.email, { type: 'customer', id });
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        throw new Error(`This email is already registered as a ${entityName}. Please use a different email address.`);
+      }
+    }
+    
     const [updated] = await db
       .update(customers)
       .set(customer)
@@ -822,11 +874,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    // Check for duplicate email across all entities if provided
+    if (vendor.email) {
+      const emailCheck = await this.checkEmailExists(vendor.email);
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        throw new Error(`This email is already registered as a ${entityName}. Please use a different email address.`);
+      }
+    }
+    
     const [newVendor] = await db.insert(vendors).values(vendor).returning();
     return newVendor;
   }
 
   async updateVendor(id: number, vendor: Partial<InsertVendor>): Promise<Vendor | undefined> {
+    // Check for duplicate email if provided and different from current
+    if (vendor.email) {
+      const emailCheck = await this.checkEmailExists(vendor.email, { type: 'vendor', id });
+      if (emailCheck.exists) {
+        const entityTypeMap: Record<string, string> = {
+          user: 'user account',
+          customer: 'customer',
+          staff: 'staff member',
+          vendor: 'vendor'
+        };
+        const entityName = entityTypeMap[emailCheck.entityType || ''] || 'account';
+        throw new Error(`This email is already registered as a ${entityName}. Please use a different email address.`);
+      }
+    }
+    
     const [updated] = await db
       .update(vendors)
       .set(vendor)
