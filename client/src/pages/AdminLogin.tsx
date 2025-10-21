@@ -76,6 +76,20 @@ export default function AdminLogin() {
         throw new Error(data.message || "Login failed");
       }
 
+      // Check setup status to redirect appropriately
+      const setupStatusResponse = await fetch("/api/admin/setup/status", {
+        credentials: "include"
+      });
+      
+      if (setupStatusResponse.ok) {
+        const setupStatus = await setupStatusResponse.json();
+        if (!setupStatus.setupComplete) {
+          toast({ title: "Login successful! Complete setup to continue." });
+          setLocation('/admin/setup');
+          return;
+        }
+      }
+
       toast({ title: "Login successful!" });
       setLocation('/admin');
     } catch (error: any) {

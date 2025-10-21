@@ -1542,6 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           spaId: null,
           setupComplete: false,
+          userEmail: user.email, // Include user email for pre-filling contact email
           steps: {
             basicInfo: false,
             location: false,
@@ -1574,6 +1575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         spaId: spa.id,
         setupComplete: spa.setupComplete,
+        userEmail: user.email, // Include user email for pre-filling contact email
         steps,
         spa,
       });

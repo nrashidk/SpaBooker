@@ -31,6 +31,7 @@ const steps: SetupStep[] = [
 type SetupStatus = {
   spaId: number | null;
   setupComplete: boolean;
+  userEmail?: string; // User's registration email
   steps: {
     basicInfo: boolean;
     location: boolean;
@@ -56,6 +57,12 @@ export default function SpaSetup() {
   useEffect(() => {
     if (setupStatus?.spa) {
       setFormData(setupStatus.spa);
+    } else if (setupStatus?.userEmail) {
+      // Pre-populate contact email with user's email from registration
+      setFormData((prev: any) => ({
+        ...prev,
+        contactEmail: setupStatus.userEmail
+      }));
     }
   }, [setupStatus]);
 
@@ -290,10 +297,15 @@ export default function SpaSetup() {
                         id="contactEmail"
                         type="email"
                         value={formData.contactEmail || ""}
-                        onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                        readOnly
+                        disabled
+                        className="bg-muted cursor-not-allowed"
                         placeholder="contact@spa.com"
                         data-testid="input-contact-email"
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This is your registration email and cannot be changed
+                      </p>
                     </div>
                     <div>
                       <Label htmlFor="contactPhone">Contact Phone</Label>
