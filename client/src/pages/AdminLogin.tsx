@@ -229,7 +229,7 @@ export default function AdminLogin() {
                         Registration Complete!
                       </h3>
                       <p className="text-muted-foreground max-w-md">
-                        Your application has been submitted and is pending approval from a super admin. 
+                        Your application has been submitted and is pending for review. 
                         You will be notified once your account is reviewed.
                       </p>
                     </div>
