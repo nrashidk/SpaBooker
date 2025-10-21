@@ -415,55 +415,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin login route (password-based for testing)
-  // WARNING: This is for TESTING ONLY - accepts admin@test.com with any password!
+  // Admin login route (email/password authentication)
   app.post('/api/admin/login', async (req, res) => {
     try {
       const { email, password } = req.body;
       
       console.log('Admin login attempt:', { email, hasPassword: !!password });
       
-      // For testing: only accept admin@test.com with any password
-      if (email === 'admin@test.com' && password) {
-        // First, check if user exists by email
-        const existingUsers = await storage.getUserByEmail('admin@test.com');
-        let adminUser;
-        
-        if (existingUsers) {
-          // User exists, just use it (and ensure it has admin role)
-          adminUser = existingUsers;
-          console.log('Using existing admin user:', adminUser);
-        } else {
-          // Create new test admin user
-          adminUser = await storage.upsertUser({
-            id: 'test-admin-id',
-            email: 'admin@test.com',
-            firstName: 'Test',
-            lastName: 'Admin',
-            role: 'admin',
-          });
-          console.log('Admin user created:', adminUser);
-        }
-        
-        // Set up session with required OIDC-like properties
-        const sessionUser = {
-          claims: { sub: adminUser.id },
-          expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
-          refresh_token: 'test-refresh-token', // Dummy refresh token
-        };
-        
-        req.login(sessionUser, (err) => {
-          if (err) {
-            console.error('req.login error:', err);
-            return res.status(500).json({ message: "Login failed" });
-          }
-          console.log('Login successful, session created');
-          return res.json({ success: true, user: adminUser });
-        });
-      } else {
-        console.log('Invalid credentials:', { email, hasPassword: !!password });
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      
+      // Look up user by email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        console.log('User not found:', email);
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      
+      // Check if user is admin or super_admin
+      if (user.role !== 'admin' && user.role !== 'super_admin') {
+        console.log('User is not admin:', { email, role: user.role });
+        return res.status(403).json({ message: "Access denied. Admin access required." });
+      }
+      
+      // Check if user is approved
+      if (user.status !== 'approved') {
+        console.log('User not approved:', { email, status: user.status });
+        return res.status(403).json({ message: "Your account is pending approval" });
+      }
+      
+      // Verify password
+      if (!user.password) {
+        console.log('User has no password set:', email);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      
+      if (!passwordMatch) {
+        console.log('Password mismatch for user:', email);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Set up session with required OIDC-like properties
+      const sessionUser = {
+        claims: { sub: user.id },
+        expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
+        refresh_token: 'email-password-login', // Dummy refresh token
+      };
+      
+      req.login(sessionUser, (err) => {
+        if (err) {
+          console.error('req.login error:', err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        console.log('Login successful, session created for:', email);
+        return res.json({ success: true, user });
+      });
     } catch (error) {
       console.error("Admin login error:", error);
       res.status(500).json({ message: "Login failed" });
