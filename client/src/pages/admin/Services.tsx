@@ -61,10 +61,6 @@ export default function AdminServices() {
     queryKey: ["/api/admin/service-categories"],
   });
 
-  const { data: user } = useQuery<{ spaId?: number }>({
-    queryKey: ['/api/user'],
-  });
-
   const createServiceMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest('POST', '/api/admin/services', data);
@@ -87,10 +83,42 @@ export default function AdminServices() {
         duration: 3000,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create service. Please try again.",
+        description: error.message || "Failed to create service. Please try again.",
         variant: "destructive",
       });
     },
@@ -119,10 +147,42 @@ export default function AdminServices() {
         duration: 3000,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to update service. Please try again.",
+        description: error.message || "Failed to update service. Please try again.",
         variant: "destructive",
       });
     },
@@ -140,10 +200,42 @@ export default function AdminServices() {
         duration: 3000,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to delete service. Please try again.",
+        description: error.message || "Failed to delete service. Please try again.",
         variant: "destructive",
       });
     },
@@ -151,10 +243,7 @@ export default function AdminServices() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
-      return apiRequest('POST', '/api/admin/service-categories', {
-        spaId: user?.spaId || 1,
-        ...data,
-      });
+      return apiRequest('POST', '/api/admin/service-categories', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
@@ -166,10 +255,42 @@ export default function AdminServices() {
         duration: 3000,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to add category. Please try again.",
+        description: error.message || "Failed to add category. Please try again.",
         variant: "destructive",
       });
     },
@@ -186,12 +307,11 @@ export default function AdminServices() {
     }
 
     const dataToSubmit = {
-      spaId: user?.spaId || 1,
       name: serviceForm.name,
       categoryId: serviceForm.categoryId,
       description: serviceForm.description || null,
-      price: serviceForm.price,
-      duration: parseInt(serviceForm.duration),
+      price: Number(serviceForm.price),
+      duration: parseInt(serviceForm.duration, 10),
     };
 
     if (editingService) {

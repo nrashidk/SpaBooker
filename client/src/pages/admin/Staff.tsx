@@ -38,10 +38,6 @@ export default function AdminStaff() {
     queryKey: ["/api/admin/staff"],
   });
 
-  const { data: user } = useQuery<{ spaId?: number }>({
-    queryKey: ['/api/user'],
-  });
-
   const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffFormSchema),
     defaultValues: {
@@ -56,10 +52,7 @@ export default function AdminStaff() {
 
   const createStaffMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('POST', '/api/admin/staff', {
-        spaId: user?.spaId || 1,
-        ...data,
-      });
+      return apiRequest('POST', '/api/admin/staff', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/staff'] });
@@ -72,6 +65,38 @@ export default function AdminStaff() {
       });
     },
     onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
         description: error.message || "Failed to add staff member",
@@ -82,10 +107,7 @@ export default function AdminStaff() {
 
   const updateStaffMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: any }) => {
-      return apiRequest('PUT', `/api/admin/staff/${id}`, {
-        spaId: user?.spaId || 1,
-        ...data,
-      });
+      return apiRequest('PUT', `/api/admin/staff/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/staff'] });
@@ -98,6 +120,38 @@ export default function AdminStaff() {
       });
     },
     onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
         description: error.message || "Failed to update staff member",
@@ -118,6 +172,38 @@ export default function AdminStaff() {
       });
     },
     onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const data = error?.data ?? error?.response?.data;
+      
+      if (status === 412 && data?.setupRequired) {
+        toast({
+          title: "Setup Required",
+          description: "Please complete the setup wizard first.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/setup";
+        return;
+      }
+      
+      if (status === 401) {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      if (status === 403) {
+        toast({
+          title: "Forbidden",
+          description: "You don't have permission to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Error",
         description: error.message || "Failed to delete staff member",
