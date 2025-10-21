@@ -23,6 +23,7 @@ import { googleCalendarService } from "./googleCalendarService";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 
 // Helper: Get DST-aware timezone offset for RFC3339 format
 function getTimezoneOffset(date: Date, timeZone: string): string {
