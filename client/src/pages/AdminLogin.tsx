@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Upload, FileText, CheckCircle2 } from "lucide-react";
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
@@ -22,6 +22,9 @@ export default function AdminLogin() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [spaName, setSpaName] = useState("");
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +80,34 @@ export default function AdminLogin() {
       return;
     }
 
+    if (!licenseFile) {
+      toast({ 
+        title: "License document required", 
+        description: "Please upload a copy of your business license",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      setIsUploading(true);
+      
+      // First, upload the license document
+      const formData = new FormData();
+      formData.append("file", licenseFile);
+      
+      const uploadResponse = await fetch("/api/upload/license", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload license document");
+      }
+
+      const { fileUrl } = await uploadResponse.json();
+
+      // Then, register with the license URL
       const response = await fetch("/api/admin/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,18 +115,13 @@ export default function AdminLogin() {
           name: registerName,
           email: registerEmail, 
           password: registerPassword,
-          spaName 
+          spaName,
+          licenseUrl: fileUrl
         }),
       });
 
       if (response.ok) {
-        toast({ 
-          title: "Registration successful!", 
-          description: "Your account has been created. Please log in."
-        });
-        // Switch to login tab
-        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-        loginTab?.click();
+        setRegistrationSuccess(true);
       } else {
         const error = await response.json();
         toast({ 
@@ -108,9 +133,11 @@ export default function AdminLogin() {
     } catch (error) {
       toast({ 
         title: "Error", 
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -192,84 +219,148 @@ export default function AdminLogin() {
 
               {/* Register Tab */}
               <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="register-name">Your Name</Label>
-                    <Input
-                      id="register-name"
-                      type="text"
-                      placeholder="John Doe"
-                      value={registerName}
-                      onChange={(e) => setRegisterName(e.target.value)}
-                      required
-                      data-testid="input-register-name"
-                    />
+                {registrationSuccess ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center space-y-4" data-testid="registration-success-message">
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                      <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-semibold text-green-700 dark:text-green-400">
+                        Registration Complete!
+                      </h3>
+                      <p className="text-muted-foreground max-w-md">
+                        Your application has been submitted and is pending approval from a super admin. 
+                        You will be notified once your account is reviewed.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setRegistrationSuccess(false);
+                        setRegisterName("");
+                        setRegisterEmail("");
+                        setRegisterPassword("");
+                        setRegisterConfirmPassword("");
+                        setSpaName("");
+                        setLicenseFile(null);
+                      }}
+                      data-testid="button-register-another"
+                    >
+                      Register Another Account
+                    </Button>
                   </div>
+                ) : (
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="register-name">Your Name</Label>
+                      <Input
+                        id="register-name"
+                        type="text"
+                        placeholder="John Doe"
+                        value={registerName}
+                        onChange={(e) => setRegisterName(e.target.value)}
+                        required
+                        data-testid="input-register-name"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="spa-name">Spa/Business Name</Label>
-                    <Input
-                      id="spa-name"
-                      type="text"
-                      placeholder="Wellness Paradise"
-                      value={spaName}
-                      onChange={(e) => setSpaName(e.target.value)}
-                      required
-                      data-testid="input-spa-name"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email">Email</Label>
-                    <Input
-                      id="register-email"
-                      type="email"
-                      placeholder="admin@example.com"
-                      value={registerEmail}
-                      onChange={(e) => setRegisterEmail(e.target.value)}
-                      required
-                      data-testid="input-register-email"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
-                    <Input
-                      id="register-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={registerPassword}
-                      onChange={(e) => setRegisterPassword(e.target.value)}
-                      required
-                      data-testid="input-register-password"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="spa-name">Spa/Business Name</Label>
+                      <Input
+                        id="spa-name"
+                        type="text"
+                        placeholder="Wellness Paradise"
+                        value={spaName}
+                        onChange={(e) => setSpaName(e.target.value)}
+                        required
+                        data-testid="input-spa-name"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email">Email</Label>
+                      <Input
+                        id="register-email"
+                        type="email"
+                        placeholder="admin@example.com"
+                        value={registerEmail}
+                        onChange={(e) => setRegisterEmail(e.target.value)}
+                        required
+                        data-testid="input-register-email"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-password">Password</Label>
+                      <Input
+                        id="register-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={registerPassword}
+                        onChange={(e) => setRegisterPassword(e.target.value)}
+                        required
+                        data-testid="input-register-password"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={registerConfirmPassword}
-                      onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                      required
-                      data-testid="input-confirm-password"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm Password</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={registerConfirmPassword}
+                        onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                        required
+                        data-testid="input-confirm-password"
+                      />
+                    </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    data-testid="button-register-submit"
-                  >
-                    Create Account
-                  </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="license-file">Business License Document *</Label>
+                      <div className="relative">
+                        <Input
+                          id="license-file"
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                          required
+                          className="cursor-pointer"
+                          data-testid="input-license-file"
+                        />
+                        {licenseFile && (
+                          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                            <FileText className="w-4 h-4" />
+                            <span data-testid="text-selected-file">{licenseFile.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Upload a copy of your business license (PDF, JPG, or PNG)
+                      </p>
+                    </div>
 
-                  <p className="text-xs text-center text-muted-foreground">
-                    By creating an account, you agree to our Terms of Service
-                  </p>
-                </form>
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={isUploading}
+                      data-testid="button-register-submit"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Upload className="w-4 h-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        "Create Account"
+                      )}
+                    </Button>
+
+                    <p className="text-xs text-center text-muted-foreground">
+                      By creating an account, you agree to our Terms of Service
+                    </p>
+                  </form>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>
