@@ -1706,11 +1706,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const steps = (spa.setupSteps as any) || {};
-      // Require all essential steps: basicInfo, location, hours, services, staff, activation
-      const allStepsComplete = steps.basicInfo && steps.location && steps.hours && steps.services && steps.staff && steps.activation;
+      // Require all essential steps except activation (which is being completed now)
+      const allStepsComplete = steps.basicInfo && steps.location && steps.hours && steps.services && steps.staff;
 
       if (!allStepsComplete) {
-        const requiredSteps = ['basicInfo', 'location', 'hours', 'services', 'staff', 'activation'];
+        const requiredSteps = ['basicInfo', 'location', 'hours', 'services', 'staff'];
         const missingRequiredSteps = requiredSteps.filter(step => !steps[step]);
         
         return res.status(400).json({ 
@@ -1722,6 +1722,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await storage.updateSpa(user.adminSpaId, {
         setupComplete: true,
         active: true, // Activate spa after setup
+        setupSteps: {
+          ...(spa.setupSteps as any),
+          activation: true, // Mark activation step as complete
+        },
       });
 
       res.json({ message: "Spa setup completed successfully", spa: updated });
