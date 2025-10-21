@@ -1419,6 +1419,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         spaId: spa.id 
       });
     } catch (error) {
+      console.error('Detailed approval error:', {
+        error,
+        errorCode: (error as any).code,
+        errorMessage: (error as any).message,
+        errorDetail: (error as any).detail,
+        errorColumn: (error as any).column,
+        applicationId: id,
+      });
       handleRouteError(res, error, "Failed to approve admin application");
     }
   });
