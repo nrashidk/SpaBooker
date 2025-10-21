@@ -1653,11 +1653,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessHours: stepData.businessHours,
         };
       } else if (stepName === "services") {
-        // Services step is optional, just marks the step as complete
-        // Services are managed from the admin dashboard
+        // Create first service for the spa
+        if (stepData.serviceName && stepData.serviceDuration && stepData.servicePrice) {
+          await storage.createService({
+            spaId,
+            name: stepData.serviceName,
+            description: stepData.serviceDescription || null,
+            duration: parseInt(stepData.serviceDuration),
+            price: stepData.servicePrice,
+            categoryId: null, // Will be set later from dashboard
+          });
+        }
       } else if (stepName === "staff") {
-        // Staff step is optional, just marks the step as complete
-        // Staff are managed from the admin dashboard
+        // Create first staff member for the spa
+        if (stepData.staffFirstName && stepData.staffLastName && stepData.staffEmail) {
+          await storage.createStaff({
+            spaId,
+            firstName: stepData.staffFirstName,
+            lastName: stepData.staffLastName,
+            email: stepData.staffEmail,
+            phone: stepData.staffPhone || null,
+            role: 'therapist',
+            permissionLevel: 'basic',
+          });
+        }
       } else if (stepName === "activation") {
         // Activation step just marks the step as complete
         // No additional data to update
@@ -1685,12 +1704,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const steps = (spa.setupSteps as any) || {};
-      // Only require essential steps: basicInfo, location, hours, activation
-      // Services and staff are optional
-      const allStepsComplete = steps.basicInfo && steps.location && steps.hours && steps.activation;
+      // Require all essential steps: basicInfo, location, hours, services, staff, activation
+      const allStepsComplete = steps.basicInfo && steps.location && steps.hours && steps.services && steps.staff && steps.activation;
 
       if (!allStepsComplete) {
-        const requiredSteps = ['basicInfo', 'location', 'hours', 'activation'];
+        const requiredSteps = ['basicInfo', 'location', 'hours', 'services', 'staff', 'activation'];
         const missingRequiredSteps = requiredSteps.filter(step => !steps[step]);
         
         return res.status(400).json({ 

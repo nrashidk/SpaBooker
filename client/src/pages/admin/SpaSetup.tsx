@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Circle, ArrowRight, ArrowLeft, Building2, MapPin, Clock, CreditCard, Check, Sparkles, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -23,8 +24,8 @@ const steps: SetupStep[] = [
   { id: "basicInfo", title: "Basic Information", icon: Building2, description: "Spa name and contact details" },
   { id: "location", title: "Location", icon: MapPin, description: "Address and geographic details" },
   { id: "hours", title: "Business Hours", icon: Clock, description: "Operating hours and schedule" },
-  { id: "services", title: "Services", icon: Sparkles, description: "Service offerings (optional)", optional: true },
-  { id: "staff", title: "Staff", icon: Users, description: "Team members (optional)", optional: true },
+  { id: "services", title: "Services", icon: Sparkles, description: "Add at least one service" },
+  { id: "staff", title: "Staff", icon: Users, description: "Add at least one staff member" },
   { id: "activation", title: "Activation", icon: CreditCard, description: "Ready to go live!" },
 ];
 
@@ -161,11 +162,19 @@ export default function SpaSetup() {
           businessHours: formData.businessHours || {},
         };
       case "services":
-        // Services step is optional, can be skipped
-        return {};
+        return {
+          serviceName: formData.serviceName,
+          serviceDuration: formData.serviceDuration,
+          servicePrice: formData.servicePrice,
+          serviceDescription: formData.serviceDescription,
+        };
       case "staff":
-        // Staff step is optional, can be skipped
-        return {};
+        return {
+          staffFirstName: formData.staffFirstName,
+          staffLastName: formData.staffLastName,
+          staffEmail: formData.staffEmail,
+          staffPhone: formData.staffPhone,
+        };
       case "activation":
         return {
           active: true,
@@ -418,7 +427,8 @@ export default function SpaSetup() {
                 <div className="space-y-4">
                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => {
                     const dayKey = day.toLowerCase();
-                    const hours = formData.businessHours?.[dayKey] || { open: "09:00", close: "20:00" };
+                    const hours = formData.businessHours?.[dayKey] || { open: "09:00", close: "20:00", isOpen: true };
+                    const isOpen = hours.isOpen !== false; // Default to open if not specified
                     
                     return (
                       <div key={day} className="flex items-center gap-4">
@@ -437,6 +447,7 @@ export default function SpaSetup() {
                               } 
                             })}
                             className="flex-1"
+                            disabled={!isOpen}
                             data-testid={`input-${dayKey}-open`}
                           />
                           <span className="flex items-center px-2">to</span>
@@ -451,8 +462,25 @@ export default function SpaSetup() {
                               } 
                             })}
                             className="flex-1"
+                            disabled={!isOpen}
                             data-testid={`input-${dayKey}-close`}
                           />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isOpen}
+                            onCheckedChange={(checked) => setFormData({ 
+                              ...formData, 
+                              businessHours: { 
+                                ...(formData.businessHours || {}), 
+                                [dayKey]: { ...hours, isOpen: checked } 
+                              } 
+                            })}
+                            data-testid={`switch-${dayKey}-open`}
+                          />
+                          <Label className="text-sm text-muted-foreground">
+                            {isOpen ? 'Open' : 'Closed'}
+                          </Label>
                         </div>
                       </div>
                     );
@@ -460,7 +488,7 @@ export default function SpaSetup() {
                   <div className="bg-muted/50 p-4 rounded-lg mt-4">
                     <p className="text-sm text-muted-foreground">
                       <Clock className="h-4 w-4 inline mr-1" />
-                      Set your operating hours for each day of the week. You can adjust these later in Settings.
+                      Set your operating hours for each day. Use the toggle to mark days as closed.
                     </p>
                   </div>
                 </div>
@@ -473,24 +501,68 @@ export default function SpaSetup() {
                     <div className="flex items-start gap-3">
                       <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                       <div>
-                        <p className="font-medium text-blue-900 dark:text-blue-100">Optional Step</p>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">Add Your First Service</p>
                         <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                          You can skip this step and add services later from the admin dashboard. Services are essential for accepting bookings, but you can configure them at any time.
+                          Add at least one service to enable bookings. You can add more services later from the admin dashboard.
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="text-center py-8">
-                    <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-xl font-semibold mb-2">Add Your Services</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto mb-4">
-                      Services can be added and managed from the Services section in your admin dashboard after activation.
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Click "Next" to skip this step for now, or complete setup and add services from the dashboard.
-                    </p>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="service-name">Service Name *</Label>
+                      <Input
+                        id="service-name"
+                        value={formData.serviceName || ""}
+                        onChange={(e) => setFormData({ ...formData, serviceName: e.target.value })}
+                        placeholder="e.g., Full Body Massage"
+                        data-testid="input-service-name"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="service-duration">Duration (minutes) *</Label>
+                        <Input
+                          id="service-duration"
+                          type="number"
+                          min="1"
+                          value={formData.serviceDuration || ""}
+                          onChange={(e) => setFormData({ ...formData, serviceDuration: e.target.value })}
+                          placeholder="60"
+                          data-testid="input-service-duration"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="service-price">Price (AED) *</Label>
+                        <Input
+                          id="service-price"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.servicePrice || ""}
+                          onChange={(e) => setFormData({ ...formData, servicePrice: e.target.value })}
+                          placeholder="200.00"
+                          data-testid="input-service-price"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="service-description">Description (optional)</Label>
+                      <Textarea
+                        id="service-description"
+                        value={formData.serviceDescription || ""}
+                        onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
+                        placeholder="Brief description of the service..."
+                        rows={3}
+                        data-testid="input-service-description"
+                      />
+                    </div>
                   </div>
+                  
+                  <p className="text-sm text-muted-foreground text-center">
+                    More services can be added from the Services section in your admin dashboard.
+                  </p>
                 </div>
               )}
 
@@ -501,24 +573,66 @@ export default function SpaSetup() {
                     <div className="flex items-start gap-3">
                       <Users className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                       <div>
-                        <p className="font-medium text-blue-900 dark:text-blue-100">Optional Step</p>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">Add Your First Staff Member</p>
                         <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                          You can skip this step and add staff members later from the admin dashboard. Staff are essential for managing bookings, but you can configure them at any time.
+                          Add at least one staff member to handle bookings. You can add more team members later from the admin dashboard.
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="text-center py-8">
-                    <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-xl font-semibold mb-2">Add Your Team</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto mb-4">
-                      Staff members can be added and managed from the Staff section in your admin dashboard after activation.
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Click "Next" to skip this step for now, or complete setup and add staff from the dashboard.
-                    </p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="staff-first-name">First Name *</Label>
+                        <Input
+                          id="staff-first-name"
+                          value={formData.staffFirstName || ""}
+                          onChange={(e) => setFormData({ ...formData, staffFirstName: e.target.value })}
+                          placeholder="John"
+                          data-testid="input-staff-first-name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="staff-last-name">Last Name *</Label>
+                        <Input
+                          id="staff-last-name"
+                          value={formData.staffLastName || ""}
+                          onChange={(e) => setFormData({ ...formData, staffLastName: e.target.value })}
+                          placeholder="Smith"
+                          data-testid="input-staff-last-name"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="staff-email">Email *</Label>
+                        <Input
+                          id="staff-email"
+                          type="email"
+                          value={formData.staffEmail || ""}
+                          onChange={(e) => setFormData({ ...formData, staffEmail: e.target.value })}
+                          placeholder="john.smith@example.com"
+                          data-testid="input-staff-email"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="staff-phone">Phone (optional)</Label>
+                        <Input
+                          id="staff-phone"
+                          type="tel"
+                          value={formData.staffPhone || ""}
+                          onChange={(e) => setFormData({ ...formData, staffPhone: e.target.value })}
+                          placeholder="+971 50 123 4567"
+                          data-testid="input-staff-phone"
+                        />
+                      </div>
+                    </div>
                   </div>
+                  
+                  <p className="text-sm text-muted-foreground text-center">
+                    More staff members can be added from the Staff section in your admin dashboard.
+                  </p>
                 </div>
               )}
 
@@ -556,29 +670,23 @@ export default function SpaSetup() {
                         <p className="text-sm text-muted-foreground">Operating schedule configured</p>
                       </div>
                     </div>
-                    {setupStatus?.steps?.services && (
-                      <div className="flex items-start gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                        <div className="text-left">
-                          <p className="font-medium">Services configured</p>
-                          <p className="text-sm text-muted-foreground">Service offerings ready</p>
-                        </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      <div className="text-left">
+                        <p className="font-medium">Service added</p>
+                        <p className="text-sm text-muted-foreground">Ready to accept bookings</p>
                       </div>
-                    )}
-                    {setupStatus?.steps?.staff && (
-                      <div className="flex items-start gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                        <div className="text-left">
-                          <p className="font-medium">Staff added</p>
-                          <p className="text-sm text-muted-foreground">Team members ready</p>
-                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      <div className="text-left">
+                        <p className="font-medium">Staff member added</p>
+                        <p className="text-sm text-muted-foreground">Team ready to serve</p>
                       </div>
-                    )}
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {!setupStatus?.steps?.services || !setupStatus?.steps?.staff 
-                      ? "You can add services, staff, and other details from the admin dashboard after activation."
-                      : "Everything is configured! Ready to start accepting bookings."}
+                    Everything is configured! You can add more services and staff from the admin dashboard.
                   </p>
                 </div>
               )}
