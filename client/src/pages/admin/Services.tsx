@@ -30,7 +30,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Service, ServiceCategory } from "@shared/schema";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type ServicesSection = "catalog" | "service-menu" | "memberships" | "products" | "stock-takes" | "stock-orders" | "suppliers";
+type ServicesSection = "service-menu" | "memberships";
 
 export default function AdminServices() {
   const { toast } = useToast();
@@ -437,20 +437,10 @@ export default function AdminServices() {
 
   const menuSections = [
     {
-      title: "Catalog",
+      title: "Services",
       items: [
-        { id: "catalog" as ServicesSection, label: "Catalog", icon: Layers },
-        { id: "service-menu" as ServicesSection, label: "Service menu", icon: ListTree },
+        { id: "service-menu" as ServicesSection, label: "Services", icon: ListTree },
         { id: "memberships" as ServicesSection, label: "Memberships", icon: CreditCard },
-        { id: "products" as ServicesSection, label: "Products", icon: Package },
-      ]
-    },
-    {
-      title: "Inventory",
-      items: [
-        { id: "stock-takes" as ServicesSection, label: "Stock takes", icon: Warehouse },
-        { id: "stock-orders" as ServicesSection, label: "Stock orders", icon: FileText },
-        { id: "suppliers" as ServicesSection, label: "Suppliers", icon: Users },
       ]
     }
   ];
