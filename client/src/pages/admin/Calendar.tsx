@@ -7,7 +7,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronLeft, ChevronRight, Plus, Settings, CalendarDays, Users, Clock, Tag, CreditCard, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Settings, CalendarDays, Users, Clock, Tag, CreditCard, RotateCcw, ZoomIn, ZoomOut, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,10 @@ export default function AdminCalendar() {
   
   // Calendar zoom state
   const [calendarZoom, setCalendarZoom] = useState(100);
+
+  // Search states for booking sidebar
+  const [clientSearch, setClientSearch] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
 
   // Fetch all required data
   const { data: bookings = [], isLoading: bookingsLoading, isError: bookingsError } = useQuery<Booking[]>({
@@ -197,6 +201,26 @@ export default function AdminCalendar() {
     }));
   }, [staff]);
 
+  // Filtered customers based on search
+  const filteredCustomers = useMemo(() => {
+    if (!clientSearch.trim()) return customers;
+    const search = clientSearch.toLowerCase();
+    return customers.filter(customer => 
+      customer.name.toLowerCase().includes(search) ||
+      customer.email?.toLowerCase().includes(search) ||
+      customer.phone?.includes(search)
+    );
+  }, [customers, clientSearch]);
+
+  // Filtered services based on search
+  const filteredServices = useMemo(() => {
+    if (!serviceSearch.trim()) return services;
+    const search = serviceSearch.toLowerCase();
+    return services.filter(service => 
+      service.name.toLowerCase().includes(search)
+    );
+  }, [services, serviceSearch]);
+
   // Reset form
   const resetForm = () => {
     setFormCustomerId('');
@@ -207,6 +231,8 @@ export default function AdminCalendar() {
     setFormStatus('confirmed');
     setSelectedSlot(null);
     setSelectedEvent(null);
+    setClientSearch('');
+    setServiceSearch('');
   };
 
   // Handle slot selection (click on empty calendar slot)
@@ -609,56 +635,109 @@ export default function AdminCalendar() {
         </div>
       </Card>
 
-      {/* Booking Dialog */}
-      <Dialog open={isBookingDialogOpen} onOpenChange={(open) => {
+      {/* Booking Sidebar */}
+      <Sheet open={isBookingDialogOpen} onOpenChange={(open) => {
         setIsBookingDialogOpen(open);
         if (!open) {
           resetForm();
         }
       }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-booking">
-          <DialogHeader>
-            <DialogTitle data-testid="dialog-booking-title">
-              {selectedEvent ? 'Edit Booking' : 'New Booking'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedEvent ? 'Update the booking details below.' : 'Create a new booking by filling in the details below.'}
-            </DialogDescription>
-          </DialogHeader>
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col" data-testid="sheet-booking">
+          <SheetHeader className="p-6 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <SheetTitle data-testid="sheet-booking-title">
+                  {selectedEvent ? 'Edit Booking' : 'Add a booking'}
+                </SheetTitle>
+                <SheetDescription className="text-sm text-muted-foreground mt-1">
+                  {formDate && formTime ? `${formatDate(new Date(formDate), 'EEE dd MMM')} · ${formTime} · ${formStaffId ? staff.find(s => s.id === Number(formStaffId))?.name : "Any staff"}` : 'Select date and time'}
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer">Customer *</Label>
-              <Select value={formCustomerId} onValueChange={setFormCustomerId}>
-                <SelectTrigger id="customer" data-testid="select-customer">
-                  <SelectValue placeholder="Select a customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={String(customer.id)}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Client Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Select a client</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search client or leave empty"
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-client"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto border rounded-md">
+                {filteredCustomers.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No clients found
+                  </div>
+                ) : (
+                  filteredCustomers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      onClick={() => setFormCustomerId(String(customer.id))}
+                      className={`w-full flex items-center gap-3 p-3 hover-elevate border-b last:border-b-0 ${
+                        formCustomerId === String(customer.id) ? 'bg-primary/10' : ''
+                      }`}
+                      data-testid={`client-${customer.id}`}
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 text-left">
+                        <div className="font-medium text-sm">{customer.name}</div>
+                        <div className="text-xs text-muted-foreground">{customer.phone || customer.email}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="service">Service *</Label>
-              <Select value={formServiceId} onValueChange={setFormServiceId}>
-                <SelectTrigger id="service" data-testid="select-service">
-                  <SelectValue placeholder="Select a service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.map((service) => (
-                    <SelectItem key={service.id} value={String(service.id)}>
-                      {service.name} - {service.duration}min - AED {service.price}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Service Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Add a service</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by service name"
+                  value={serviceSearch}
+                  onChange={(e) => setServiceSearch(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-service"
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto border rounded-md">
+                {filteredServices.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No services found
+                  </div>
+                ) : (
+                  filteredServices.map((service) => (
+                    <button
+                      key={service.id}
+                      onClick={() => setFormServiceId(String(service.id))}
+                      className={`w-full flex items-center justify-between p-4 hover-elevate border-b last:border-b-0 ${
+                        formServiceId === String(service.id) ? 'bg-primary/10' : ''
+                      }`}
+                      data-testid={`service-${service.id}`}
+                    >
+                      <div className="flex-1 text-left">
+                        <div className="font-medium text-sm">{service.name}</div>
+                        <div className="text-xs text-muted-foreground">{service.duration}min</div>
+                      </div>
+                      <div className="font-semibold">AED {service.price}</div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
 
+            {/* Staff Selection */}
             <div className="space-y-2">
               <Label htmlFor="staff">Staff (Optional)</Label>
               <Select value={formStaffId || undefined} onValueChange={setFormStaffId}>
@@ -675,6 +754,7 @@ export default function AdminCalendar() {
               </Select>
             </div>
 
+            {/* Date and Time */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Date *</Label>
@@ -686,7 +766,6 @@ export default function AdminCalendar() {
                   data-testid="input-date"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="time">Time *</Label>
                 <Input
@@ -699,44 +778,58 @@ export default function AdminCalendar() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formStatus} onValueChange={setFormStatus}>
-                <SelectTrigger id="status" data-testid="select-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="no-show">No Show</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Status */}
+            {selectedEvent && (
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={formStatus} onValueChange={setFormStatus}>
+                  <SelectTrigger id="status" data-testid="select-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="no-show">No Show</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            {selectedEvent && (
-              <Button
-                variant="destructive"
-                onClick={handleDeleteBooking}
-                disabled={deleteBookingMutation.isPending}
-                data-testid="button-delete-booking"
-              >
-                Delete
-              </Button>
+          {/* Footer with Total and Actions */}
+          <div className="border-t p-6 space-y-4">
+            {formServiceId && (
+              <div className="flex items-center justify-between text-lg font-semibold">
+                <span>Total</span>
+                <span>AED {services.find(s => s.id === Number(formServiceId))?.price || 0}</span>
+              </div>
             )}
-            <Button
-              onClick={handleSubmitBooking}
-              disabled={createBookingMutation.isPending || updateBookingMutation.isPending}
-              data-testid="button-save-booking"
-            >
-              {selectedEvent ? 'Update' : 'Create'} Booking
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <div className="flex gap-2">
+              {selectedEvent && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteBooking}
+                  disabled={deleteBookingMutation.isPending}
+                  data-testid="button-delete-booking"
+                  className="flex-1"
+                >
+                  Delete
+                </Button>
+              )}
+              <Button
+                onClick={handleSubmitBooking}
+                disabled={createBookingMutation.isPending || updateBookingMutation.isPending}
+                data-testid="button-save-booking"
+                className="flex-1"
+              >
+                {selectedEvent ? 'Update' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Sales Sidebar */}
       <Sheet open={isSalesSidebarOpen} onOpenChange={setIsSalesSidebarOpen}>
