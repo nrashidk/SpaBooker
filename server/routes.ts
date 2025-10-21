@@ -278,8 +278,10 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
+    
+    if (allowedTypes.includes(ext) && allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Invalid file type. Only PDF, JPG, JPEG, and PNG files are allowed.'));
@@ -307,21 +309,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files (with authentication for super admin)
-  app.use('/uploads', isAuthenticated, (req, res, next) => {
-    // Only super admins can access license documents
-    const user = (req as any).user;
-    if (user?.role !== 'super_admin' && user?.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    next();
-  }, (req, res, next) => {
-    // Serve static files from uploads directory
-    const filePath = path.join(process.cwd(), req.url);
-    if (fs.existsSync(filePath)) {
+  // Serve uploaded files (with authentication for super admin only)
+  app.use('/uploads', isAuthenticated, isSuperAdmin, (req, res) => {
+    try {
+      // Secure file serving to prevent path traversal
+      const uploadsBase = path.join(process.cwd(), 'uploads');
+      
+      // Normalize and sanitize the requested path
+      const relativePath = path.normalize(req.path).replace(/^\/+/, '');
+      const filePath = path.join(uploadsBase, relativePath);
+      
+      // Prevent path traversal by ensuring resolved path is within uploads directory
+      if (!filePath.startsWith(uploadsBase)) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Serve the file
       res.sendFile(filePath);
-    } else {
-      res.status(404).json({ message: 'File not found' });
+    } catch (error) {
+      console.error('Error serving file:', error);
+      res.status(500).json({ message: 'Error serving file' });
     }
   });
 
@@ -1270,10 +1282,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         applications = await storage.getAllAdminApplications();
       }
 
-      // Enrich applications with user data
+      // Enrich applications with user data and reviewer data
       const enrichedApplications = await Promise.all(
         applications.map(async (app) => {
           const user = await storage.getUser(app.userId);
+          let reviewer = null;
+          if (app.reviewedBy) {
+            const reviewerUser = await storage.getUser(app.reviewedBy);
+            if (reviewerUser) {
+              reviewer = {
+                id: reviewerUser.id,
+                email: reviewerUser.email,
+                firstName: reviewerUser.firstName,
+                lastName: reviewerUser.lastName,
+              };
+            }
+          }
           return {
             ...app,
             user: user ? {
@@ -1282,6 +1306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               firstName: user.firstName,
               lastName: user.lastName,
             } : null,
+            reviewer,
           };
         })
       );
@@ -1344,10 +1369,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adminSpaId: spa.id,
       } as any);
 
-      // Update application status
+      // Update application status with reviewer info
+      const userId = (req as any).user.claims.sub;
       await storage.updateAdminApplication(id, {
         status: 'approved',
         reviewedAt: new Date(),
+        reviewedBy: userId,
       });
 
       res.json({ 
@@ -1373,10 +1400,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
-      // Update application status
+      // Update application status with reviewer info
+      const userId = (req as any).user.claims.sub;
       await storage.updateAdminApplication(id, {
         status: 'rejected',
         reviewedAt: new Date(),
+        reviewedBy: userId,
         rejectionReason: reason,
       });
 

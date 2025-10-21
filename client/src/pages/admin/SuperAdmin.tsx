@@ -26,9 +26,16 @@ type AdminApplication = {
   status: string;
   appliedAt: Date;
   reviewedAt: Date | null;
+  reviewedBy: string | null;
   rejectionReason: string | null;
   licenseUrl: string | null;
   user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+  reviewer: {
     id: string;
     email: string;
     firstName: string;
@@ -235,6 +242,19 @@ export default function SuperAdmin() {
                           <span>View License Document</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
+                      </div>
+                    )}
+
+                    {(application.status === "approved" || application.status === "rejected") && application.reviewedAt && (
+                      <div className="p-3 bg-muted rounded-md space-y-1">
+                        <p className="text-xs text-muted-foreground">
+                          Reviewed on {new Date(application.reviewedAt).toLocaleDateString()}
+                        </p>
+                        {application.reviewer && (
+                          <p className="text-xs text-muted-foreground">
+                            Reviewed by {application.reviewer.firstName} {application.reviewer.lastName}
+                          </p>
+                        )}
                       </div>
                     )}
 
