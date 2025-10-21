@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Building2, Mail, Phone, MapPin, DollarSign, Palette, Calendar, Link as LinkIcon, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -67,7 +68,7 @@ export default function AdminSettings() {
     logoUrl: "",
   });
 
-  const [businessHours, setBusinessHours] = useState<Record<string, { open: string; close: string }>>({});
+  const [businessHours, setBusinessHours] = useState<Record<string, { open: string; close: string; isOpen?: boolean }>>({});
 
   // Update state when settings are loaded
   useEffect(() => {
@@ -394,7 +395,8 @@ export default function AdminSettings() {
         <CardContent className="space-y-3">
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => {
             const dayKey = day.toLowerCase();
-            const hours = businessHours[dayKey] || { open: "09:00", close: "20:00" };
+            const hours = businessHours[dayKey] || { open: "09:00", close: "20:00", isOpen: true };
+            const isOpen = hours.isOpen !== false; // Default to open if not specified
             
             return (
               <div key={day} className="flex items-center gap-4">
@@ -407,6 +409,7 @@ export default function AdminSettings() {
                     value={hours.open}
                     onChange={(e) => setBusinessHours({ ...businessHours, [dayKey]: { ...hours, open: e.target.value } })}
                     className="flex-1"
+                    disabled={!isOpen}
                     data-testid={`input-${dayKey}-open`}
                   />
                   <span className="flex items-center px-2">to</span>
@@ -415,8 +418,19 @@ export default function AdminSettings() {
                     value={hours.close}
                     onChange={(e) => setBusinessHours({ ...businessHours, [dayKey]: { ...hours, close: e.target.value } })}
                     className="flex-1"
+                    disabled={!isOpen}
                     data-testid={`input-${dayKey}-close`}
                   />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={isOpen}
+                    onCheckedChange={(checked) => setBusinessHours({ ...businessHours, [dayKey]: { ...hours, isOpen: checked } })}
+                    data-testid={`switch-${dayKey}-open`}
+                  />
+                  <Label className="text-sm text-muted-foreground">
+                    {isOpen ? 'Open' : 'Closed'}
+                  </Label>
                 </div>
               </div>
             );
