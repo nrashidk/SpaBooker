@@ -1676,7 +1676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: staffName,
             email: stepData.staffEmail,
             phone: stepData.staffPhone || null,
-            role: 'therapist',
+            role: 'basic',
           });
         }
       } else if (stepName === "activation") {
