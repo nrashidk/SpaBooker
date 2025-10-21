@@ -1,11 +1,16 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, AlertTriangle } from "lucide-react";
+import { Plus, Edit, AlertTriangle, Package, Tag, FolderOpen } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { Product } from "@shared/schema";
 
+type InventorySection = "products" | "brands" | "categories";
+
 export default function AdminInventory() {
+  const [selectedSection, setSelectedSection] = useState<InventorySection>("products");
+
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['/api/admin/products'],
   });
@@ -19,12 +24,25 @@ export default function AdminInventory() {
 
   const lowStockCount = products.filter(p => (p.stockQuantity || 0) <= (p.reorderLevel || 0)).length;
 
-  return (
+  const menuSections = [
+    {
+      title: "Inventory",
+      items: [
+        { id: "products" as InventorySection, label: "Products", icon: Package },
+        { id: "brands" as InventorySection, label: "Brands", icon: Tag },
+        { id: "categories" as InventorySection, label: "Categories", icon: FolderOpen },
+      ]
+    }
+  ];
+
+  const renderProducts = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="inventory-title">Inventory Management</h1>
-          <p className="text-muted-foreground">Track products, stock levels, and suppliers</p>
+          <h2 className="text-2xl font-bold">Products</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your retail products and inventory
+          </p>
         </div>
         <Button data-testid="button-add-product">
           <Plus className="h-4 w-4 mr-2" />
@@ -110,6 +128,57 @@ export default function AdminInventory() {
             </Card>
           );
         })}
+      </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    if (selectedSection === "products") {
+      return renderProducts();
+    }
+
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+        <p>{selectedSection.charAt(0).toUpperCase() + selectedSection.slice(1)} coming soon</p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex h-full gap-6">
+      {/* Sidebar */}
+      <div className="w-56 flex-shrink-0 space-y-6">
+        <h1 className="text-xl font-bold">Inventory</h1>
+        
+        {menuSections.map((section) => (
+          <div key={section.title} className="space-y-1">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+              {section.title}
+            </h3>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedSection(item.id)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
+                    selectedSection === item.id ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
+                  }`}
+                  data-testid={`nav-${item.id}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {renderContent()}
       </div>
     </div>
   );
