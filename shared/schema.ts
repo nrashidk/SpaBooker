@@ -516,15 +516,19 @@ export const backupLogs = pgTable("backup_logs", {
 export const insertSpaSchema = createInsertSchema(spas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSpaSettingsSchema = createInsertSchema(spaSettings).omit({ id: true, updatedAt: true });
 export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({ id: true });
-export const insertServiceSchema = createInsertSchema(services).omit({ id: true, createdAt: true });
+export const insertServiceSchema = createInsertSchema(services).omit({ id: true, createdAt: true }).extend({
+  price: z.union([z.string(), z.number()]).transform(val => String(val)),
+  discountPercent: z.union([z.string(), z.number(), z.null()]).transform(val => val === null ? null : String(val)).optional().nullable(),
+});
 export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, createdAt: true }).extend({
   role: z.enum(["basic", "view_own_calendar", "view_all_calendars", "manage_bookings", "admin_access"]).default("basic"),
 });
 export const insertStaffScheduleSchema = createInsertSchema(staffSchedules).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true }).extend({
-  email: z.string().email("Please enter a valid email address (e.g., sample@sample.com)").optional().or(z.literal('')),
-  phone: z.string().regex(/^\d{10}$/, "Phone number must be exactly 10 digits").optional().or(z.literal('')),
+  email: z.string().email("Please enter a valid email address (e.g., sample@sample.com)").optional().or(z.literal('')).nullable(),
+  phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number must be at most 15 digits").optional().or(z.literal('')).nullable(),
+  userId: z.string().optional().nullable(),
 });
 export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true });
 export const insertBookingItemSchema = createInsertSchema(bookingItems).omit({ id: true });
