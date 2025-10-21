@@ -362,89 +362,88 @@ export default function AdminLogin() {
           </div>
         </div>
       );
-    }
-    
-    // Show login form
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg">
-          <Link href="/">
-            <Button variant="ghost" className="mb-6" data-testid="button-back">
-              ← Back to Home
-            </Button>
-          </Link>
-
-          <Card data-testid="card-admin-login">
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-3xl">Admin Portal</CardTitle>
-              <CardDescription>
-                Sign in to manage your spa business
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email Address</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="admin@yourspa.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                    data-testid="input-login-email"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                    data-testid="input-login-password"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  size="lg"
-                  disabled={isLoggingIn}
-                  data-testid="button-login"
-                >
-                  {isLoggingIn ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-
-                <div className="text-center text-sm">
-                  <span className="text-muted-foreground">Don't have an account? </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowRegistration(true)}
-                    className="text-primary hover:underline"
-                    data-testid="button-show-registration"
-                  >
-                    Apply for access
-                  </button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
   }
+  
+  // Default: Show login form
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <Link href="/">
+          <Button variant="ghost" className="mb-6" data-testid="button-back">
+            ← Back to Home
+          </Button>
+        </Link>
+
+        <Card data-testid="card-admin-login">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
+            <CardTitle className="text-3xl">Admin Portal</CardTitle>
+            <CardDescription>
+              Sign in to manage your spa business
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email Address</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="admin@yourspa.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                  data-testid="input-login-email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Password</Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                  data-testid="input-login-password"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoggingIn}
+                data-testid="button-login"
+              >
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+
+              <div className="text-center text-sm">
+                <span className="text-muted-foreground">Don't have an account? </span>
+                <button
+                  type="button"
+                  onClick={() => setShowRegistration(true)}
+                  className="text-primary hover:underline"
+                  data-testid="button-show-registration"
+                >
+                  Apply for access
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
