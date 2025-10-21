@@ -530,47 +530,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin register route - creates pending application (requires authentication)
-  app.post('/api/admin/register', isAuthenticated, async (req, res) => {
+  // Admin register route - creates pending application with email/password
+  app.post('/api/admin/register', async (req, res) => {
     try {
-      const { spaName, licenseUrl } = req.body;
-      const user = req.user as any;
-      const userId = user.claims.sub;
+      const { email, password, spaName, licenseUrl } = req.body;
       
-      console.log("Admin application submission:", { userId, spaName, hasLicenseUrl: !!licenseUrl });
-      
-      // Get the authenticated user
-      const dbUser = await storage.getUser(userId);
-      if (!dbUser) {
-        return res.status(404).json({ message: "User not found" });
+      if (!email || !password || !spaName) {
+        return res.status(400).json({ message: "Missing required fields" });
       }
       
-      // Check if user already has an application
-      const existingApp = await storage.getAdminApplicationByUserId(userId);
-      if (existingApp) {
+      console.log("Admin application submission:", { email, spaName, hasLicenseUrl: !!licenseUrl });
+      
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
         return res.status(409).json({ 
-          message: `You already have an application with status: ${existingApp.status}.`,
-          existingApplication: existingApp
+          message: "An account with this email already exists"
         });
       }
       
-      console.log("Creating admin application for authenticated user...");
-      // Create admin application linked to authenticated Replit user
+      // Hash password
+      const bcrypt = await import('bcryptjs');
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      console.log("Creating new admin user and application...");
+      
+      // Create new user with pending status
+      const newUser = await storage.upsertUser({
+        email: email,
+        password: hashedPassword,
+        role: 'admin',
+        status: 'pending'
+      });
+      
+      // Create admin application
       await storage.createAdminApplication({
-        userId: userId, // Use the authenticated OAuth user ID
+        userId: newUser.id,
         businessName: spaName,
-        businessType: 'spa', // Default to spa, can be extended later
+        businessType: 'spa',
         licenseUrl: licenseUrl || null,
         status: 'pending',
       });
       
-      // Update user status to pending (they're now awaiting approval)
-      await storage.upsertUser({
-        id: userId,
-        status: 'pending',
-      } as any);
-      
-      console.log("Admin application created successfully");
+      console.log("Admin application created successfully for user:", newUser.id);
       
       res.json({ 
         success: true, 

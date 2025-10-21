@@ -34,52 +34,90 @@ export default function AdminLogin() {
   
   // Application form
   const [spaName, setSpaName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
+  
+  // Login form
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
 
-  // Check authentication status
-  const { data: authStatus, isLoading: isCheckingAuth } = useQuery<AuthStatus>({
-    queryKey: ["/api/user"],
-    queryFn: async () => {
-      const res = await fetch("/api/user", { credentials: "include" });
-      if (!res.ok) {
-        return { isAuthenticated: false };
-      }
-      const user = await res.json();
-      return { isAuthenticated: true, user };
-    },
-  });
-
-  // Check if user has an existing application
-  const { data: existingApplication, isLoading: isCheckingApplication } = useQuery<AdminApplication | null>({
-    queryKey: ["/api/admin/my-application"],
-    enabled: authStatus?.isAuthenticated === true,
-    queryFn: async () => {
-      const res = await fetch("/api/admin/my-application", { credentials: "include" });
-      if (!res.ok) {
-        if (res.status === 404) {
-          return null; // No application yet
-        }
-        throw new Error("Failed to fetch application");
-      }
-      return res.json();
-    },
-  });
-
-  // Redirect approved admins to admin panel
-  useEffect(() => {
-    if (authStatus?.user?.role === 'super_admin' || (authStatus?.user?.role === 'admin' && authStatus?.user?.status === 'approved')) {
-      setLocation('/admin');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!loginEmail || !loginPassword) {
+      toast({ 
+        title: "Missing fields", 
+        description: "Please enter both email and password",
+        variant: "destructive"
+      });
+      return;
     }
-  }, [authStatus, setLocation]);
 
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+    try {
+      setIsLoggingIn(true);
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ 
+          email: loginEmail,
+          password: loginPassword
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || "Login failed");
+      }
+
+      toast({ title: "Login successful!" });
+      setLocation('/admin');
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!email || !password || !confirmPassword) {
+      toast({ 
+        title: "Missing fields", 
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({ 
+        title: "Passwords don't match", 
+        description: "Please ensure both passwords are identical",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (password.length < 8) {
+      toast({ 
+        title: "Password too short", 
+        description: "Password must be at least 8 characters",
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (!licenseFile) {
       toast({ 
@@ -115,6 +153,8 @@ export default function AdminLogin() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ 
+          email,
+          password,
           spaName,
           licenseUrl: fileUrl
         }),
@@ -145,152 +185,7 @@ export default function AdminLogin() {
     }
   };
 
-  // Loading state
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Not authenticated - show login button
-  if (!authStatus?.isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg">
-          <Link href="/">
-            <Button variant="ghost" className="mb-6" data-testid="button-back">
-              ← Back to Home
-            </Button>
-          </Link>
-
-          <Card data-testid="card-admin-login">
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-3xl">Admin Portal</CardTitle>
-              <CardDescription>
-                Apply for admin access or sign in to manage your spa
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Sign in with your Replit account to get started
-                </p>
-                <Button 
-                  onClick={handleLogin}
-                  className="w-full"
-                  size="lg"
-                  data-testid="button-login-replit"
-                >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M5.84 4.94v14.12L18.16 12zm12.32 0v7.06h3.53V4.94zM2.31 12v7.06h3.53V12zm0-7.06v3.53h3.53V4.94z"/>
-                  </svg>
-                  Sign in with Replit
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Authenticated - check if user already has an application or is an admin
-  if (isCheckingApplication) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // User has a pending/rejected application - show status
-  if (existingApplication) {
-    const statusConfig = {
-      pending: {
-        icon: Clock,
-        color: 'text-yellow-600 dark:text-yellow-400',
-        bgColor: 'bg-yellow-50 dark:bg-yellow-950/20',
-        title: 'Application Pending',
-        description: 'Your admin application is under review by our team. We\'ll notify you once it\'s been reviewed.',
-      },
-      approved: {
-        icon: CheckCircle,
-        color: 'text-green-600 dark:text-green-400',
-        bgColor: 'bg-green-50 dark:bg-green-950/20',
-        title: 'Application Approved!',
-        description: 'Your application has been approved. You can now access the admin panel.',
-      },
-      rejected: {
-        icon: XCircle,
-        color: 'text-red-600 dark:text-red-400',
-        bgColor: 'bg-red-50 dark:bg-red-950/20',
-        title: 'Application Not Approved',
-        description: 'Unfortunately, your application was not approved at this time.',
-      },
-    };
-
-    const config = statusConfig[existingApplication.status as keyof typeof statusConfig];
-    const StatusIcon = config.icon;
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg">
-          <Link href="/">
-            <Button variant="ghost" className="mb-6" data-testid="button-back">
-              ← Back to Home
-            </Button>
-          </Link>
-
-          <Card data-testid="card-application-status">
-            <CardHeader className="text-center">
-              <div className={`mx-auto w-16 h-16 ${config.bgColor} rounded-full flex items-center justify-center mb-4`}>
-                <StatusIcon className={`w-8 h-8 ${config.color}`} />
-              </div>
-              <CardTitle className="text-2xl">{config.title}</CardTitle>
-              <CardDescription>{config.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 bg-muted rounded-md space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Business Name:</span>
-                  <span className="text-sm">{existingApplication.businessName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Applied:</span>
-                  <span className="text-sm">{new Date(existingApplication.appliedAt).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <span className={`text-sm font-medium capitalize ${config.color}`}>{existingApplication.status}</span>
-                </div>
-              </div>
-
-              {existingApplication.status === 'approved' && (
-                <Button onClick={() => setLocation('/admin')} className="w-full" size="lg">
-                  Go to Admin Panel
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // No application yet - show application form
+  // Show application submitted state
   if (applicationSubmitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
@@ -311,9 +206,12 @@ export default function AdminLogin() {
                   Application Submitted!
                 </h3>
                 <p className="text-muted-foreground max-w-md">
-                  Your application is pending for review. You'll receive an update once it's been reviewed.
+                  Your application is pending for review. You'll be able to login with your email and password once it's been approved.
                 </p>
               </div>
+              <Button onClick={() => setShowRegistration(false)} variant="outline" data-testid="button-back-to-login">
+                Back to Login
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -321,91 +219,232 @@ export default function AdminLogin() {
     );
   }
 
-  // Show application form
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        <Link href="/">
-          <Button variant="ghost" className="mb-6" data-testid="button-back">
-            ← Back to Home
-          </Button>
-        </Link>
-
-        <Card data-testid="card-admin-application">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
-            <CardTitle className="text-3xl">Apply for Admin Access</CardTitle>
-            <CardDescription>
-              Signed in as {authStatus.user?.email}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmitApplication} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="spa-name">Business Name</Label>
-                <Input
-                  id="spa-name"
-                  type="text"
-                  placeholder="Your Spa Name"
-                  value={spaName}
-                  onChange={(e) => setSpaName(e.target.value)}
-                  required
-                  data-testid="input-spa-name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="license-upload">Business License (Required)</Label>
-                <div className="border-2 border-dashed rounded-md p-6 text-center space-y-2 hover:border-primary/50 transition-colors">
-                  <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                  <div>
-                    <Input
-                      id="license-upload"
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="hidden"
-                      onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
-                      required
-                      data-testid="input-license-file"
-                    />
-                    <Label htmlFor="license-upload" className="cursor-pointer text-primary hover:underline">
-                      {licenseFile ? licenseFile.name : "Click to upload"}
-                    </Label>
-                    {!licenseFile && (
-                      <p className="text-xs text-muted-foreground mt-1">PDF, JPG or PNG (max 10MB)</p>
-                    )}
-                    {licenseFile && (
-                      <div className="mt-2 flex items-center justify-center gap-2 text-green-600">
-                        <FileText className="w-4 h-4" />
-                        <span className="text-sm">{licenseFile.name}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={isSubmitting}
-                data-testid="button-submit-application"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Application"
-                )}
+  // Show registration or login form
+  if (showRegistration) {
+      // Show registration form
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <Link href="/">
+              <Button variant="ghost" className="mb-6" data-testid="button-back">
+                ← Back to Home
               </Button>
-            </form>
-          </CardContent>
-        </Card>
+            </Link>
+
+            <Card data-testid="card-admin-registration">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-3xl">Apply for Admin Access</CardTitle>
+                <CardDescription>
+                  Create your account to manage your spa business
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmitApplication} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="admin@yourspa.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      data-testid="input-email"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      data-testid="input-password"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Minimum 8 characters
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      data-testid="input-confirm-password"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="spa-name-reg">Business Name</Label>
+                    <Input
+                      id="spa-name-reg"
+                      type="text"
+                      placeholder="Your Spa Name"
+                      value={spaName}
+                      onChange={(e) => setSpaName(e.target.value)}
+                      required
+                      data-testid="input-spa-name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="license-upload">Business License (Required)</Label>
+                    <div className="border-2 border-dashed rounded-md p-6 text-center space-y-2 hover:border-primary/50 transition-colors">
+                      <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                      <div>
+                        <Input
+                          id="license-upload"
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                          required
+                          data-testid="input-license-file"
+                        />
+                        <Label htmlFor="license-upload" className="cursor-pointer text-primary hover:underline">
+                          {licenseFile ? licenseFile.name : "Click to upload"}
+                        </Label>
+                        {!licenseFile && (
+                          <p className="text-xs text-muted-foreground mt-1">PDF, JPG or PNG (max 10MB)</p>
+                        )}
+                        {licenseFile && (
+                          <div className="mt-2 flex items-center justify-center gap-2 text-green-600">
+                            <FileText className="w-4 h-4" />
+                            <span className="text-sm">{licenseFile.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    size="lg"
+                    disabled={isSubmitting}
+                    data-testid="button-submit-application"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Application"
+                    )}
+                  </Button>
+
+                  <div className="text-center text-sm">
+                    <span className="text-muted-foreground">Already have an account? </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowRegistration(false)}
+                      className="text-primary hover:underline"
+                      data-testid="button-show-login"
+                    >
+                      Sign in
+                    </button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+    
+    // Show login form
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-100/50 via-pink-100/50 to-purple-200/50 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <Link href="/">
+            <Button variant="ghost" className="mb-6" data-testid="button-back">
+              ← Back to Home
+            </Button>
+          </Link>
+
+          <Card data-testid="card-admin-login">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-3xl">Admin Portal</CardTitle>
+              <CardDescription>
+                Sign in to manage your spa business
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email Address</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="admin@yourspa.com"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                    data-testid="input-login-email"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                    data-testid="input-login-password"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={isLoggingIn}
+                  data-testid="button-login"
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+
+                <div className="text-center text-sm">
+                  <span className="text-muted-foreground">Don't have an account? </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegistration(true)}
+                    className="text-primary hover:underline"
+                    data-testid="button-show-registration"
+                  >
+                    Apply for access
+                  </button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 }
