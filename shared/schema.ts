@@ -516,9 +516,9 @@ export const backupLogs = pgTable("backup_logs", {
 export const insertSpaSchema = createInsertSchema(spas).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSpaSettingsSchema = createInsertSchema(spaSettings).omit({ id: true, updatedAt: true });
 export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({ id: true });
-export const insertServiceSchema = createInsertSchema(services).omit({ id: true, createdAt: true }).extend({
+export const insertServiceSchema = createInsertSchema(services).omit({ id: true, createdAt: true, price: true, discountPercent: true }).extend({
   price: z.union([z.string(), z.number()]).transform(val => String(val)),
-  discountPercent: z.union([z.string(), z.number(), z.null()]).transform(val => val === null ? null : String(val)).optional().nullable(),
+  discountPercent: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => val === null || val === undefined ? null : String(val)).optional().nullable(),
 });
 export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, createdAt: true }).extend({
   role: z.enum(["basic", "view_own_calendar", "view_all_calendars", "manage_bookings", "admin_access"]).default("basic"),
