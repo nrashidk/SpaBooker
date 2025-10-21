@@ -397,31 +397,12 @@ export class DatabaseStorage implements IStorage {
     // Normalize email to lowercase for comparison
     const normalizedEmail = email.toLowerCase().trim();
     
-    // Check users table (including admins via admin_applications) - case insensitive
+    // Check users table (includes admin users since they're in the users table) - case insensitive
     const user = await db.select().from(users)
       .where(sql`LOWER(${users.email}) = ${normalizedEmail}`)
       .limit(1);
     if (user.length > 0 && !(excludeId?.type === 'user' && excludeId.id === user[0].id)) {
       return { exists: true, entityType: 'user', entityId: user[0].id };
-    }
-    
-    // Check admin applications with pending/approved status - case insensitive
-    // Join with users to get email since adminApplications doesn't store email directly
-    const adminApp = await db.select()
-      .from(adminApplications)
-      .innerJoin(users, eq(adminApplications.userId, users.id))
-      .where(
-        and(
-          sql`LOWER(${users.email}) = ${normalizedEmail}`,
-          or(
-            eq(adminApplications.status, 'pending'),
-            eq(adminApplications.status, 'approved')
-          )
-        )
-      )
-      .limit(1);
-    if (adminApp.length > 0 && !(excludeId?.type === 'user' && excludeId.id === adminApp[0].users.id)) {
-      return { exists: true, entityType: 'user', entityId: adminApp[0].users.id };
     }
     
     // Check customers table - case insensitive
