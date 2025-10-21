@@ -475,8 +475,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, password, spaName, licenseUrl } = req.body;
       
+      // Normalize email
+      const normalizedEmail = email.toLowerCase().trim();
+      
       // Check if email already exists in any entity type
-      const emailCheck = await storage.checkEmailExists(email);
+      const emailCheck = await storage.checkEmailExists(normalizedEmail);
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
           user: 'user account',
@@ -493,7 +496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create pending admin user
       const adminUser = await storage.upsertUser({
         id: `admin-${Date.now()}`,
-        email,
+        email: normalizedEmail,
         firstName: name.split(' ')[0],
         lastName: name.split(' ').slice(1).join(' ') || '',
         role: 'admin',

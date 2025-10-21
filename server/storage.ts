@@ -317,11 +317,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const normalizedEmail = email.toLowerCase().trim();
+    const [user] = await db.select().from(users)
+      .where(sql`LOWER(${users.email}) = ${normalizedEmail}`);
     return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Normalize email if provided
+    if (userData.email) {
+      userData.email = userData.email.toLowerCase().trim();
+    }
+    
     const [user] = await db
       .insert(users)
       .values(userData)
@@ -390,26 +397,34 @@ export class DatabaseStorage implements IStorage {
     // Normalize email to lowercase for comparison
     const normalizedEmail = email.toLowerCase().trim();
     
-    // Check users table (including admins via admin_applications)
-    const user = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+    // Check users table (including admins via admin_applications) - case insensitive
+    const user = await db.select().from(users)
+      .where(sql`LOWER(${users.email}) = ${normalizedEmail}`)
+      .limit(1);
     if (user.length > 0 && !(excludeId?.type === 'user' && excludeId.id === user[0].id)) {
       return { exists: true, entityType: 'user', entityId: user[0].id };
     }
     
-    // Check customers table
-    const customer = await db.select().from(customers).where(eq(customers.email, normalizedEmail)).limit(1);
+    // Check customers table - case insensitive
+    const customer = await db.select().from(customers)
+      .where(sql`LOWER(${customers.email}) = ${normalizedEmail}`)
+      .limit(1);
     if (customer.length > 0 && !(excludeId?.type === 'customer' && excludeId.id === customer[0].id)) {
       return { exists: true, entityType: 'customer', entityId: customer[0].id };
     }
     
-    // Check staff table
-    const staffMember = await db.select().from(staff).where(eq(staff.email, normalizedEmail)).limit(1);
+    // Check staff table - case insensitive
+    const staffMember = await db.select().from(staff)
+      .where(sql`LOWER(${staff.email}) = ${normalizedEmail}`)
+      .limit(1);
     if (staffMember.length > 0 && !(excludeId?.type === 'staff' && excludeId.id === staffMember[0].id)) {
       return { exists: true, entityType: 'staff', entityId: staffMember[0].id };
     }
     
-    // Check vendors table
-    const vendor = await db.select().from(vendors).where(eq(vendors.email, normalizedEmail)).limit(1);
+    // Check vendors table - case insensitive
+    const vendor = await db.select().from(vendors)
+      .where(sql`LOWER(${vendors.email}) = ${normalizedEmail}`)
+      .limit(1);
     if (vendor.length > 0 && !(excludeId?.type === 'vendor' && excludeId.id === vendor[0].id)) {
       return { exists: true, entityType: 'vendor', entityId: vendor[0].id };
     }
@@ -619,7 +634,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStaffByEmail(email: string): Promise<Staff | undefined> {
-    const [member] = await db.select().from(staff).where(eq(staff.email, email));
+    const normalizedEmail = email.toLowerCase().trim();
+    const [member] = await db.select().from(staff)
+      .where(sql`LOWER(${staff.email}) = ${normalizedEmail}`);
     return member;
   }
 
@@ -638,8 +655,10 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Spa does not exist");
     }
     
-    // Check for duplicate email across all entities if provided
+    // Normalize and check for duplicate email across all entities if provided
     if (staffData.email) {
+      staffData.email = staffData.email.toLowerCase().trim();
+      
       const emailCheck = await this.checkEmailExists(staffData.email);
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
@@ -658,8 +677,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStaff(id: number, staffData: Partial<InsertStaff>): Promise<Staff | undefined> {
-    // Check for duplicate email if provided and different from current
+    // Normalize and check for duplicate email if provided
     if (staffData.email) {
+      staffData.email = staffData.email.toLowerCase().trim();
+      
       const emailCheck = await this.checkEmailExists(staffData.email, { type: 'staff', id });
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
@@ -741,7 +762,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomerByEmail(email: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+    const normalizedEmail = email.toLowerCase().trim();
+    const [customer] = await db.select().from(customers)
+      .where(sql`LOWER(${customers.email}) = ${normalizedEmail}`);
     return customer;
   }
 
@@ -756,8 +779,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
-    // Check for duplicate email if provided
+    // Normalize email if provided
     if (customer.email) {
+      customer.email = customer.email.toLowerCase().trim();
+      
+      // Check for duplicate email
       const emailCheck = await this.checkEmailExists(customer.email);
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
@@ -776,8 +802,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined> {
-    // Check for duplicate email if provided and different from current
+    // Normalize and check for duplicate email if provided
     if (customer.email) {
+      customer.email = customer.email.toLowerCase().trim();
+      
       const emailCheck = await this.checkEmailExists(customer.email, { type: 'customer', id });
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
@@ -869,13 +897,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getVendorByEmail(email: string): Promise<Vendor | undefined> {
-    const [vendor] = await db.select().from(vendors).where(eq(vendors.email, email));
+    const normalizedEmail = email.toLowerCase().trim();
+    const [vendor] = await db.select().from(vendors)
+      .where(sql`LOWER(${vendors.email}) = ${normalizedEmail}`);
     return vendor;
   }
 
   async createVendor(vendor: InsertVendor): Promise<Vendor> {
-    // Check for duplicate email across all entities if provided
+    // Normalize and check for duplicate email across all entities if provided
     if (vendor.email) {
+      vendor.email = vendor.email.toLowerCase().trim();
+      
       const emailCheck = await this.checkEmailExists(vendor.email);
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
@@ -894,8 +926,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateVendor(id: number, vendor: Partial<InsertVendor>): Promise<Vendor | undefined> {
-    // Check for duplicate email if provided and different from current
+    // Normalize and check for duplicate email if provided
     if (vendor.email) {
+      vendor.email = vendor.email.toLowerCase().trim();
+      
       const emailCheck = await this.checkEmailExists(vendor.email, { type: 'vendor', id });
       if (emailCheck.exists) {
         const entityTypeMap: Record<string, string> = {
