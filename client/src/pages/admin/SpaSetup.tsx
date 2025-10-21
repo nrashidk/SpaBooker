@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, ArrowRight, ArrowLeft, Building2, MapPin, Clock, Sparkles, Users, FileText, Package, CreditCard } from "lucide-react";
+import { CheckCircle2, Circle, ArrowRight, ArrowLeft, Building2, MapPin, Clock, CreditCard, Check } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 type SetupStep = {
@@ -21,11 +22,17 @@ const steps: SetupStep[] = [
   { id: "basicInfo", title: "Basic Information", icon: Building2, description: "Spa name and contact details" },
   { id: "location", title: "Location", icon: MapPin, description: "Address and geographic details" },
   { id: "hours", title: "Business Hours", icon: Clock, description: "Operating hours and schedule" },
-  { id: "services", title: "Services", icon: Sparkles, description: "Service offerings and pricing" },
-  { id: "staff", title: "Staff", icon: Users, description: "Team members and schedules" },
-  { id: "policies", title: "Policies", icon: FileText, description: "Cancellation and tax policies" },
-  { id: "inventory", title: "Inventory", icon: Package, description: "Products and stock" },
-  { id: "activation", title: "Activation", icon: CreditCard, description: "Payment and notifications" },
+  { id: "activation", title: "Activation", icon: CreditCard, description: "Ready to go live!" },
+];
+
+const UAE_EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Umm Al Quwain",
+  "Ras Al Khaimah",
+  "Fujairah"
 ];
 
 type SetupStatus = {
@@ -36,10 +43,6 @@ type SetupStatus = {
     basicInfo: boolean;
     location: boolean;
     hours: boolean;
-    services: boolean;
-    staff: boolean;
-    policies: boolean;
-    inventory: boolean;
     activation: boolean;
   };
   spa?: any;
@@ -152,10 +155,10 @@ export default function SpaSetup() {
         return {
           businessHours: formData.businessHours || {},
         };
-      case "policies":
+      case "activation":
         return {
-          cancellationPolicy: formData.cancellationPolicy || {},
-          taxRate: formData.taxRate || "5.00",
+          active: true,
+          setupComplete: true,
         };
       default:
         return {};
@@ -336,14 +339,22 @@ export default function SpaSetup() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="city">City</Label>
-                      <Input
-                        id="city"
+                      <Label htmlFor="city">Emirate</Label>
+                      <Select
                         value={formData.city || ""}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        placeholder="Dubai"
-                        data-testid="input-city"
-                      />
+                        onValueChange={(value) => setFormData({ ...formData, city: value })}
+                      >
+                        <SelectTrigger data-testid="select-city">
+                          <SelectValue placeholder="Select an emirate" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UAE_EMIRATES.map((emirate) => (
+                            <SelectItem key={emirate} value={emirate}>
+                              {emirate}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="area">Area/Neighborhood</Label>
@@ -356,19 +367,131 @@ export default function SpaSetup() {
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="latitude">Latitude (optional)</Label>
+                      <Input
+                        id="latitude"
+                        type="number"
+                        step="0.000001"
+                        value={formData.latitude || ""}
+                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                        placeholder="25.276987"
+                        data-testid="input-latitude"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="longitude">Longitude (optional)</Label>
+                      <Input
+                        id="longitude"
+                        type="number"
+                        step="0.000001"
+                        value={formData.longitude || ""}
+                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                        placeholder="55.296249"
+                        data-testid="input-longitude"
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 inline mr-1" />
+                      Tip: You can use Google Maps to find your exact coordinates. Search for your location, right-click on the map, and copy the coordinates.
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {/* Other steps - placeholder for now */}
-              {(currentStep.id === "hours" || currentStep.id === "services" || 
-                currentStep.id === "staff" || currentStep.id === "policies" || 
-                currentStep.id === "inventory" || currentStep.id === "activation") && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    This step will be implemented with detailed forms.
-                  </p>
+              {/* Business Hours Step */}
+              {currentStep.id === "hours" && (
+                <div className="space-y-4">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => {
+                    const dayKey = day.toLowerCase();
+                    const hours = formData.businessHours?.[dayKey] || { open: "09:00", close: "20:00" };
+                    
+                    return (
+                      <div key={day} className="flex items-center gap-4">
+                        <div className="w-24">
+                          <Label>{day}</Label>
+                        </div>
+                        <div className="flex-1 flex gap-2">
+                          <Input
+                            type="time"
+                            value={hours.open}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              businessHours: { 
+                                ...(formData.businessHours || {}), 
+                                [dayKey]: { ...hours, open: e.target.value } 
+                              } 
+                            })}
+                            className="flex-1"
+                            data-testid={`input-${dayKey}-open`}
+                          />
+                          <span className="flex items-center px-2">to</span>
+                          <Input
+                            type="time"
+                            value={hours.close}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              businessHours: { 
+                                ...(formData.businessHours || {}), 
+                                [dayKey]: { ...hours, close: e.target.value } 
+                              } 
+                            })}
+                            className="flex-1"
+                            data-testid={`input-${dayKey}-close`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="bg-muted/50 p-4 rounded-lg mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4 inline mr-1" />
+                      Set your operating hours for each day of the week. You can adjust these later in Settings.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Activation Step */}
+              {currentStep.id === "activation" && (
+                <div className="text-center py-8 space-y-6">
+                  <div className="mx-auto w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                    <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-semibold mb-2">You're All Set!</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      Your spa is ready to go live. Click "Complete Setup" below to activate your spa and start accepting bookings.
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-6 rounded-lg max-w-md mx-auto space-y-3">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      <div className="text-left">
+                        <p className="font-medium">Basic information configured</p>
+                        <p className="text-sm text-muted-foreground">Spa name and contact details</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      <div className="text-left">
+                        <p className="font-medium">Location details added</p>
+                        <p className="text-sm text-muted-foreground">Address and area information</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      <div className="text-left">
+                        <p className="font-medium">Business hours set</p>
+                        <p className="text-sm text-muted-foreground">Operating schedule configured</p>
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    For now, you can mark this step as complete and continue.
+                    You can add services, staff, and other details from the admin dashboard after activation.
                   </p>
                 </div>
               )}
