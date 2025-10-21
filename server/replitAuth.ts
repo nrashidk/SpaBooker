@@ -292,6 +292,25 @@ export const enforceSetupWizard: RequestHandler = async (req, res, next) => {
   next();
 };
 
+// Ensure setup wizard is complete - blocks write operations until setup is done
+// Use this middleware AFTER injectAdminSpa for write routes
+export const ensureSetupComplete: RequestHandler = async (req, res, next) => {
+  const spa = (req as any).adminSpa;
+  
+  if (!spa) {
+    return res.status(500).json({ message: "Spa context missing from request" });
+  }
+  
+  if (!spa.setupComplete) {
+    return res.status(412).json({ 
+      message: "Setup wizard must be completed before performing this action",
+      setupRequired: true 
+    });
+  }
+  
+  next();
+};
+
 // Super Admin-only middleware - requires authentication + super_admin role
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   const user = req.user as any;

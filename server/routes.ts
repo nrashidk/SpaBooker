@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin, injectAdminSpa, enforceSetupWizard } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, isSuperAdmin, injectAdminSpa, enforceSetupWizard, ensureSetupComplete } from "./replitAuth";
 import { generateAvailableTimeSlots, validateBooking } from "./timeSlotService";
 import { notificationService } from "./notificationService";
 import { requireStaff, requireStaffRole, getStaffByUserId, canViewStaffCalendar, canEditAppointments, canAccessDashboard } from "./staffPermissions";
@@ -187,8 +187,29 @@ import {
   insertBillSchema,
 } from "@shared/schema";
 
+// Domain error class for business logic errors
+export class DomainError extends Error {
+  status: number;
+  code?: string;
+  
+  constructor(message: string, status = 400, code?: string) {
+    super(message);
+    this.name = 'DomainError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 // Helper function for consistent error handling
 function handleRouteError(res: any, error: any, message: string) {
+  // Domain errors (business logic)
+  if (error instanceof DomainError) {
+    return res.status(error.status).json({ 
+      message: error.message, 
+      code: error.code 
+    });
+  }
+  
   // Zod validation errors
   if (error.name === "ZodError") {
     return res.status(400).json({ 
@@ -1214,19 +1235,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
+      // Check if already reviewed
+      if (application.status !== "pending") {
+        return res.status(409).json({ message: "Application already reviewed" });
+      }
+
+      // Require business license for approval
+      if (!application.licenseUrl) {
+        return res.status(400).json({ message: "License document is required for approval" });
+      }
+
+      // Idempotent spa creation: check if spa already exists for this user
+      let spa = await storage.getSpaByOwnerUserId(application.userId);
+      
+      if (!spa) {
+        // Create new spa for this admin
+        spa = await storage.createSpa({
+          name: application.businessName,
+          businessType: application.businessType,
+          ownerUserId: application.userId,
+          setupComplete: false,
+          setupSteps: {
+            basicInfo: false,
+            location: false,
+            hours: false,
+            services: false,
+            staff: false,
+            policies: false,
+            inventory: false,
+            activation: false,
+          },
+        } as any);
+      }
+
+      // Link admin to spa (idempotent - always update to ensure consistency)
+      await storage.upsertUser({
+        id: application.userId,
+        status: 'approved',
+        adminSpaId: spa.id,
+      } as any);
+
       // Update application status
       await storage.updateAdminApplication(id, {
         status: 'approved',
         reviewedAt: new Date(),
       });
 
-      // Update user status
-      await storage.upsertUser({
-        id: application.userId,
-        status: 'approved',
-      } as any);
-
-      res.json({ message: "Admin application approved successfully" });
+      res.json({ 
+        message: "Admin application approved successfully",
+        spaId: spa.id 
+      });
     } catch (error) {
       handleRouteError(res, error, "Failed to approve admin application");
     }
