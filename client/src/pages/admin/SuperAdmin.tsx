@@ -70,12 +70,16 @@ export default function SuperAdmin() {
     mutationFn: async (applicationId: number) => {
       return apiRequest("POST", `/api/super-admin/applications/${applicationId}/approve`);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Application Approved",
         description: "The admin application has been approved successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/applications"] });
+      // Invalidate all application queries to force refetch
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/super-admin/applications"],
+        refetchType: 'all'
+      });
     },
     onError: (error: any) => {
       toast({
@@ -90,12 +94,16 @@ export default function SuperAdmin() {
     mutationFn: async ({ applicationId, reason }: { applicationId: number; reason: string }) => {
       return apiRequest("POST", `/api/super-admin/applications/${applicationId}/reject`, { reason });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Application Rejected",
         description: "The admin application has been rejected.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/applications"] });
+      // Invalidate all application queries to force refetch
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/super-admin/applications"],
+        refetchType: 'all'
+      });
       setRejectDialogOpen(false);
       setSelectedApplication(null);
       setRejectionReason("");

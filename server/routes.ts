@@ -1370,7 +1370,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } as any);
 
       // Update application status with reviewer info
-      const userId = (req as any).user.claims.sub;
+      const userId = (req as any).user?.claims?.sub || (req as any).user?.id;
+      console.log('Approving application:', { applicationId: id, userId });
+      
       await storage.updateAdminApplication(id, {
         status: 'approved',
         reviewedAt: new Date(),
@@ -1401,7 +1403,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update application status with reviewer info
-      const userId = (req as any).user.claims.sub;
+      const userId = (req as any).user?.claims?.sub || (req as any).user?.id;
+      console.log('Rejecting application:', { applicationId: id, userId, reason });
+      
       await storage.updateAdminApplication(id, {
         status: 'rejected',
         reviewedAt: new Date(),
@@ -1417,6 +1421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Admin application rejected successfully" });
     } catch (error) {
+      console.error('Error rejecting application:', error);
       handleRouteError(res, error, "Failed to reject admin application");
     }
   });
