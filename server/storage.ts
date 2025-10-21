@@ -405,6 +405,25 @@ export class DatabaseStorage implements IStorage {
       return { exists: true, entityType: 'user', entityId: user[0].id };
     }
     
+    // Check admin applications with pending/approved status - case insensitive
+    // Join with users to get email since adminApplications doesn't store email directly
+    const adminApp = await db.select()
+      .from(adminApplications)
+      .innerJoin(users, eq(adminApplications.userId, users.id))
+      .where(
+        and(
+          sql`LOWER(${users.email}) = ${normalizedEmail}`,
+          or(
+            eq(adminApplications.status, 'pending'),
+            eq(adminApplications.status, 'approved')
+          )
+        )
+      )
+      .limit(1);
+    if (adminApp.length > 0 && !(excludeId?.type === 'user' && excludeId.id === adminApp[0].users.id)) {
+      return { exists: true, entityType: 'user', entityId: adminApp[0].users.id };
+    }
+    
     // Check customers table - case insensitive
     const customer = await db.select().from(customers)
       .where(sql`LOWER(${customers.email}) = ${normalizedEmail}`)
