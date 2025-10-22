@@ -1,4 +1,5 @@
-import { createObjectCsvStringifier } from 'csv-writer';
+import { parse } from 'csv-parse/sync';
+import { stringify } from 'csv-stringify/sync';
 import type { Customer } from '@shared/schema';
 
 export interface CustomerCSVRow {
@@ -14,54 +15,18 @@ export interface CustomerCSVRow {
   notes?: string;
 }
 
-// Simple CSV parser (handles basic CSV format)
 export function parseCustomersCSV(csvContent: string): CustomerCSVRow[] {
-  const lines = csvContent.trim().split('\n');
-  if (lines.length === 0) {
-    return [];
-  }
-
-  // Parse header
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-  
-  // Parse rows
-  const rows: CustomerCSVRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-    const row: any = {};
-    
-    headers.forEach((header, index) => {
-      row[header] = values[index] || '';
-    });
-    
-    rows.push(row as CustomerCSVRow);
-  }
-  
-  return rows;
+  const records = parse(csvContent, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+    relaxColumnCount: true,
+    bom: true,
+  });
+  return records;
 }
 
 export function customersToCSV(customers: Customer[]): string {
-  const csvStringifier = createObjectCsvStringifier({
-    header: [
-      { id: 'name', title: 'name' },
-      { id: 'email', title: 'email' },
-      { id: 'phone', title: 'phone' },
-      { id: 'gender', title: 'gender' },
-      { id: 'birthday', title: 'birthday' },
-      { id: 'address_street', title: 'address_street' },
-      { id: 'address_city', title: 'address_city' },
-      { id: 'address_area', title: 'address_area' },
-      { id: 'address_emirate', title: 'address_emirate' },
-      { id: 'loyalty_points', title: 'loyalty_points' },
-      { id: 'wallet_balance', title: 'wallet_balance' },
-      { id: 'total_spent', title: 'total_spent' },
-      { id: 'blocked', title: 'blocked' },
-      { id: 'blocked_reason', title: 'blocked_reason' },
-      { id: 'notes', title: 'notes' },
-      { id: 'created_at', title: 'created_at' },
-    ],
-  });
-
   const rows = customers.map(customer => ({
     name: customer.name,
     email: customer.email || '',
@@ -81,5 +46,25 @@ export function customersToCSV(customers: Customer[]): string {
     created_at: new Date(customer.createdAt).toISOString(),
   }));
 
-  return csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(rows);
+  return stringify(rows, {
+    header: true,
+    columns: [
+      { key: 'name', header: 'name' },
+      { key: 'email', header: 'email' },
+      { key: 'phone', header: 'phone' },
+      { key: 'gender', header: 'gender' },
+      { key: 'birthday', header: 'birthday' },
+      { key: 'address_street', header: 'address_street' },
+      { key: 'address_city', header: 'address_city' },
+      { key: 'address_area', header: 'address_area' },
+      { key: 'address_emirate', header: 'address_emirate' },
+      { key: 'loyalty_points', header: 'loyalty_points' },
+      { key: 'wallet_balance', header: 'wallet_balance' },
+      { key: 'total_spent', header: 'total_spent' },
+      { key: 'blocked', header: 'blocked' },
+      { key: 'blocked_reason', header: 'blocked_reason' },
+      { key: 'notes', header: 'notes' },
+      { key: 'created_at', header: 'created_at' },
+    ],
+  });
 }
