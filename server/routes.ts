@@ -3031,6 +3031,310 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Block customer
+  app.post("/api/admin/customers/:id/block", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+      
+      const { reason } = req.body;
+      if (!reason || reason.trim() === "") {
+        return res.status(400).json({ message: "Blocking reason is required" });
+      }
+
+      const user = req.user as any;
+      const customer = await storage.blockCustomer(id, reason, user.claims.sub);
+      
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Audit log
+      await AuditLogger.log(req, 'CUSTOMER_BLOCK', {
+        customerId: id,
+        reason,
+        customerName: customer.name,
+      });
+
+      res.json(customer);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to block customer");
+    }
+  });
+
+  // Unblock customer
+  app.post("/api/admin/customers/:id/unblock", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+
+      const customer = await storage.unblockCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Audit log
+      await AuditLogger.log(req, 'CUSTOMER_UNBLOCK', {
+        customerId: id,
+        customerName: customer.name,
+      });
+
+      res.json(customer);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to unblock customer");
+    }
+  });
+
+  // Merge customers
+  app.post("/api/admin/customers/merge", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const { primaryId, duplicateId } = req.body;
+      
+      if (!primaryId || !duplicateId) {
+        return res.status(400).json({ message: "Both primaryId and duplicateId are required" });
+      }
+
+      if (primaryId === duplicateId) {
+        return res.status(400).json({ message: "Cannot merge a customer with itself" });
+      }
+
+      const customer = await storage.mergeCustomers(primaryId, duplicateId);
+      
+      if (!customer) {
+        return res.status(404).json({ message: "One or both customers not found" });
+      }
+
+      // Audit log
+      await AuditLogger.log(req, 'CUSTOMER_MERGE', {
+        primaryId,
+        duplicateId,
+        resultCustomerName: customer.name,
+      });
+
+      res.json(customer);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to merge customers");
+    }
+  });
+
+  // Get wallet transactions for a customer
+  app.get("/api/admin/customers/:id/wallet", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const customerId = parseNumericId(req.params.id);
+      if (customerId === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+
+      const transactions = await storage.getWalletTransactions(customerId);
+      res.json(transactions);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to fetch wallet transactions");
+    }
+  });
+
+  // Add wallet credit to customer
+  app.post("/api/admin/customers/:id/wallet/credit", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const customerId = parseNumericId(req.params.id);
+      if (customerId === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+
+      const { amount, description, source, referenceId } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Amount must be greater than zero" });
+      }
+
+      if (!description) {
+        return res.status(400).json({ message: "Description is required" });
+      }
+
+      const user = req.user as any;
+      const spaId = req.adminSpa.id;
+
+      const transaction = await storage.addWalletCredit(
+        customerId,
+        parseFloat(amount),
+        spaId,
+        source || 'manual_adjustment',
+        description,
+        user.claims.sub,
+        referenceId
+      );
+
+      // Audit log
+      await AuditLogger.log(req, 'WALLET_CREDIT_ADD', {
+        customerId,
+        amount,
+        description,
+        newBalance: transaction.balanceAfter,
+      });
+
+      res.json(transaction);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to add wallet credit");
+    }
+  });
+
+  // Deduct wallet credit from customer
+  app.post("/api/admin/customers/:id/wallet/debit", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const customerId = parseNumericId(req.params.id);
+      if (customerId === null) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+
+      const { amount, description, source, referenceId } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Amount must be greater than zero" });
+      }
+
+      if (!description) {
+        return res.status(400).json({ message: "Description is required" });
+      }
+
+      const user = req.user as any;
+      const spaId = req.adminSpa.id;
+
+      const transaction = await storage.deductWalletCredit(
+        customerId,
+        parseFloat(amount),
+        spaId,
+        source || 'manual_adjustment',
+        description,
+        user.claims.sub,
+        referenceId
+      );
+
+      // Audit log
+      await AuditLogger.log(req, 'WALLET_CREDIT_DEDUCT', {
+        customerId,
+        amount,
+        description,
+        newBalance: transaction.balanceAfter,
+      });
+
+      res.json(transaction);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to deduct wallet credit");
+    }
+  });
+
+  // Export customers to CSV
+  app.get("/api/admin/customers/export", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const { parseCustomersCSV, customersToCSV } = await import('./csvUtils');
+      const customers = await storage.getAllCustomers();
+      const csvContent = customersToCSV(customers);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="customers-export-${Date.now()}.csv"`);
+      res.send(csvContent);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to export customers");
+    }
+  });
+
+  // Import customers from CSV
+  app.post("/api/admin/customers/import", isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const { csvContent } = req.body;
+      
+      if (!csvContent) {
+        return res.status(400).json({ message: "CSV content is required" });
+      }
+
+      const { parseCustomersCSV } = await import('./csvUtils');
+      const rows = parseCustomersCSV(csvContent);
+      
+      const results = {
+        total: rows.length,
+        imported: 0,
+        skipped: 0,
+        errors: [] as Array<{ row: number; error: string; data: any }>,
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        
+        try {
+          // Check for required fields
+          if (!row.name || row.name.trim() === '') {
+            results.skipped++;
+            results.errors.push({
+              row: i + 2, // +2 because CSV is 1-indexed and has header row
+              error: 'Name is required',
+              data: row,
+            });
+            continue;
+          }
+
+          // Check if customer already exists by email or phone
+          let existing = null;
+          if (row.email) {
+            existing = await storage.getCustomerByEmail(row.email);
+          }
+          if (!existing && row.phone) {
+            existing = await storage.getCustomerByPhone(row.phone);
+          }
+
+          if (existing) {
+            results.skipped++;
+            results.errors.push({
+              row: i + 2,
+              error: 'Customer already exists with this email or phone',
+              data: row,
+            });
+            continue;
+          }
+
+          // Create customer
+          const customerData: any = {
+            name: row.name,
+            email: row.email || null,
+            phone: row.phone || null,
+            gender: row.gender || null,
+            birthday: row.birthday ? new Date(row.birthday) : null,
+            address: {
+              street: row.address_street || '',
+              city: row.address_city || '',
+              area: row.address_area || '',
+              emirate: row.address_emirate || '',
+            },
+            notes: row.notes || null,
+          };
+
+          await storage.createCustomer(customerData);
+          results.imported++;
+        } catch (error: any) {
+          results.errors.push({
+            row: i + 2,
+            error: error.message || 'Unknown error',
+            data: row,
+          });
+        }
+      }
+
+      // Audit log
+      await AuditLogger.log(req, 'CUSTOMERS_IMPORT', {
+        total: results.total,
+        imported: results.imported,
+        skipped: results.skipped,
+        errors: results.errors.length,
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      handleRouteError(res, error, "Failed to import customers");
+    }
+  });
+
   app.post("/api/customers", async (req, res) => {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
