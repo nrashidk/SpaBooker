@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Filter,
   ChevronDown,
+  ChevronUp,
   ArrowUpDown,
   Loader2,
 } from "lucide-react";
@@ -201,6 +202,10 @@ export default function AdminFinanceAccounting() {
   const [selectedReport, setSelectedReport] = useState<ReportType>("finance-summary");
   const [dateRange, setDateRange] = useState("last-6-months");
   const [monthToDate, setMonthToDate] = useState(format(new Date(), "yyyy-MM"));
+  
+  // Sorting state for Sales Summary
+  const [salesSummarySortColumn, setSalesSummarySortColumn] = useState<string | null>(null);
+  const [salesSummarySortDirection, setSalesSummarySortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Calculate date ranges based on selected filters
   const financeDateRange = useMemo(() => getDateRange(dateRange), [dateRange]);
@@ -914,6 +919,7 @@ export default function AdminFinanceAccounting() {
     // Safely extract data with proper type validation
     const data = (salesSummaryData as SalesSummaryData) || {};
     const total = {
+      type: 'Total',
       salesQty: data.total?.salesQty ?? 0,
       itemsSold: data.total?.itemsSold ?? 0,
       grossSales: data.total?.grossSales ?? 0,
@@ -924,6 +930,7 @@ export default function AdminFinanceAccounting() {
       totalSales: data.total?.totalSales ?? 0,
     };
     const service = {
+      type: 'Service',
       salesQty: data.service?.salesQty ?? 0,
       itemsSold: data.service?.itemsSold ?? 0,
       grossSales: data.service?.grossSales ?? 0,
@@ -934,6 +941,7 @@ export default function AdminFinanceAccounting() {
       totalSales: data.service?.totalSales ?? 0,
     };
     const product = {
+      type: 'Product',
       salesQty: data.product?.salesQty ?? 0,
       itemsSold: data.product?.itemsSold ?? 0,
       grossSales: data.product?.grossSales ?? 0,
@@ -944,6 +952,7 @@ export default function AdminFinanceAccounting() {
       totalSales: data.product?.totalSales ?? 0,
     };
     const memberships = {
+      type: 'Memberships',
       salesQty: data.memberships?.salesQty ?? 0,
       itemsSold: data.memberships?.itemsSold ?? 0,
       grossSales: data.memberships?.grossSales ?? 0,
@@ -952,6 +961,28 @@ export default function AdminFinanceAccounting() {
       netSales: data.memberships?.netSales ?? 0,
       taxes: data.memberships?.taxes ?? 0,
       totalSales: data.memberships?.totalSales ?? 0,
+    };
+
+    // Sort data rows (excluding Total)
+    const dataRows = [service, product, memberships];
+    if (salesSummarySortColumn) {
+      dataRows.sort((a, b) => {
+        const aVal = a[salesSummarySortColumn as keyof typeof a];
+        const bVal = b[salesSummarySortColumn as keyof typeof b];
+        const comparison = typeof aVal === 'number' && typeof bVal === 'number'
+          ? aVal - bVal
+          : String(aVal).localeCompare(String(bVal));
+        return salesSummarySortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    const handleSort = (column: string) => {
+      if (salesSummarySortColumn === column) {
+        setSalesSummarySortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSalesSummarySortColumn(column);
+        setSalesSummarySortDirection('desc');
+      }
     };
 
     return (
@@ -1005,18 +1036,149 @@ export default function AdminFinanceAccounting() {
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left p-3 font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Type <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('type')}
+                      data-testid="button-sort-type"
+                    >
+                      Type 
+                      {salesSummarySortColumn === 'type' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
-                  <th className="text-left p-3 font-semibold">Sales qty</th>
-                  <th className="text-left p-3 font-semibold">Items sold</th>
-                  <th className="text-left p-3 font-semibold">Gross sales</th>
-                  <th className="text-left p-3 font-semibold">Total discounts</th>
-                  <th className="text-left p-3 font-semibold">Refunds</th>
-                  <th className="text-left p-3 font-semibold">Net sales</th>
-                  <th className="text-left p-3 font-semibold">Taxes</th>
-                  <th className="text-left p-3 font-semibold">Total sales</th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('salesQty')}
+                      data-testid="button-sort-sales-qty"
+                    >
+                      Sales qty
+                      {salesSummarySortColumn === 'salesQty' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('itemsSold')}
+                      data-testid="button-sort-items-sold"
+                    >
+                      Items sold
+                      {salesSummarySortColumn === 'itemsSold' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('grossSales')}
+                      data-testid="button-sort-gross-sales"
+                    >
+                      Gross sales
+                      {salesSummarySortColumn === 'grossSales' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('totalDiscounts')}
+                      data-testid="button-sort-discounts"
+                    >
+                      Total discounts
+                      {salesSummarySortColumn === 'totalDiscounts' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('refunds')}
+                      data-testid="button-sort-refunds"
+                    >
+                      Refunds
+                      {salesSummarySortColumn === 'refunds' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('netSales')}
+                      data-testid="button-sort-net-sales"
+                    >
+                      Net sales
+                      {salesSummarySortColumn === 'netSales' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('taxes')}
+                      data-testid="button-sort-taxes"
+                    >
+                      Taxes
+                      {salesSummarySortColumn === 'taxes' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('totalSales')}
+                      data-testid="button-sort-total-sales"
+                    >
+                      Total sales
+                      {salesSummarySortColumn === 'totalSales' ? (
+                        salesSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1031,45 +1193,21 @@ export default function AdminFinanceAccounting() {
                   <td className="p-3">{formatCurrency(total.taxes)}</td>
                   <td className="p-3">{formatCurrency(total.totalSales)}</td>
                 </tr>
-                <tr className="border-b hover-elevate text-primary">
-                  <td className="p-3">
-                    <a href="#" className="hover:underline">Service</a>
-                  </td>
-                  <td className="p-3">{service.salesQty}</td>
-                  <td className="p-3">{service.itemsSold}</td>
-                  <td className="p-3">{formatCurrency(service.grossSales)}</td>
-                  <td className="p-3">{formatCurrency(service.totalDiscounts)}</td>
-                  <td className="p-3">{formatCurrency(service.refunds)}</td>
-                  <td className="p-3">{formatCurrency(service.netSales)}</td>
-                  <td className="p-3">{formatCurrency(service.taxes)}</td>
-                  <td className="p-3">{formatCurrency(service.totalSales)}</td>
-                </tr>
-                <tr className="border-b hover-elevate text-primary">
-                  <td className="p-3">
-                    <a href="#" className="hover:underline">Product</a>
-                  </td>
-                  <td className="p-3">{product.salesQty}</td>
-                  <td className="p-3">{product.itemsSold}</td>
-                  <td className="p-3">{formatCurrency(product.grossSales)}</td>
-                  <td className="p-3">{formatCurrency(product.totalDiscounts)}</td>
-                  <td className="p-3">{formatCurrency(product.refunds)}</td>
-                  <td className="p-3">{formatCurrency(product.netSales)}</td>
-                  <td className="p-3">{formatCurrency(product.taxes)}</td>
-                  <td className="p-3">{formatCurrency(product.totalSales)}</td>
-                </tr>
-                <tr className="border-b hover-elevate text-primary">
-                  <td className="p-3">
-                    <a href="#" className="hover:underline">Memberships</a>
-                  </td>
-                  <td className="p-3">{memberships.salesQty}</td>
-                  <td className="p-3">{memberships.itemsSold}</td>
-                  <td className="p-3">{formatCurrency(memberships.grossSales)}</td>
-                  <td className="p-3">{formatCurrency(memberships.totalDiscounts)}</td>
-                  <td className="p-3">{formatCurrency(memberships.refunds)}</td>
-                  <td className="p-3">{formatCurrency(memberships.netSales)}</td>
-                  <td className="p-3">{formatCurrency(memberships.taxes)}</td>
-                  <td className="p-3">{formatCurrency(memberships.totalSales)}</td>
-                </tr>
+                {dataRows.map((row) => (
+                  <tr key={row.type} className="border-b hover-elevate text-primary">
+                    <td className="p-3">
+                      <a href="#" className="hover:underline">{row.type}</a>
+                    </td>
+                    <td className="p-3">{row.salesQty}</td>
+                    <td className="p-3">{row.itemsSold}</td>
+                    <td className="p-3">{formatCurrency(row.grossSales)}</td>
+                    <td className="p-3">{formatCurrency(row.totalDiscounts)}</td>
+                    <td className="p-3">{formatCurrency(row.refunds)}</td>
+                    <td className="p-3">{formatCurrency(row.netSales)}</td>
+                    <td className="p-3">{formatCurrency(row.taxes)}</td>
+                    <td className="p-3">{formatCurrency(row.totalSales)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
