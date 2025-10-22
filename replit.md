@@ -35,6 +35,15 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
     -   **VAT Calculations:** Tax-inclusive model where 5% VAT is part of the displayed price
     -   **FTA Audit File (FAF):** CSV export of all transactions with netAmount, vatAmount, and taxCode breakdown
     -   **Multi-Tenant Isolation:** Spa-specific data security in all exports and reports
+-   **VAT Threshold Reminder System:** Automatic revenue tracking and notification system to help spas know when to register for VAT. Features include:
+    -   **Calendar Year Tracking:** Calculates annual revenue from Jan 1 - Dec 31 to align with UAE tax year
+    -   **Real-Time Revenue Dashboard:** Admin settings display current year revenue, percentage of threshold, and visual progress bar
+    -   **Configurable Threshold:** Spa admins can set custom threshold amount (defaults to AED 375,000 per UAE FTA regulations)
+    -   **One-Time Annual Notifications:** System sends email reminder when threshold is reached, once per calendar year
+    -   **Auto-Generated Invoice Numbers:** System automatically generates unique invoice numbers (format: INV-{timestamp}-{bookingId}) for all bookings
+    -   **Non-Blocking Integration:** Threshold checks run after invoice creation without impacting booking success
+    -   **Smart Deactivation:** Reminders automatically stop when spa activates VAT collection
+    -   **Duplicate Prevention:** Database-first flag update ensures notification sent only once per year even if email delivery fails
 -   **Calendar Validation System:** Ensures accurate time slot generation based on business hours, service durations, and staff availability.
 -   **Multi-Provider Notification System:** Supports both Twilio and MSG91 as notification providers for Email, SMS, and WhatsApp channels. Spa owners configure their own provider credentials (BYOA model) with AES-256-GCM encryption, real-time credential validation, delivery status webhooks, and per-spa provider selection.
 -   **Staff Notifications:** Staff members receive booking notifications (create/modify/cancel) through the same channels enabled for customers (SMS/email/WhatsApp). Independent settings control which channels and events trigger staff notifications, ensuring staff are always informed about their appointments.
