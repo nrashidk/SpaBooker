@@ -996,6 +996,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Create FTA-compliant invoice for booking
+      try {
+        const spa = await storage.getSpaById(spaId);
+        if (spa) {
+          const { prepareFTACompliantInvoice } = await import('./invoiceUtils');
+          const { calculateVAT } = await import('./vatUtils');
+          
+          // Calculate VAT based on spa's VAT activation status
+          let subtotal: number;
+          let taxAmount: number;
+          
+          if (spa.vatEnabled && spa.taxRegistrationNumber) {
+            // VAT enabled: Calculate 5% inclusive VAT
+            const vatCalc = calculateVAT(totalAmount, 'SR');
+            subtotal = vatCalc.netAmount;
+            taxAmount = vatCalc.vatAmount;
+          } else {
+            // VAT disabled: No tax, subtotal equals total
+            subtotal = totalAmount;
+            taxAmount = 0;
+          }
+          
+          // Generate invoice number (simple sequential format)
+          const invoiceNumber = `INV-${Date.now()}-${booking.id}`;
+          
+          // Prepare FTA-compliant invoice
+          const invoiceData = prepareFTACompliantInvoice({
+            spa,
+            customer,
+            subtotal,
+            taxAmount,
+            totalAmount,
+            invoiceNumber,
+            customerId: customer.id,
+            bookingId: booking.id,
+            paymentMethod: null,
+            notes: notes || null,
+          });
+          
+          // Create invoice
+          await storage.createInvoice(invoiceData);
+        }
+      } catch (error) {
+        console.error('Error creating invoice for booking:', error);
+        // Don't fail the booking if invoice creation fails
+      }
+
       // Log booking creation to audit trail
       await AuditLogger.logCreate(req, "booking", booking.id, {
         spaId,
@@ -1837,6 +1884,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating VAT settings:", error);
       res.status(500).json({ message: "Failed to update VAT settings" });
+    }
+  });
+
+  // Invoice Management routes
+  app.delete("/api/admin/invoices/:id", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+
+      const invoiceId = parseNumericId(req.params.id);
+      if (invoiceId === null) {
+        return res.status(400).json({ message: "Invalid invoice ID" });
+      }
+
+      // Get invoice to check retention requirements
+      const invoice = await storage.getInvoiceById(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Verify invoice belongs to admin's spa
+      if (invoice.spaId !== user.adminSpaId) {
+        return res.status(403).json({ message: "Unauthorized access to invoice" });
+      }
+
+      // Check FTA retention requirements
+      const { canDeleteInvoice } = await import("./invoiceUtils");
+      const retentionCheck = canDeleteInvoice({
+        retentionDate: invoice.retentionDate,
+        issueDate: invoice.issueDate,
+      });
+
+      if (!retentionCheck.canDelete) {
+        return res.status(400).json({ 
+          message: retentionCheck.reason,
+          retentionRequired: true,
+        });
+      }
+
+      // Delete invoice
+      const deleted = await storage.deleteInvoice(invoiceId);
+      if (!deleted) {
+        return res.status(500).json({ message: "Failed to delete invoice" });
+      }
+
+      // Log deletion to audit trail
+      await AuditLogger.logDelete(req, "invoice", invoiceId, {
+        invoiceNumber: invoice.invoiceNumber,
+        totalAmount: invoice.totalAmount,
+        customerId: invoice.customerId,
+      }, user.adminSpaId);
+
+      res.json({ message: "Invoice deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
     }
   });
 
