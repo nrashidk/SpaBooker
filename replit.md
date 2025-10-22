@@ -34,6 +34,12 @@ The backend utilizes a PostgreSQL database and an Express-based REST API.
 -   **Admin-Spa Linkage & Onboarding:** Robust middleware (`injectAdminSpa`) links admin users to their specific spa. A pending approval workflow and a 6-step setup wizard ensure new admins configure their spa before accessing full features. The wizard covers Basic Info, Location, Business Hours, Services, Staff, and Activation.
 -   **Membership Management:** CRUD operations for memberships/packages, supporting one-time/recurring payments, limited/unlimited sessions, validity periods, and online sales toggles. Integrates with invoicing for revenue tracking.
 -   **Finance & Accounting Reporting:** Comprehensive dashboard with 5 report types: Finance Summary, Sales Summary, Sales List, Appointments Summary, and Payment Summary. Includes date range filters, sortable columns, and planned export functionality (CSV, Excel, PDF).
+-   **Advanced Client Management System:** 
+    - **Extended Customer Profiles:** Gender, birthday, and full address (street, city, area, emirate) fields for personalized service and targeted marketing.
+    - **Client Blocking System:** Ability to block/unblock clients with reason tracking, timestamps, and admin attribution for managing problematic customers.
+    - **Wallet/Store Credit:** Full wallet transaction system with credit/debit operations, transaction history, balance tracking, and audit trail. Supports manual adjustments, refunds, and booking payments.
+    - **Client Merge:** Safely merge duplicate customer profiles while preserving all booking history, loyalty data, wallet balances, and transaction records. Respects unique email/phone constraints.
+    - **CSV Import/Export:** Bulk operations using standards-compliant CSV parsing (csv-parse/csv-stringify) that handles quoted fields, escaped delimiters, UTF-8, and embedded newlines. Import includes duplicate detection and error reporting.
 
 ## External Dependencies
 -   **Replit Auth:** User authentication and authorization.
