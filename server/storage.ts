@@ -13,6 +13,7 @@ import {
   staffSchedules,
   products,
   customers,
+  walletTransactions,
   bookings,
   bookingItems,
   invoices,
@@ -63,6 +64,8 @@ import {
   type InsertProduct,
   type Customer,
   type InsertCustomer,
+  type WalletTransaction,
+  type InsertWalletTransaction,
   type PromoCode,
   type InsertPromoCode,
   type Booking,
@@ -205,6 +208,14 @@ export interface IStorage {
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: number): Promise<boolean>;
+  blockCustomer(id: number, reason: string, blockedBy: string): Promise<Customer | undefined>;
+  unblockCustomer(id: number): Promise<Customer | undefined>;
+  mergeCustomers(primaryId: number, duplicateId: number): Promise<Customer | undefined>;
+
+  // Wallet Transaction operations
+  getWalletTransactions(customerId: number): Promise<WalletTransaction[]>;
+  addWalletCredit(customerId: number, amount: number, spaId: number, source: string, description: string, createdBy: string, referenceId?: number): Promise<WalletTransaction>;
+  deductWalletCredit(customerId: number, amount: number, spaId: number, source: string, description: string, createdBy?: string, referenceId?: number): Promise<WalletTransaction>;
 
   // Booking operations
   getAllBookings(): Promise<Booking[]>;
@@ -1052,6 +1063,207 @@ export class DatabaseStorage implements IStorage {
   async deleteCustomer(id: number): Promise<boolean> {
     const result = await db.delete(customers).where(eq(customers.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async blockCustomer(id: number, reason: string, blockedBy: string): Promise<Customer | undefined> {
+    const result = await db.update(customers)
+      .set({
+        blocked: true,
+        blockedReason: reason,
+        blockedAt: new Date(),
+        blockedBy: blockedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(customers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async unblockCustomer(id: number): Promise<Customer | undefined> {
+    const result = await db.update(customers)
+      .set({
+        blocked: false,
+        blockedReason: null,
+        blockedAt: null,
+        blockedBy: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(customers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async mergeCustomers(primaryId: number, duplicateId: number): Promise<Customer | undefined> {
+    return withTransaction(async (tx) => {
+      // Get both customers
+      const [primary] = await tx.select().from(customers).where(eq(customers.id, primaryId));
+      const [duplicate] = await tx.select().from(customers).where(eq(customers.id, duplicateId));
+
+      if (!primary || !duplicate) {
+        throw new Error('One or both customers not found');
+      }
+
+      // Merge wallet balances
+      const newBalance = (parseFloat(primary.walletBalance || '0') + parseFloat(duplicate.walletBalance || '0')).toFixed(2);
+      const newLoyaltyPoints = (primary.loyaltyPoints || 0) + (duplicate.loyaltyPoints || 0);
+      const newTotalSpent = (parseFloat(primary.totalSpent || '0') + parseFloat(duplicate.totalSpent || '0')).toFixed(2);
+
+      // Update primary customer with merged data
+      const [updated] = await tx.update(customers)
+        .set({
+          // Keep primary contact info, but merge financial data
+          walletBalance: newBalance,
+          loyaltyPoints: newLoyaltyPoints,
+          totalSpent: newTotalSpent,
+          // Merge notes
+          notes: primary.notes && duplicate.notes 
+            ? `${primary.notes}\n\n--- Merged from duplicate profile ---\n${duplicate.notes}`
+            : primary.notes || duplicate.notes,
+          // Fill in missing fields from duplicate
+          email: primary.email || duplicate.email,
+          phone: primary.phone || duplicate.phone,
+          gender: primary.gender || duplicate.gender,
+          birthday: primary.birthday || duplicate.birthday,
+          address: primary.address || duplicate.address,
+          updatedAt: new Date(),
+        })
+        .where(eq(customers.id, primaryId))
+        .returning();
+
+      // Update all bookings to point to primary customer
+      await tx.update(bookings)
+        .set({ customerId: primaryId })
+        .where(eq(bookings.customerId, duplicateId));
+
+      // Update all loyalty cards to point to primary customer
+      await tx.update(loyaltyCards)
+        .set({ customerId: primaryId })
+        .where(eq(loyaltyCards.customerId, duplicateId));
+
+      // Update all wallet transactions to point to primary customer
+      await tx.update(walletTransactions)
+        .set({ customerId: primaryId })
+        .where(eq(walletTransactions.customerId, duplicateId));
+
+      // Update all customer memberships to point to primary customer
+      await tx.update(customerMemberships)
+        .set({ customerId: primaryId })
+        .where(eq(customerMemberships.customerId, duplicateId));
+
+      // Update all product sales to point to primary customer
+      await tx.update(productSales)
+        .set({ customerId: primaryId })
+        .where(eq(productSales.customerId, duplicateId));
+
+      // Delete the duplicate customer
+      await tx.delete(customers).where(eq(customers.id, duplicateId));
+
+      return updated;
+    });
+  }
+
+  // Wallet Transaction operations
+  async getWalletTransactions(customerId: number): Promise<WalletTransaction[]> {
+    return db.select()
+      .from(walletTransactions)
+      .where(eq(walletTransactions.customerId, customerId))
+      .orderBy(desc(walletTransactions.createdAt));
+  }
+
+  async addWalletCredit(
+    customerId: number,
+    amount: number,
+    spaId: number,
+    source: string,
+    description: string,
+    createdBy: string,
+    referenceId?: number
+  ): Promise<WalletTransaction> {
+    return withTransaction(async (tx) => {
+      // Get current customer
+      const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId));
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      const currentBalance = parseFloat(customer.walletBalance || '0');
+      const newBalance = (currentBalance + amount).toFixed(2);
+
+      // Update customer wallet balance
+      await tx.update(customers)
+        .set({ 
+          walletBalance: newBalance,
+          updatedAt: new Date(),
+        })
+        .where(eq(customers.id, customerId));
+
+      // Create wallet transaction record
+      const [transaction] = await tx.insert(walletTransactions)
+        .values({
+          customerId,
+          spaId,
+          type: 'credit',
+          amount: amount.toFixed(2),
+          balanceAfter: newBalance,
+          source,
+          description,
+          createdBy,
+          referenceId,
+        })
+        .returning();
+
+      return transaction;
+    });
+  }
+
+  async deductWalletCredit(
+    customerId: number,
+    amount: number,
+    spaId: number,
+    source: string,
+    description: string,
+    createdBy?: string,
+    referenceId?: number
+  ): Promise<WalletTransaction> {
+    return withTransaction(async (tx) => {
+      // Get current customer
+      const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId));
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      const currentBalance = parseFloat(customer.walletBalance || '0');
+      if (currentBalance < amount) {
+        throw new Error('Insufficient wallet balance');
+      }
+
+      const newBalance = (currentBalance - amount).toFixed(2);
+
+      // Update customer wallet balance
+      await tx.update(customers)
+        .set({ 
+          walletBalance: newBalance,
+          updatedAt: new Date(),
+        })
+        .where(eq(customers.id, customerId));
+
+      // Create wallet transaction record
+      const [transaction] = await tx.insert(walletTransactions)
+        .values({
+          customerId,
+          spaId,
+          type: 'debit',
+          amount: amount.toFixed(2),
+          balanceAfter: newBalance,
+          source,
+          description,
+          createdBy: createdBy || null,
+          referenceId,
+        })
+        .returning();
+
+      return transaction;
+    });
   }
 
   // Booking operations
