@@ -211,6 +211,10 @@ export default function AdminFinanceAccounting() {
   const [salesListSortColumn, setSalesListSortColumn] = useState<string | null>(null);
   const [salesListSortDirection, setSalesListSortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // Sorting state for Appointments Summary
+  const [appointmentsSummarySortColumn, setAppointmentsSummarySortColumn] = useState<string | null>(null);
+  const [appointmentsSummarySortDirection, setAppointmentsSummarySortDirection] = useState<'asc' | 'desc'>('desc');
+  
   // Calculate date ranges based on selected filters
   const financeDateRange = useMemo(() => getDateRange(dateRange), [dateRange]);
   const monthDateRange = useMemo(() => getDateRange("this-month", monthToDate), [monthToDate]);
@@ -303,7 +307,35 @@ export default function AdminFinanceAccounting() {
       percentNewClients: data.total?.percentNewClients ?? 0,
       percentReturningClients: data.total?.percentReturningClients ?? 0,
     };
-    const locations = data.locations ?? [];
+    let locations = [...(data.locations ?? [])];
+
+    // Sort locations data
+    if (appointmentsSummarySortColumn) {
+      locations.sort((a, b) => {
+        const aVal = a[appointmentsSummarySortColumn as keyof typeof a];
+        const bVal = b[appointmentsSummarySortColumn as keyof typeof b];
+        
+        // Try parsing as numbers (backend returns some numeric values as strings)
+        const aNum = typeof aVal === 'number' ? aVal : parseFloat(String(aVal || '0'));
+        const bNum = typeof bVal === 'number' ? bVal : parseFloat(String(bVal || '0'));
+        
+        // Use numeric comparison if both parse successfully, otherwise use string comparison
+        const comparison = !isNaN(aNum) && !isNaN(bNum)
+          ? aNum - bNum
+          : String(aVal || '').localeCompare(String(bVal || ''));
+        
+        return appointmentsSummarySortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    const handleSort = (column: string) => {
+      if (appointmentsSummarySortColumn === column) {
+        setAppointmentsSummarySortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setAppointmentsSummarySortColumn(column);
+        setAppointmentsSummarySortDirection('desc');
+      }
+    };
 
     return (
       <div className="space-y-6">
@@ -342,30 +374,213 @@ export default function AdminFinanceAccounting() {
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left p-3 text-sm font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Location <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('location')}
+                      data-testid="button-sort-location"
+                    >
+                      Location
+                      {appointmentsSummarySortColumn === 'location' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
                   <th className="text-left p-3 text-sm font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Appointments <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('appointments')}
+                      data-testid="button-sort-appointments"
+                    >
+                      Appointments
+                      {appointmentsSummarySortColumn === 'appointments' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
                   <th className="text-left p-3 text-sm font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Services <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('services')}
+                      data-testid="button-sort-services"
+                    >
+                      Services
+                      {appointmentsSummarySortColumn === 'services' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
-                  <th className="text-left p-3 text-sm font-semibold">% requested</th>
-                  <th className="text-left p-3 text-sm font-semibold">Total appt. value</th>
-                  <th className="text-left p-3 text-sm font-semibold">Average appt. value</th>
-                  <th className="text-left p-3 text-sm font-semibold">% online</th>
-                  <th className="text-left p-3 text-sm font-semibold">% cancelled</th>
-                  <th className="text-left p-3 text-sm font-semibold">% no show</th>
-                  <th className="text-left p-3 text-sm font-semibold">Total clients</th>
-                  <th className="text-left p-3 text-sm font-semibold">New clients</th>
-                  <th className="text-left p-3 text-sm font-semibold">% new clients</th>
-                  <th className="text-left p-3 text-sm font-semibold">% returning clients</th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('percentRequested')}
+                      data-testid="button-sort-percent-requested"
+                    >
+                      % requested
+                      {appointmentsSummarySortColumn === 'percentRequested' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('totalApptValue')}
+                      data-testid="button-sort-total-appt-value"
+                    >
+                      Total appt. value
+                      {appointmentsSummarySortColumn === 'totalApptValue' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('averageApptValue')}
+                      data-testid="button-sort-average-appt-value"
+                    >
+                      Average appt. value
+                      {appointmentsSummarySortColumn === 'averageApptValue' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('percentOnline')}
+                      data-testid="button-sort-percent-online"
+                    >
+                      % online
+                      {appointmentsSummarySortColumn === 'percentOnline' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('percentCancelled')}
+                      data-testid="button-sort-percent-cancelled"
+                    >
+                      % cancelled
+                      {appointmentsSummarySortColumn === 'percentCancelled' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('percentNoShow')}
+                      data-testid="button-sort-percent-no-show"
+                    >
+                      % no show
+                      {appointmentsSummarySortColumn === 'percentNoShow' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('totalClients')}
+                      data-testid="button-sort-total-clients"
+                    >
+                      Total clients
+                      {appointmentsSummarySortColumn === 'totalClients' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('newClients')}
+                      data-testid="button-sort-new-clients"
+                    >
+                      New clients
+                      {appointmentsSummarySortColumn === 'newClients' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('percentNewClients')}
+                      data-testid="button-sort-percent-new-clients"
+                    >
+                      % new clients
+                      {appointmentsSummarySortColumn === 'percentNewClients' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('percentReturningClients')}
+                      data-testid="button-sort-percent-returning-clients"
+                    >
+                      % returning clients
+                      {appointmentsSummarySortColumn === 'percentReturningClients' ? (
+                        appointmentsSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
