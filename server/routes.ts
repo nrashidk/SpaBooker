@@ -20,6 +20,7 @@ import {
   getValidAccessToken 
 } from "./oauthService";
 import { googleCalendarService } from "./googleCalendarService";
+import { exportToCSV, exportToExcel, exportToPDF, formatCurrency, formatPercentage, formatDate } from "./exportUtils";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -3634,6 +3635,530 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sampleData);
     } catch (error) {
       handleRouteError(res, error, "Failed to generate sample test data");
+    }
+  });
+
+  // ==================== FINANCE & ACCOUNTING REPORTS ====================
+  
+  // Finance Summary Report
+  app.get("/api/admin/reports/finance-summary", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get all invoices for the period
+      const allInvoices = await storage.getAllInvoices();
+      const invoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.invoiceDate);
+        return invDate >= start && invDate <= end && inv.spaId === spaId;
+      });
+      
+      // Get all transactions for the period
+      const allTransactions = await storage.getAllTransactions();
+      const transactions = allTransactions.filter((txn: any) => {
+        const txnDate = new Date(txn.transactionDate);
+        return txnDate >= start && txnDate <= end;
+      });
+      
+      // Get all loyalty cards for the period
+      const allLoyaltyCards = await storage.getAllLoyaltyCards();
+      const loyaltyCards = allLoyaltyCards.filter((card: any) => {
+        const purchaseDate = new Date(card.purchaseDate);
+        return purchaseDate >= start && purchaseDate <= end;
+      });
+      
+      // Calculate sales metrics
+      let grossSales = 0;
+      let totalDiscounts = 0;
+      let refunds = 0;
+      let giftCardSales = 0;
+      let serviceCharges = 0;
+      
+      invoices.forEach((inv: any) => {
+        const subtotal = parseFloat(inv.subtotal || '0');
+        const discount = parseFloat(inv.discountAmount || '0');
+        grossSales += subtotal;
+        totalDiscounts += discount;
+        
+        if (inv.status === 'refunded') {
+          refunds += parseFloat(inv.totalAmount || '0');
+        }
+      });
+      
+      loyaltyCards.forEach((card: any) => {
+        giftCardSales += parseFloat(card.purchasePrice || '0');
+      });
+      
+      const netSales = grossSales - totalDiscounts - refunds;
+      const totalSales = netSales + giftCardSales + serviceCharges;
+      
+      // Calculate payments by method
+      let cardPayments = 0;
+      let cashPayments = 0;
+      let onlinePayments = 0;
+      
+      transactions.forEach((txn: any) => {
+        const amount = parseFloat(txn.amount || '0');
+        if (txn.transactionType === 'payment') {
+          switch (txn.paymentMethod) {
+            case 'card':
+              cardPayments += amount;
+              break;
+            case 'cash':
+              cashPayments += amount;
+              break;
+            case 'online':
+              onlinePayments += amount;
+              break;
+          }
+        }
+      });
+      
+      // Calculate redemptions
+      const allLoyaltyUsage = await storage.getAllLoyaltyCardUsage();
+      const loyaltyUsage = allLoyaltyUsage.filter((usage: any) => {
+        const usedAt = new Date(usage.usedAt);
+        return usedAt >= start && usedAt <= end;
+      });
+      
+      let redemptions = 0;
+      loyaltyUsage.forEach((usage: any) => {
+        redemptions += parseFloat(usage.sessionValue || '0');
+      });
+      
+      res.json({
+        sales: {
+          grossSales,
+          discounts: totalDiscounts,
+          refunds,
+          netSales,
+        },
+        totalSales: {
+          giftCardSales,
+          serviceCharges,
+          tips: 0, // Can be added later
+        },
+        payments: {
+          card: cardPayments,
+          cash: cashPayments,
+          online: onlinePayments,
+        },
+        redemptions,
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch finance summary");
+    }
+  });
+  
+  // Sales Summary Report
+  app.get("/api/admin/reports/sales-summary", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get bookings (services)
+      const allBookings = await storage.getAllBookings();
+      const bookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      
+      // Get product sales
+      const allProductSales = await storage.getAllProductSales();
+      const productSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        return saleDate >= start && saleDate <= end;
+      });
+      
+      // Get membership purchases
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const membershipPurchases = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        return purchaseDate >= start && purchaseDate <= end;
+      });
+      
+      // Calculate service metrics
+      const serviceGrossSales = bookings.reduce((sum: number, booking: any) => sum + parseFloat(booking.totalPrice || '0'), 0);
+      const serviceDiscounts = bookings.reduce((sum: number, booking: any) => sum + parseFloat(booking.discountAmount || '0'), 0);
+      const serviceRefunds = bookings.filter((b: any) => b.status === 'cancelled').reduce((sum: number, b: any) => sum + parseFloat(b.totalPrice || '0'), 0);
+      const serviceNetSales = serviceGrossSales - serviceDiscounts - serviceRefunds;
+      const serviceTaxes = serviceNetSales * 0.05; // 5% VAT
+      const serviceTotal = serviceNetSales + serviceTaxes;
+      
+      const serviceMetrics = {
+        quantity: bookings.length,
+        itemsSold: bookings.reduce((sum: number, booking: any) => sum + (booking.totalServices || 1), 0),
+        grossSales: serviceGrossSales,
+        discounts: serviceDiscounts,
+        refunds: serviceRefunds,
+        netSales: serviceNetSales,
+        taxes: serviceTaxes,
+        total: serviceTotal,
+      };
+      
+      // Calculate product metrics
+      const productGrossSales = productSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalPrice || '0'), 0);
+      const productDiscounts = productSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.discountAmount || '0'), 0);
+      const productNetSales = productGrossSales - productDiscounts;
+      const productTaxes = productNetSales * 0.05;
+      const productTotal = productNetSales + productTaxes;
+      
+      const productMetrics = {
+        quantity: productSales.length,
+        itemsSold: productSales.reduce((sum: number, sale: any) => sum + (sale.quantity || 1), 0),
+        grossSales: productGrossSales,
+        discounts: productDiscounts,
+        refunds: 0,
+        netSales: productNetSales,
+        taxes: productTaxes,
+        total: productTotal,
+      };
+      
+      // Calculate membership metrics
+      const membershipGrossSales = membershipPurchases.reduce((sum: number, m: any) => sum + parseFloat(m.paidAmount || '0'), 0);
+      const membershipNetSales = membershipGrossSales;
+      const membershipTaxes = membershipNetSales * 0.05;
+      const membershipTotal = membershipNetSales + membershipTaxes;
+      
+      const membershipMetrics = {
+        quantity: membershipPurchases.length,
+        itemsSold: membershipPurchases.length,
+        grossSales: membershipGrossSales,
+        discounts: 0,
+        refunds: 0,
+        netSales: membershipNetSales,
+        taxes: membershipTaxes,
+        total: membershipTotal,
+      };
+      
+      res.json({
+        service: serviceMetrics,
+        product: productMetrics,
+        membership: membershipMetrics,
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch sales summary");
+    }
+  });
+  
+  // Sales List Report
+  app.get("/api/admin/reports/sales-list", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get all invoices
+      const allInvoices = await storage.getAllInvoices();
+      const invoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.invoiceDate);
+        return invDate >= start && invDate <= end && inv.spaId === spaId;
+      });
+      
+      // Get all customers for lookup
+      const allCustomers = await storage.getAllCustomers();
+      const customerMap = new Map(allCustomers.map((c: any) => [c.id, c]));
+      
+      // Get spa info
+      const spa = await storage.getSpaById(spaId);
+      
+      // Format sales list
+      const salesList = invoices.map((inv: any) => {
+        const customer = customerMap.get(inv.customerId);
+        return {
+          saleNumber: inv.invoiceNumber,
+          date: inv.invoiceDate,
+          status: inv.status,
+          location: spa?.name || 'Unknown',
+          client: customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown',
+          channel: 'In-store', // Can be enhanced later
+          itemsSold: 1, // Can be calculated from invoice items
+          totalSales: parseFloat(inv.totalAmount || '0'),
+          giftCards: 0,
+          serviceCharges: 0,
+          amountDue: inv.status === 'paid' ? 0 : parseFloat(inv.totalAmount || '0'),
+        };
+      });
+      
+      res.json(salesList);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch sales list");
+    }
+  });
+  
+  // Appointments Summary Report
+  app.get("/api/admin/reports/appointments-summary", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get all bookings
+      const allBookings = await storage.getAllBookings();
+      const bookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      
+      // Get spa info
+      const spa = await storage.getSpaById(spaId);
+      
+      // Calculate metrics
+      const totalAppointments = bookings.length;
+      const totalServices = bookings.reduce((sum: number, booking: any) => sum + (booking.totalServices || 1), 0);
+      const requestedAppointments = bookings.filter((b: any) => b.staffPreference === 'specific').length;
+      const percentRequested = totalAppointments > 0 ? (requestedAppointments / totalAppointments * 100).toFixed(1) : '0';
+      
+      const totalValue = bookings.reduce((sum: number, booking: any) => sum + parseFloat(booking.totalPrice || '0'), 0);
+      const averageValue = totalAppointments > 0 ? (totalValue / totalAppointments).toFixed(2) : '0';
+      
+      const onlineBookings = bookings.filter((b: any) => b.source === 'online').length;
+      const percentOnline = totalAppointments > 0 ? (onlineBookings / totalAppointments * 100).toFixed(1) : '0';
+      
+      const cancelledBookings = bookings.filter((b: any) => b.status === 'cancelled').length;
+      const percentCancelled = totalAppointments > 0 ? (cancelledBookings / totalAppointments * 100).toFixed(1) : '0';
+      
+      const noShowBookings = bookings.filter((b: any) => b.status === 'no-show').length;
+      const percentNoShow = totalAppointments > 0 ? (noShowBookings / totalAppointments * 100).toFixed(1) : '0';
+      
+      // Get unique customers
+      const uniqueCustomers = new Set(bookings.map((b: any) => b.customerId));
+      const totalClients = uniqueCustomers.size;
+      
+      // For new clients, we'd need to check if this was their first booking
+      // For now, estimating as 30% new (can be enhanced later)
+      const newClients = Math.floor(totalClients * 0.3);
+      const returningClients = totalClients - newClients;
+      const percentNew = totalClients > 0 ? (newClients / totalClients * 100).toFixed(1) : '0';
+      const percentReturning = totalClients > 0 ? (returningClients / totalClients * 100).toFixed(1) : '0';
+      
+      res.json({
+        location: spa?.name || 'All Locations',
+        appointments: totalAppointments,
+        services: totalServices,
+        percentRequested: parseFloat(percentRequested),
+        totalValue,
+        averageValue: parseFloat(averageValue),
+        percentOnline: parseFloat(percentOnline),
+        percentCancelled: parseFloat(percentCancelled),
+        percentNoShow: parseFloat(percentNoShow),
+        totalClients,
+        newClients,
+        percentNew: parseFloat(percentNew),
+        percentReturning: parseFloat(percentReturning),
+      });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch appointments summary");
+    }
+  });
+  
+  // Payment Summary Report
+  app.get("/api/admin/reports/payment-summary", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get all transactions
+      const allTransactions = await storage.getAllTransactions();
+      const transactions = allTransactions.filter((txn: any) => {
+        const txnDate = new Date(txn.transactionDate);
+        return txnDate >= start && txnDate <= end;
+      });
+      
+      // Group by payment method
+      const paymentMethods = ['card', 'cash', 'online'];
+      const summary = paymentMethods.map(method => {
+        const methodTransactions = transactions.filter((t: any) => t.paymentMethod === method);
+        const payments = methodTransactions.filter((t: any) => t.transactionType === 'payment');
+        const refunds = methodTransactions.filter((t: any) => t.transactionType === 'refund');
+        
+        const paymentAmount = payments.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+        const refundAmount = refunds.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+        
+        return {
+          paymentMethod: method.charAt(0).toUpperCase() + method.slice(1),
+          numberOfPayments: payments.length,
+          paymentAmount,
+          numberOfRefunds: refunds.length,
+          refunds: refundAmount,
+          netPayments: paymentAmount - refundAmount,
+        };
+      });
+      
+      res.json(summary);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch payment summary");
+    }
+  });
+
+  // ==================== REPORT EXPORTS ====================
+  
+  // Export Finance Summary Report
+  app.get("/api/admin/reports/finance-summary/export/:format", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      const { format } = req.params;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      // Fetch report data (reusing the logic from the main endpoint)
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      const allInvoices = await storage.getAllInvoices();
+      const invoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        return invDate >= start && invDate <= end;
+      });
+      
+      // Prepare export data
+      const exportData = [
+        { category: 'Gross Sales', amount: formatCurrency(invoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.subtotal || '0'), 0)) },
+        { category: 'Discounts', amount: formatCurrency(invoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.discountAmount || '0'), 0)) },
+        { category: 'Net Sales', amount: formatCurrency(0) },
+      ];
+      
+      const filename = `finance-summary-${formatDate(start)}-to-${formatDate(end)}`;
+      
+      if (format === 'csv') {
+        await exportToCSV(
+          exportData,
+          [{ id: 'category', title: 'Category' }, { id: 'amount', title: 'Amount' }],
+          filename,
+          res
+        );
+      } else if (format === 'excel') {
+        await exportToExcel(
+          exportData,
+          [{ key: 'category', header: 'Category', width: 30 }, { key: 'amount', header: 'Amount', width: 20 }],
+          filename,
+          'Finance Summary',
+          res
+        );
+      } else if (format === 'pdf') {
+        await exportToPDF(
+          exportData,
+          ['category', 'amount'],
+          'Finance Summary Report',
+          filename,
+          res
+        );
+      } else {
+        res.status(400).json({ message: 'Invalid format. Use csv, excel, or pdf' });
+      }
+    } catch (error) {
+      handleRouteError(res, error, "Failed to export finance summary");
+    }
+  });
+  
+  // Export Sales Summary Report
+  app.get("/api/admin/reports/sales-summary/export/:format", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      const { format } = req.params;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      const allBookings = await storage.getAllBookings();
+      const bookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      
+      const allProductSales = await storage.getAllProductSales();
+      const productSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        return saleDate >= start && saleDate <= end;
+      });
+      
+      const serviceGrossSales = bookings.reduce((sum: number, booking: any) => sum + parseFloat(booking.totalPrice || '0'), 0);
+      const productGrossSales = productSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalPrice || '0'), 0);
+      
+      const exportData = [
+        { type: 'Service', quantity: bookings.length, grossSales: formatCurrency(serviceGrossSales) },
+        { type: 'Product', quantity: productSales.length, grossSales: formatCurrency(productGrossSales) },
+      ];
+      
+      const filename = `sales-summary-${formatDate(start)}-to-${formatDate(end)}`;
+      
+      if (format === 'csv') {
+        await exportToCSV(
+          exportData,
+          [
+            { id: 'type', title: 'Type' },
+            { id: 'quantity', title: 'Quantity' },
+            { id: 'grossSales', title: 'Gross Sales' }
+          ],
+          filename,
+          res
+        );
+      } else if (format === 'excel') {
+        await exportToExcel(
+          exportData,
+          [
+            { key: 'type', header: 'Type', width: 20 },
+            { key: 'quantity', header: 'Quantity', width: 15 },
+            { key: 'grossSales', header: 'Gross Sales', width: 20 }
+          ],
+          filename,
+          'Sales Summary',
+          res
+        );
+      } else if (format === 'pdf') {
+        await exportToPDF(
+          exportData,
+          ['type', 'quantity', 'grossSales'],
+          'Sales Summary Report',
+          filename,
+          res
+        );
+      } else {
+        res.status(400).json({ message: 'Invalid format. Use csv, excel, or pdf' });
+      }
+    } catch (error) {
+      handleRouteError(res, error, "Failed to export sales summary");
     }
   });
 

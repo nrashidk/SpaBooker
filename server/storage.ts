@@ -69,6 +69,10 @@ import {
   type InsertBooking,
   type BookingItem,
   type InsertBookingItem,
+  type Invoice,
+  type InsertInvoice,
+  type InvoiceItem,
+  type InsertInvoiceItem,
   type Vendor,
   type InsertVendor,
   type Expense,
@@ -240,6 +244,16 @@ export interface IStorage {
   createBillItem(item: InsertBillItem): Promise<BillItem>;
   deleteBillItem(id: number): Promise<boolean>;
 
+  // Invoice operations
+  getAllInvoices(): Promise<Invoice[]>;
+  getInvoiceById(id: number): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
+  deleteInvoice(id: number): Promise<boolean>;
+  getAllInvoiceItems(): Promise<InvoiceItem[]>;
+  getInvoiceItemsByInvoiceId(invoiceId: number): Promise<InvoiceItem[]>;
+  createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
+
   // Transaction operations
   getAllTransactions(): Promise<Transaction[]>;
   getTransactionById(id: number): Promise<Transaction | undefined>;
@@ -254,6 +268,7 @@ export interface IStorage {
   deleteLoyaltyCard(id: number): Promise<boolean>;
 
   // Loyalty Card Usage operations
+  getAllLoyaltyCardUsage(): Promise<LoyaltyCardUsage[]>;
   getLoyaltyCardUsageByCardId(cardId: number): Promise<LoyaltyCardUsage[]>;
   createLoyaltyCardUsage(usage: InsertLoyaltyCardUsage): Promise<LoyaltyCardUsage>;
 
@@ -1173,6 +1188,48 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
+  // Invoice operations
+  async getAllInvoices(): Promise<Invoice[]> {
+    return db.select().from(invoices).orderBy(desc(invoices.issueDate));
+  }
+
+  async getInvoiceById(id: number): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
+    return newInvoice;
+  }
+
+  async updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+    const [updated] = await db
+      .update(invoices)
+      .set(invoice)
+      .where(eq(invoices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInvoice(id: number): Promise<boolean> {
+    const result = await db.delete(invoices).where(eq(invoices.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getAllInvoiceItems(): Promise<InvoiceItem[]> {
+    return db.select().from(invoiceItems);
+  }
+
+  async getInvoiceItemsByInvoiceId(invoiceId: number): Promise<InvoiceItem[]> {
+    return db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
+  }
+
+  async createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem> {
+    const [newItem] = await db.insert(invoiceItems).values(item).returning();
+    return newItem;
+  }
+
   // Transaction operations
   async getAllTransactions(): Promise<Transaction[]> {
     return db.select().from(transactions).orderBy(desc(transactions.transactionDate));
@@ -1236,6 +1293,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Loyalty Card Usage operations
+  async getAllLoyaltyCardUsage(): Promise<LoyaltyCardUsage[]> {
+    return db.select().from(loyaltyCardUsage).orderBy(desc(loyaltyCardUsage.usedAt));
+  }
+
   async getLoyaltyCardUsageByCardId(cardId: number): Promise<LoyaltyCardUsage[]> {
     return db.select().from(loyaltyCardUsage)
       .where(eq(loyaltyCardUsage.loyaltyCardId, cardId))
