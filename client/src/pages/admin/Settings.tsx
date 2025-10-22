@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Building2, Mail, Phone, MapPin, DollarSign, Palette, Calendar, Link as LinkIcon, CheckCircle2, XCircle } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, DollarSign, Palette, Calendar, Link as LinkIcon, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -13,6 +13,7 @@ import type { SpaSettings, SpaIntegration } from "@shared/schema";
 import NotificationProviderConfig from "@/components/NotificationProviderConfig";
 import NotificationSettings from "@/components/NotificationSettings";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -25,6 +26,15 @@ export default function AdminSettings() {
   // Fetch integrations for current spa
   const { data: integrations = [] } = useQuery<SpaIntegration[]>({
     queryKey: ["/api/integrations"],
+  });
+
+  // Fetch VAT settings
+  const { data: vatSettings } = useQuery<{
+    vatEnabled: boolean;
+    taxRegistrationNumber: string | null;
+    vatRegistrationDate: Date | null;
+  }>({
+    queryKey: ["/api/admin/vat-settings"],
   });
 
   // Check for OAuth callback results
@@ -70,6 +80,11 @@ export default function AdminSettings() {
 
   const [businessHours, setBusinessHours] = useState<Record<string, { open: string; close: string; isOpen?: boolean }>>({});
 
+  const [vatConfig, setVatConfig] = useState({
+    vatEnabled: false,
+    taxRegistrationNumber: "",
+  });
+
   // Update state when settings are loaded
   useEffect(() => {
     if (settings) {
@@ -92,6 +107,16 @@ export default function AdminSettings() {
       }
     }
   }, [settings]);
+
+  // Update VAT config when loaded
+  useEffect(() => {
+    if (vatSettings) {
+      setVatConfig({
+        vatEnabled: vatSettings.vatEnabled || false,
+        taxRegistrationNumber: vatSettings.taxRegistrationNumber || "",
+      });
+    }
+  }, [vatSettings]);
 
   // Mutation to update settings
   const updateSettingsMutation = useMutation({
@@ -193,6 +218,65 @@ export default function AdminSettings() {
           toast({
             title: "Error",
             description: "Failed to save business hours.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  // VAT settings mutation
+  const updateVatMutation = useMutation({
+    mutationFn: async (data: { vatEnabled: boolean; taxRegistrationNumber: string }) => {
+      return await apiRequest("PUT", "/api/admin/vat-settings", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/vat-settings"] });
+    },
+  });
+
+  const handleSaveVatSettings = () => {
+    // Validate TRN format if enabling VAT
+    if (vatConfig.vatEnabled && vatConfig.taxRegistrationNumber) {
+      const cleanTrn = vatConfig.taxRegistrationNumber.replace(/[\s-]/g, '');
+      if (!/^\d{15}$/.test(cleanTrn)) {
+        toast({
+          title: "Invalid TRN",
+          description: "UAE Tax Registration Number must be exactly 15 digits.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate TRN is provided when enabling VAT
+    if (vatConfig.vatEnabled && !vatConfig.taxRegistrationNumber) {
+      toast({
+        title: "TRN Required",
+        description: "Please enter your Tax Registration Number to enable VAT.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateVatMutation.mutate(
+      {
+        vatEnabled: vatConfig.vatEnabled,
+        taxRegistrationNumber: vatConfig.taxRegistrationNumber,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "VAT settings saved",
+            description: vatConfig.vatEnabled 
+              ? "VAT has been enabled for your spa. All new invoices will include VAT calculations."
+              : "VAT settings have been updated successfully.",
+          });
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Error",
+            description: error?.message || "Failed to save VAT settings.",
             variant: "destructive",
           });
         },
@@ -342,6 +426,85 @@ export default function AdminSettings() {
             </div>
           </div>
           <Button onClick={handleSaveFinancialSettings} data-testid="button-save-financial-settings">Save Changes</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <CardTitle>UAE VAT Settings</CardTitle>
+          </div>
+          <CardDescription>
+            Configure VAT collection for UAE Federal Tax Authority (FTA) compliance. 
+            Enable VAT only after registering with FTA (AED 375,000 annual threshold).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertDescription>
+              {vatConfig.vatEnabled ? (
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span>
+                    VAT is enabled. All new invoices will include 5% VAT calculations and comply with FTA requirements.
+                    {vatSettings?.vatRegistrationDate && (
+                      <span className="block text-sm text-muted-foreground mt-1">
+                        Activated on: {new Date(vatSettings.vatRegistrationDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  VAT is disabled. Invoices will be issued as standard invoices without VAT. 
+                  Enable VAT after obtaining your Tax Registration Number from UAE FTA.
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="vat-enabled">Enable VAT Collection</Label>
+                <p className="text-sm text-muted-foreground">
+                  Activate VAT for invoices (required after AED 375k annual sales)
+                </p>
+              </div>
+              <Switch
+                id="vat-enabled"
+                checked={vatConfig.vatEnabled}
+                onCheckedChange={(checked) => setVatConfig({ ...vatConfig, vatEnabled: checked })}
+                data-testid="switch-vat-enabled"
+              />
+            </div>
+
+            {vatConfig.vatEnabled && (
+              <div className="space-y-2">
+                <Label htmlFor="trn">Tax Registration Number (TRN)</Label>
+                <Input
+                  id="trn"
+                  value={vatConfig.taxRegistrationNumber}
+                  onChange={(e) => setVatConfig({ ...vatConfig, taxRegistrationNumber: e.target.value })}
+                  placeholder="Enter 15-digit TRN (e.g., 123456789012345)"
+                  maxLength={15}
+                  data-testid="input-trn"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Your 15-digit Tax Registration Number from UAE FTA
+                </p>
+              </div>
+            )}
+          </div>
+
+          <Button 
+            onClick={handleSaveVatSettings} 
+            data-testid="button-save-vat-settings"
+            disabled={updateVatMutation.isPending}
+          >
+            {updateVatMutation.isPending ? "Saving..." : "Save VAT Settings"}
+          </Button>
         </CardContent>
       </Card>
 

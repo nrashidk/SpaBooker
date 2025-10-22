@@ -1765,6 +1765,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // VAT Settings routes
+  app.get("/api/admin/vat-settings", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+      
+      const spa = await storage.getSpaById(user.adminSpaId);
+      if (!spa) {
+        return res.status(404).json({ message: "Spa not found" });
+      }
+      
+      res.json({
+        vatEnabled: spa.vatEnabled || false,
+        taxRegistrationNumber: spa.taxRegistrationNumber || null,
+        vatRegistrationDate: spa.vatRegistrationDate || null,
+      });
+    } catch (error) {
+      console.error("Error fetching VAT settings:", error);
+      res.status(500).json({ message: "Failed to fetch VAT settings" });
+    }
+  });
+
+  app.put("/api/admin/vat-settings", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+
+      const { vatEnabled, taxRegistrationNumber } = req.body;
+
+      // Validate TRN if VAT is being enabled
+      if (vatEnabled && taxRegistrationNumber) {
+        const { validateTRN } = await import("./invoiceUtils");
+        const validation = validateTRN(taxRegistrationNumber);
+        if (!validation.valid) {
+          return res.status(400).json({ message: validation.error });
+        }
+      }
+
+      // If enabling VAT, TRN is required
+      if (vatEnabled && !taxRegistrationNumber) {
+        return res.status(400).json({ 
+          message: "Tax Registration Number is required when enabling VAT" 
+        });
+      }
+
+      const updateData: any = {
+        vatEnabled: vatEnabled || false,
+        taxRegistrationNumber: taxRegistrationNumber || null,
+      };
+
+      // Set registration date only when first enabling VAT
+      if (vatEnabled && taxRegistrationNumber) {
+        const spa = await storage.getSpaById(user.adminSpaId);
+        if (!spa?.vatEnabled) {
+          updateData.vatRegistrationDate = new Date();
+        }
+      }
+
+      const updatedSpa = await storage.updateSpa(user.adminSpaId, updateData);
+      
+      res.json({
+        vatEnabled: updatedSpa?.vatEnabled || false,
+        taxRegistrationNumber: updatedSpa?.taxRegistrationNumber || null,
+        vatRegistrationDate: updatedSpa?.vatRegistrationDate || null,
+      });
+    } catch (error) {
+      console.error("Error updating VAT settings:", error);
+      res.status(500).json({ message: "Failed to update VAT settings" });
+    }
+  });
+
   // Notification Settings routes
   app.get("/api/admin/notification-settings", isAdmin, async (req, res) => {
     try {
