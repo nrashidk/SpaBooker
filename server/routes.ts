@@ -1031,12 +1031,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invoiceNumber,
             customerId: customer.id,
             bookingId: booking.id,
-            paymentMethod: null,
-            notes: notes || null,
+            paymentMethod: undefined,
+            notes: notes || undefined,
           });
           
           // Create invoice
           await storage.createInvoice(invoiceData);
+
+          // Check VAT threshold and send reminder if needed (non-blocking)
+          if (spa.vatThresholdReminderEnabled && !spa.vatEnabled) {
+            try {
+              const { checkVATThreshold, shouldSendThresholdNotification } = await import('./revenueUtils');
+              
+              // Get all invoices for the spa to calculate current year revenue
+              const allInvoices = await storage.getInvoicesBySpaId(spaId);
+              const thresholdAmount = parseFloat(spa.vatThresholdAmount || "375000");
+              const thresholdCheck = checkVATThreshold(allInvoices, thresholdAmount);
+              
+              // Check if we should send notification
+              const shouldNotify = shouldSendThresholdNotification(
+                thresholdCheck.thresholdReached,
+                spa.lastThresholdNotificationYear
+              );
+              
+              if (shouldNotify) {
+                // Update spa to mark notification as sent this year
+                // CRITICAL: This must succeed before sending notification to prevent duplicates
+                const updatedSpa = await storage.updateSpa(spaId, {
+                  lastThresholdNotificationYear: new Date().getFullYear(),
+                });
+                
+                if (updatedSpa) {
+                  // Only send notification if flag update succeeded
+                  // Send notification to spa admin (async, non-blocking)
+                  const users = await storage.getAllUsers();
+                  const spaOwner = users.find(u => u.adminSpaId === spaId && u.role === 'admin');
+                  if (spaOwner?.email) {
+                    const templateData = {
+                      spaName: spa.name,
+                      currentRevenue: thresholdCheck.annualRevenue.toFixed(2),
+                      thresholdAmount: thresholdAmount.toFixed(2),
+                      percentageOfThreshold: thresholdCheck.percentageOfThreshold.toFixed(1),
+                      currentYear: thresholdCheck.currentYear,
+                    };
+                    
+                    // Send email notification about VAT threshold
+                    const notificationService = (await import('./notificationService')).default;
+                    await notificationService.sendNotification(
+                      spaId,
+                      'vat_threshold_reminder',
+                      { email: spaOwner.email },
+                      null,
+                      templateData
+                    ).catch((err: Error) => {
+                      console.error('Error sending VAT threshold notification:', err);
+                      // Note: We've already updated the flag, so won't retry until next year
+                      // This prevents notification spam even if email delivery fails
+                    });
+                  } else {
+                    console.warn('No admin email found for spa', spaId, '- VAT threshold reached but notification not sent');
+                  }
+                } else {
+                  console.error('Failed to update lastThresholdNotificationYear for spa', spaId, '- skipping notification to prevent duplicates');
+                }
+              }
+            } catch (error) {
+              console.error('Error checking VAT threshold:', error);
+              // Don't fail the booking if threshold check fails
+            }
+          }
         }
       } catch (error) {
         console.error('Error creating invoice for booking:', error);
