@@ -651,7 +651,35 @@ export default function AdminFinanceAccounting() {
       refundsAmount: data.total?.refundsAmount ?? 0,
       netPayments: data.total?.netPayments ?? 0,
     };
-    const payments = data.payments ?? [];
+    let payments = [...(data.payments ?? [])];
+
+    // Sort payments data
+    if (paymentSummarySortColumn) {
+      payments.sort((a, b) => {
+        const aVal = a[paymentSummarySortColumn as keyof typeof a];
+        const bVal = b[paymentSummarySortColumn as keyof typeof b];
+        
+        // Try parsing as numbers (backend returns some numeric values as strings)
+        const aNum = typeof aVal === 'number' ? aVal : parseFloat(String(aVal || '0'));
+        const bNum = typeof bVal === 'number' ? bVal : parseFloat(String(bVal || '0'));
+        
+        // Use numeric comparison if both parse successfully, otherwise use string comparison
+        const comparison = !isNaN(aNum) && !isNaN(bNum)
+          ? aNum - bNum
+          : String(aVal || '').localeCompare(String(bVal || ''));
+        
+        return paymentSummarySortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    const handleSort = (column: string) => {
+      if (paymentSummarySortColumn === column) {
+        setPaymentSummarySortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setPaymentSummarySortColumn(column);
+        setPaymentSummarySortDirection('desc');
+      }
+    };
 
     return (
       <div className="space-y-6">
@@ -690,23 +718,101 @@ export default function AdminFinanceAccounting() {
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left p-3 text-sm font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Payment method <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('paymentMethod')}
+                      data-testid="button-sort-payment-method"
+                    >
+                      Payment method
+                      {paymentSummarySortColumn === 'paymentMethod' ? (
+                        paymentSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
                   <th className="text-left p-3 text-sm font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      No. of payments <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('paymentsCount')}
+                      data-testid="button-sort-payments-count"
+                    >
+                      No. of payments
+                      {paymentSummarySortColumn === 'paymentsCount' ? (
+                        paymentSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
                   <th className="text-left p-3 text-sm font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Payment amount <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('paymentAmount')}
+                      data-testid="button-sort-payment-amount"
+                    >
+                      Payment amount
+                      {paymentSummarySortColumn === 'paymentAmount' ? (
+                        paymentSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
-                  <th className="text-left p-3 text-sm font-semibold">No. of refunds</th>
-                  <th className="text-left p-3 text-sm font-semibold">Refunds</th>
-                  <th className="text-left p-3 text-sm font-semibold">Net payments</th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('refundsCount')}
+                      data-testid="button-sort-refunds-count"
+                    >
+                      No. of refunds
+                      {paymentSummarySortColumn === 'refundsCount' ? (
+                        paymentSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('refundsAmount')}
+                      data-testid="button-sort-refunds-amount"
+                    >
+                      Refunds
+                      {paymentSummarySortColumn === 'refundsAmount' ? (
+                        paymentSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('netPayments')}
+                      data-testid="button-sort-net-payments"
+                    >
+                      Net payments
+                      {paymentSummarySortColumn === 'netPayments' ? (
+                        paymentSummarySortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
