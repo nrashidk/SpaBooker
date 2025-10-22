@@ -116,9 +116,85 @@ interface SalesSummaryData {
   memberships?: SalesSummaryRow;
 }
 
-// Helper function to format currency
+interface SalesListItem {
+  saleNo: string;
+  saleDate: string;
+  saleStatus: string;
+  location: string;
+  client: string;
+  channel: string;
+  itemsSold: number;
+  totalSales: number;
+  giftCard: number;
+  serviceCharges: number;
+  amountDue: number;
+}
+
+interface SalesListData {
+  total?: {
+    itemsSold: number;
+    totalSales: number;
+    giftCard: number;
+    serviceCharges: number;
+    amountDue: number;
+  };
+  sales?: SalesListItem[];
+}
+
+interface AppointmentsSummaryRow {
+  location: string;
+  appointments: number;
+  services: number;
+  percentRequested: number;
+  totalApptValue: number;
+  averageApptValue: number;
+  percentOnline: number;
+  percentCancelled: number;
+  percentNoShow: number;
+  totalClients: number;
+  newClients: number;
+  percentNewClients: number;
+  percentReturningClients: number;
+}
+
+interface AppointmentsSummaryData {
+  total?: AppointmentsSummaryRow;
+  locations?: AppointmentsSummaryRow[];
+}
+
+interface PaymentSummaryRow {
+  paymentMethod: string;
+  paymentsCount: number;
+  paymentAmount: number;
+  refundsCount: number;
+  refundsAmount: number;
+  netPayments: number;
+}
+
+interface PaymentSummaryData {
+  total?: PaymentSummaryRow;
+  payments?: PaymentSummaryRow[];
+}
+
+// Helper functions to format currency and percentages
 const formatCurrency = (amount: number) => {
   return `AED ${amount.toFixed(2)}`;
+};
+
+const formatPercent = (value: number | string | null | undefined) => {
+  // Handle null/undefined - show dash for missing data
+  if (value === null || value === undefined) {
+    return '—';
+  }
+  // Convert string to number (backend returns percentages as strings like "23.5")
+  const numeric = typeof value === 'string' ? parseFloat(value) : value;
+  // Guard against NaN
+  if (isNaN(numeric)) {
+    return '—';
+  }
+  // Backend returns percentages as whole numbers (23.5 for 23.5%)
+  // Just format with 2 decimal places and add % suffix
+  return `${numeric.toFixed(2)}%`;
 };
 
 export default function AdminFinanceAccounting() {
@@ -193,12 +269,39 @@ export default function AdminFinanceAccounting() {
     },
   ];
 
-  const renderAppointmentsSummary = () => (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Appointments summary"
-        description="General overview of appointment trends and patterns, including cancellations and no-shows."
-      />
+  const renderAppointmentsSummary = () => {
+    if (isLoadingAppointmentsSummary) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    // Safely extract data with proper type validation
+    const data = (appointmentsSummaryData as AppointmentsSummaryData) || {};
+    const total = {
+      appointments: data.total?.appointments ?? 0,
+      services: data.total?.services ?? 0,
+      percentRequested: data.total?.percentRequested ?? 0,
+      totalApptValue: data.total?.totalApptValue ?? 0,
+      averageApptValue: data.total?.averageApptValue ?? 0,
+      percentOnline: data.total?.percentOnline ?? 0,
+      percentCancelled: data.total?.percentCancelled ?? 0,
+      percentNoShow: data.total?.percentNoShow ?? 0,
+      totalClients: data.total?.totalClients ?? 0,
+      newClients: data.total?.newClients ?? 0,
+      percentNewClients: data.total?.percentNewClients ?? 0,
+      percentReturningClients: data.total?.percentReturningClients ?? 0,
+    };
+    const locations = data.locations ?? [];
+
+    return (
+      <div className="space-y-6">
+        <ReportHeader
+          title="Appointments summary"
+          description="General overview of appointment trends and patterns, including cancellations and no-shows."
+        />
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
@@ -259,38 +362,79 @@ export default function AdminFinanceAccounting() {
               <tbody>
                 <tr className="border-b hover-elevate">
                   <td className="p-3 font-semibold" data-testid="text-location-total">Total</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0%</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">0%</td>
-                  <td className="p-3">0%</td>
-                  <td className="p-3">0%</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0%</td>
-                  <td className="p-3">0%</td>
+                  <td className="p-3">{total.appointments}</td>
+                  <td className="p-3">{total.services}</td>
+                  <td className="p-3">{formatPercent(total.percentRequested)}</td>
+                  <td className="p-3">{formatCurrency(total.totalApptValue)}</td>
+                  <td className="p-3">{formatCurrency(total.averageApptValue)}</td>
+                  <td className="p-3">{formatPercent(total.percentOnline)}</td>
+                  <td className="p-3">{formatPercent(total.percentCancelled)}</td>
+                  <td className="p-3">{formatPercent(total.percentNoShow)}</td>
+                  <td className="p-3">{total.totalClients}</td>
+                  <td className="p-3">{total.newClients}</td>
+                  <td className="p-3">{formatPercent(total.percentNewClients)}</td>
+                  <td className="p-3">{formatPercent(total.percentReturningClients)}</td>
                 </tr>
-                <tr className="text-center text-sm text-muted-foreground">
-                  <td colSpan={13} className="p-8">
-                    No appointment data available for the selected period
-                  </td>
-                </tr>
+                {locations.length === 0 ? (
+                  <tr className="text-center text-sm text-muted-foreground">
+                    <td colSpan={13} className="p-8">
+                      No appointment data available for the selected period
+                    </td>
+                  </tr>
+                ) : (
+                  locations.map((loc, index) => (
+                    <tr key={loc.location || index} className="border-b hover-elevate">
+                      <td className="p-3">{loc.location}</td>
+                      <td className="p-3">{loc.appointments}</td>
+                      <td className="p-3">{loc.services}</td>
+                      <td className="p-3">{formatPercent(loc.percentRequested)}</td>
+                      <td className="p-3">{formatCurrency(loc.totalApptValue)}</td>
+                      <td className="p-3">{formatCurrency(loc.averageApptValue)}</td>
+                      <td className="p-3">{formatPercent(loc.percentOnline)}</td>
+                      <td className="p-3">{formatPercent(loc.percentCancelled)}</td>
+                      <td className="p-3">{formatPercent(loc.percentNoShow)}</td>
+                      <td className="p-3">{loc.totalClients}</td>
+                      <td className="p-3">{loc.newClients}</td>
+                      <td className="p-3">{formatPercent(loc.percentNewClients)}</td>
+                      <td className="p-3">{formatPercent(loc.percentReturningClients)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  };
 
-  const renderPaymentSummary = () => (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Payments summary"
-        description="Payments split by payment methods."
-      />
+  const renderPaymentSummary = () => {
+    if (isLoadingPaymentSummary) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    // Safely extract data with proper type validation
+    const data = (paymentSummaryData as PaymentSummaryData) || {};
+    const total = {
+      paymentsCount: data.total?.paymentsCount ?? 0,
+      paymentAmount: data.total?.paymentAmount ?? 0,
+      refundsCount: data.total?.refundsCount ?? 0,
+      refundsAmount: data.total?.refundsAmount ?? 0,
+      netPayments: data.total?.netPayments ?? 0,
+    };
+    const payments = data.payments ?? [];
+
+    return (
+      <div className="space-y-6">
+        <ReportHeader
+          title="Payments summary"
+          description="Payments split by payment methods."
+        />
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
@@ -344,43 +488,30 @@ export default function AdminFinanceAccounting() {
               <tbody>
                 <tr className="border-b hover-elevate font-semibold">
                   <td className="p-3" data-testid="text-payment-method-total">Total</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{total.paymentsCount}</td>
+                  <td className="p-3">{formatCurrency(total.paymentAmount)}</td>
+                  <td className="p-3">{total.refundsCount}</td>
+                  <td className="p-3">{formatCurrency(total.refundsAmount)}</td>
+                  <td className="p-3">{formatCurrency(total.netPayments)}</td>
                 </tr>
-                <tr className="border-b hover-elevate">
-                  <td className="p-3">Card</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                </tr>
-                <tr className="border-b hover-elevate">
-                  <td className="p-3">Cash</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                </tr>
-                <tr className="border-b hover-elevate">
-                  <td className="p-3">Online</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                </tr>
+                {payments.map((payment, index) => (
+                  <tr key={payment.paymentMethod || index} className="border-b hover-elevate">
+                    <td className="p-3">{payment.paymentMethod}</td>
+                    <td className="p-3">{payment.paymentsCount}</td>
+                    <td className="p-3">{formatCurrency(payment.paymentAmount)}</td>
+                    <td className="p-3">{payment.refundsCount}</td>
+                    <td className="p-3">{formatCurrency(payment.refundsAmount)}</td>
+                    <td className="p-3">{formatCurrency(payment.netPayments)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  };
 
   const renderFinanceSummary = () => {
     if (isLoadingFinanceSummary) {
@@ -648,12 +779,32 @@ export default function AdminFinanceAccounting() {
     );
   };
 
-  const renderSalesList = () => (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Sales list"
-        description="Complete listing of all sales transactions."
-      />
+  const renderSalesList = () => {
+    if (isLoadingSalesList) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    // Safely extract data with proper type validation
+    const data = (salesListData as SalesListData) || {};
+    const total = {
+      itemsSold: data.total?.itemsSold ?? 0,
+      totalSales: data.total?.totalSales ?? 0,
+      giftCard: data.total?.giftCard ?? 0,
+      serviceCharges: data.total?.serviceCharges ?? 0,
+      amountDue: data.total?.amountDue ?? 0,
+    };
+    const sales = data.sales ?? [];
+
+    return (
+      <div className="space-y-6">
+        <ReportHeader
+          title="Sales list"
+          description="Complete listing of all sales transactions."
+        />
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
@@ -713,24 +864,43 @@ export default function AdminFinanceAccounting() {
                   <td className="p-3"></td>
                   <td className="p-3"></td>
                   <td className="p-3"></td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{total.itemsSold}</td>
+                  <td className="p-3">{formatCurrency(total.totalSales)}</td>
+                  <td className="p-3">{formatCurrency(total.giftCard)}</td>
+                  <td className="p-3">{formatCurrency(total.serviceCharges)}</td>
+                  <td className="p-3">{formatCurrency(total.amountDue)}</td>
                 </tr>
-                <tr className="text-center text-muted-foreground">
-                  <td colSpan={11} className="p-8">
-                    No sales data available for the selected period
-                  </td>
-                </tr>
+                {sales.length === 0 ? (
+                  <tr className="text-center text-muted-foreground">
+                    <td colSpan={11} className="p-8">
+                      No sales data available for the selected period
+                    </td>
+                  </tr>
+                ) : (
+                  sales.map((sale, index) => (
+                    <tr key={sale.saleNo || index} className="border-b hover-elevate">
+                      <td className="p-3">{sale.saleNo}</td>
+                      <td className="p-3">{sale.saleDate}</td>
+                      <td className="p-3">{sale.saleStatus}</td>
+                      <td className="p-3">{sale.location}</td>
+                      <td className="p-3">{sale.client}</td>
+                      <td className="p-3">{sale.channel}</td>
+                      <td className="p-3">{sale.itemsSold}</td>
+                      <td className="p-3">{formatCurrency(sale.totalSales)}</td>
+                      <td className="p-3">{formatCurrency(sale.giftCard)}</td>
+                      <td className="p-3">{formatCurrency(sale.serviceCharges)}</td>
+                      <td className="p-3">{formatCurrency(sale.amountDue)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  };
 
   const renderSalesSummary = () => {
     if (isLoadingSalesSummary) {
