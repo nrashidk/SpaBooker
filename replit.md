@@ -40,6 +40,10 @@ The backend utilizes a PostgreSQL database and an Express-based REST API.
     - **Wallet/Store Credit:** Full wallet transaction system with credit/debit operations, transaction history, balance tracking, and audit trail. Supports manual adjustments, refunds, and booking payments.
     - **Client Merge:** Safely merge duplicate customer profiles while preserving all booking history, loyalty data, wallet balances, and transaction records. Respects unique email/phone constraints.
     - **CSV Import/Export:** Bulk operations using standards-compliant CSV parsing (csv-parse/csv-stringify) that handles quoted fields, escaped delimiters, UTF-8, and embedded newlines. Import includes duplicate detection and error reporting.
+-   **Team Management System:**
+    - **Enhanced Staff Profiles:** Birthday field for staff members to enable birthday notifications and celebrations.
+    - **Emergency Contacts:** Complete CRUD system for staff emergency contacts with relationship tracking (emergency, spouse, parent, sibling, friend, other), multiple phone numbers, email, and primary contact designation.
+    - **Advanced Timesheet System:** Enhanced time tracking with breaks, overtime calculation (>8 hours = overtime), GPS location verification for clock in/out, approval workflow (pending/approved/rejected/disputed states), manual entry support, and comprehensive audit trail. Includes staff-facing clock in/out endpoints and admin approval/rejection workflows.
 
 ## External Dependencies
 -   **Replit Auth:** User authentication and authorization.
