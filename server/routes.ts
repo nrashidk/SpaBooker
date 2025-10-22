@@ -182,6 +182,8 @@ import {
   insertMembershipUsageSchema,
   insertStaffSchema,
   insertStaffScheduleSchema,
+  insertStaffEmergencyContactSchema,
+  insertStaffTimeEntrySchema,
   insertProductSchema,
   insertCustomerSchema,
   insertPromoCodeSchema,
@@ -2593,6 +2595,293 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting staff schedule:", error);
       res.status(500).json({ message: "Failed to delete staff schedule" });
+    }
+  });
+
+  // Staff Emergency Contact routes
+  app.get("/api/admin/staff/:staffId/emergency-contacts", isAdmin, async (req, res) => {
+    try {
+      const staffId = parseNumericId(req.params.staffId);
+      if (!staffId) {
+        return res.status(400).json({ message: "Invalid staff ID" });
+      }
+      const contacts = await storage.getStaffEmergencyContacts(staffId);
+      res.json(contacts);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch emergency contacts");
+    }
+  });
+
+  app.post("/api/admin/staff/:staffId/emergency-contacts", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const staffId = parseNumericId(req.params.staffId);
+      if (!staffId) {
+        return res.status(400).json({ message: "Invalid staff ID" });
+      }
+      
+      const validatedData = insertStaffEmergencyContactSchema.parse({ ...req.body, staffId });
+      const contact = await storage.createStaffEmergencyContact(validatedData);
+      
+      // Log to audit trail
+      await AuditLogger.logCreate(req, "staff_emergency_contact", contact.id, contact, req.adminSpaId);
+      
+      res.json(contact);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create emergency contact");
+    }
+  });
+
+  app.put("/api/admin/staff/:staffId/emergency-contacts/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid contact ID" });
+      }
+      
+      const validatedData = insertStaffEmergencyContactSchema.partial().parse(req.body);
+      const contact = await storage.updateStaffEmergencyContact(id, validatedData);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Emergency contact not found" });
+      }
+      
+      // Log to audit trail
+      await AuditLogger.logUpdate(req, "staff_emergency_contact", id, validatedData, contact, req.adminSpaId);
+      
+      res.json(contact);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update emergency contact");
+    }
+  });
+
+  app.delete("/api/admin/staff/:staffId/emergency-contacts/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid contact ID" });
+      }
+      
+      const contact = await storage.getStaffEmergencyContacts(parseInt(req.params.staffId));
+      const contactToDelete = contact.find(c => c.id === id);
+      
+      const deleted = await storage.deleteStaffEmergencyContact(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Emergency contact not found" });
+      }
+      
+      // Log to audit trail
+      if (contactToDelete) {
+        await AuditLogger.logDelete(req, "staff_emergency_contact", id, contactToDelete, req.adminSpaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete emergency contact");
+    }
+  });
+
+  // Staff Timesheet routes
+  app.get("/api/admin/timesheets", isAdmin, async (req: any, res) => {
+    try {
+      const filters: any = {};
+      
+      if (req.adminSpaId) {
+        filters.spaId = req.adminSpaId;
+      }
+      if (req.query.staffId) {
+        filters.staffId = parseNumericId(req.query.staffId);
+      }
+      if (req.query.status) {
+        filters.status = req.query.status;
+      }
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate);
+      }
+      
+      const timesheets = await storage.getAllTimesheets(filters);
+      res.json(timesheets);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch timesheets");
+    }
+  });
+
+  app.get("/api/admin/staff/:staffId/timesheets", isAdmin, async (req, res) => {
+    try {
+      const staffId = parseNumericId(req.params.staffId);
+      if (!staffId) {
+        return res.status(400).json({ message: "Invalid staff ID" });
+      }
+      
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const timesheets = await storage.getStaffTimesheets(staffId, startDate, endDate);
+      res.json(timesheets);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch staff timesheets");
+    }
+  });
+
+  app.post("/api/admin/timesheets", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const validatedData = insertStaffTimeEntrySchema.parse({ ...req.body, spaId: req.adminSpaId });
+      const timesheet = await storage.createTimesheet(validatedData);
+      
+      // Log to audit trail
+      await AuditLogger.logCreate(req, "staff_timesheet", timesheet.id, timesheet, req.adminSpaId);
+      
+      res.json(timesheet);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create timesheet");
+    }
+  });
+
+  app.put("/api/admin/timesheets/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid timesheet ID" });
+      }
+      
+      const validatedData = insertStaffTimeEntrySchema.partial().parse(req.body);
+      const timesheet = await storage.updateTimesheet(id, validatedData);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Log to audit trail
+      await AuditLogger.logUpdate(req, "staff_timesheet", id, validatedData, timesheet, req.adminSpaId);
+      
+      res.json(timesheet);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update timesheet");
+    }
+  });
+
+  app.post("/api/admin/timesheets/:id/approve", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid timesheet ID" });
+      }
+      
+      const userId = req.user.claims.sub;
+      const timesheet = await storage.approveTimesheet(id, userId);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Log to audit trail
+      await AuditLogger.logUpdate(req, "staff_timesheet", id, { status: 'approved' }, timesheet, req.adminSpaId);
+      
+      res.json(timesheet);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to approve timesheet");
+    }
+  });
+
+  app.post("/api/admin/timesheets/:id/reject", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid timesheet ID" });
+      }
+      
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ message: "Rejection reason is required" });
+      }
+      
+      const userId = req.user.claims.sub;
+      const timesheet = await storage.rejectTimesheet(id, userId, reason);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Log to audit trail
+      await AuditLogger.logUpdate(req, "staff_timesheet", id, { status: 'rejected', notes: reason }, timesheet, req.adminSpaId);
+      
+      res.json(timesheet);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to reject timesheet");
+    }
+  });
+
+  app.delete("/api/admin/timesheets/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid timesheet ID" });
+      }
+      
+      const timesheet = await storage.getTimesheetById(id);
+      const deleted = await storage.deleteTimesheet(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Log to audit trail
+      if (timesheet) {
+        await AuditLogger.logDelete(req, "staff_timesheet", id, timesheet, req.adminSpaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete timesheet");
+    }
+  });
+
+  // Staff clock in/out routes (for mobile/staff portal)
+  app.post("/api/staff/clock-in", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const staffMember = await getStaffByUserId(userId);
+      
+      if (!staffMember) {
+        return res.status(404).json({ error: "Staff profile not found" });
+      }
+      
+      const { latitude, longitude } = req.body;
+      const location = (latitude && longitude) ? { latitude, longitude } : undefined;
+      
+      const timesheet = await storage.clockIn(staffMember.id, staffMember.spaId, location);
+      res.json(timesheet);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to clock in");
+    }
+  });
+
+  app.post("/api/staff/clock-out", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const staffMember = await getStaffByUserId(userId);
+      
+      if (!staffMember) {
+        return res.status(404).json({ error: "Staff profile not found" });
+      }
+      
+      // Find the open timesheet for this staff member
+      const timesheets = await storage.getStaffTimesheets(staffMember.id);
+      const openTimesheet = timesheets.find(t => !t.clockOut);
+      
+      if (!openTimesheet) {
+        return res.status(400).json({ error: "No open timesheet found. Please clock in first." });
+      }
+      
+      const { latitude, longitude } = req.body;
+      const location = (latitude && longitude) ? { latitude, longitude } : undefined;
+      
+      const timesheet = await storage.clockOut(openTimesheet.id, location);
+      res.json(timesheet);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to clock out");
     }
   });
 
