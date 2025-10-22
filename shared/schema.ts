@@ -80,6 +80,12 @@ export const spas = pgTable("spas", {
   featured: boolean("featured").default(false),
   setupComplete: boolean("setup_complete").default(false), // Tracks if admin completed spa setup wizard
   setupSteps: jsonb("setup_steps"), // { basicInfo: true, location: true, hours: true, services: false, staff: false, policies: false, inventory: false, activation: false }
+  
+  // VAT Configuration (optional, activated when spa registers for VAT)
+  vatEnabled: boolean("vat_enabled").default(false), // Activates VAT collection (AED 375k threshold)
+  taxRegistrationNumber: varchar("tax_registration_number", { length: 15 }), // UAE TRN (15 digits)
+  vatRegistrationDate: timestamp("vat_registration_date"), // When spa activated VAT
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -285,6 +291,7 @@ export const customers = pgTable("customers", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  taxRegistrationNumber: varchar("tax_registration_number", { length: 15 }), // UAE TRN for B2B customers
   loyaltyPoints: integer("loyalty_points").default(0),
   totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default("0.00"),
   notes: text("notes"),
@@ -357,6 +364,7 @@ export const bookingItems = pgTable("booking_items", {
 // Invoices
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
+  spaId: integer("spa_id").references(() => spas.id), // Link to spa for multi-tenant compliance
   invoiceNumber: text("invoice_number").notNull().unique(),
   customerId: integer("customer_id").references(() => customers.id).notNull(),
   bookingId: integer("booking_id").references(() => bookings.id),
@@ -369,12 +377,21 @@ export const invoices = pgTable("invoices", {
   status: text("status").notNull().default("pending"), // pending, paid, overdue, cancelled
   paymentMethod: text("payment_method"), // cash, card, online
   notes: text("notes"),
+  
+  // FTA Compliance Fields (UAE VAT)
+  invoiceType: text("invoice_type"), // 'full' (>AED 10k), 'simplified' (<AED 10k), 'standard' (VAT disabled)
+  supplierTrn: varchar("supplier_trn", { length: 15 }), // Spa's TRN (when VAT enabled)
+  customerTrn: varchar("customer_trn", { length: 15 }), // Customer's TRN (if VAT-registered)
+  retentionDate: timestamp("retention_date"), // Calculated as +5 years for FTA compliance
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("idx_invoices_customer").on(table.customerId),
   index("idx_invoices_status").on(table.status),
   index("idx_invoices_due_date").on(table.dueDate),
   index("idx_invoices_booking").on(table.bookingId),
+  index("idx_invoices_spa").on(table.spaId),
+  index("idx_invoices_retention_date").on(table.retentionDate),
 ]);
 
 // Invoice line items
