@@ -21,6 +21,7 @@ import AdminBookings from "@/pages/admin/Bookings";
 import AdminInventory from "@/pages/admin/Inventory";
 import AdminFinance from "@/pages/admin/Finance";
 import AdminReports from "@/pages/admin/Reports";
+import AdminFinanceAccounting from "@/pages/admin/FinanceAccounting";
 import AdminSettings from "@/pages/admin/Settings";
 import AdminMarketplace from "@/pages/admin/Marketplace";
 import AdminMarketing from "@/pages/admin/Marketing";
@@ -117,7 +118,7 @@ function Router() {
         {() => (
           <ProtectedRoute requireAdmin>
             <AdminLayout>
-              <AdminFinance />
+              <AdminFinanceAccounting />
             </AdminLayout>
           </ProtectedRoute>
         )}
