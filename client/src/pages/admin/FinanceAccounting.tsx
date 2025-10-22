@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,10 @@ import {
   Filter,
   ChevronDown,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 type ReportType = 
   | "appointments-summary"
@@ -31,10 +32,114 @@ type ReportType =
   | "sales-list"
   | "sales-summary";
 
+// Helper function to calculate date range
+function getDateRange(rangeType: string, monthToDate?: string): { startDate: string; endDate: string } {
+  const now = new Date();
+  
+  if (monthToDate) {
+    const [year, month] = monthToDate.split("-").map(Number);
+    const start = new Date(year, month - 1, 1);
+    const end = endOfMonth(start);
+    return {
+      startDate: format(start, "yyyy-MM-dd"),
+      endDate: format(end, "yyyy-MM-dd")
+    };
+  }
+  
+  switch (rangeType) {
+    case "this-month":
+      return {
+        startDate: format(startOfMonth(now), "yyyy-MM-dd"),
+        endDate: format(endOfMonth(now), "yyyy-MM-dd")
+      };
+    case "last-month":
+      const lastMonth = subMonths(now, 1);
+      return {
+        startDate: format(startOfMonth(lastMonth), "yyyy-MM-dd"),
+        endDate: format(endOfMonth(lastMonth), "yyyy-MM-dd")
+      };
+    case "last-6-months":
+      return {
+        startDate: format(subMonths(now, 6), "yyyy-MM-dd"),
+        endDate: format(now, "yyyy-MM-dd")
+      };
+    case "last-12-months":
+      return {
+        startDate: format(subMonths(now, 12), "yyyy-MM-dd"),
+        endDate: format(now, "yyyy-MM-dd")
+      };
+    default:
+      return {
+        startDate: format(subMonths(now, 6), "yyyy-MM-dd"),
+        endDate: format(now, "yyyy-MM-dd")
+      };
+  }
+}
+
+// Type definitions for report data
+interface FinanceSummaryData {
+  sales?: {
+    grossSales: number;
+    discounts: number;
+    refunds: number;
+    netSales: number;
+  };
+  totalSales?: {
+    giftCardSales: number;
+    serviceCharges: number;
+    tips: number;
+  };
+  payments?: {
+    card: number;
+    cash: number;
+    online: number;
+  };
+  redemptions?: number;
+}
+
+// Helper function to format currency
+const formatCurrency = (amount: number) => {
+  return `AED ${amount.toFixed(2)}`;
+};
+
 export default function AdminFinanceAccounting() {
   const [selectedReport, setSelectedReport] = useState<ReportType>("finance-summary");
   const [dateRange, setDateRange] = useState("last-6-months");
   const [monthToDate, setMonthToDate] = useState(format(new Date(), "yyyy-MM"));
+  
+  // Calculate date ranges based on selected filters
+  const financeDateRange = useMemo(() => getDateRange(dateRange), [dateRange]);
+  const monthDateRange = useMemo(() => getDateRange("this-month", monthToDate), [monthToDate]);
+  
+  // Fetch Finance Summary data
+  const { data: financeSummaryData, isLoading: isLoadingFinanceSummary } = useQuery({
+    queryKey: ["/api/admin/reports/finance-summary", financeDateRange],
+    enabled: selectedReport === "finance-summary",
+  });
+  
+  // Fetch Sales Summary data
+  const { data: salesSummaryData, isLoading: isLoadingSalesSummary } = useQuery({
+    queryKey: ["/api/admin/reports/sales-summary", financeDateRange],
+    enabled: selectedReport === "sales-summary",
+  });
+  
+  // Fetch Sales List data
+  const { data: salesListData, isLoading: isLoadingSalesList } = useQuery({
+    queryKey: ["/api/admin/reports/sales-list", monthDateRange],
+    enabled: selectedReport === "sales-list",
+  });
+  
+  // Fetch Appointments Summary data
+  const { data: appointmentsSummaryData, isLoading: isLoadingAppointmentsSummary } = useQuery({
+    queryKey: ["/api/admin/reports/appointments-summary", monthDateRange],
+    enabled: selectedReport === "appointments-summary",
+  });
+  
+  // Fetch Payment Summary data
+  const { data: paymentSummaryData, isLoading: isLoadingPaymentSummary } = useQuery({
+    queryKey: ["/api/admin/reports/payment-summary", monthDateRange],
+    enabled: selectedReport === "payment-summary",
+  });
 
   const menuItems = [
     {
@@ -258,36 +363,68 @@ export default function AdminFinanceAccounting() {
     </div>
   );
 
-  const renderFinanceSummary = () => (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Finance summary"
-        description="High-level summary of sales, payments and liabilities"
-      />
+  const renderFinanceSummary = () => {
+    if (isLoadingFinanceSummary) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Label>Month</Label>
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-44" data-testid="select-date-range">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last-6-months">Last 6 months</SelectItem>
-              <SelectItem value="last-12-months">Last 12 months</SelectItem>
-              <SelectItem value="this-month">This month</SelectItem>
-              <SelectItem value="last-month">Last month</SelectItem>
-            </SelectContent>
-          </Select>
+    // Safely extract data with proper type validation
+    const data = (financeSummaryData as FinanceSummaryData) || {};
+    const sales = {
+      grossSales: data.sales?.grossSales ?? 0,
+      discounts: data.sales?.discounts ?? 0,
+      refunds: data.sales?.refunds ?? 0,
+      netSales: data.sales?.netSales ?? 0,
+    };
+    const totalSales = {
+      giftCardSales: data.totalSales?.giftCardSales ?? 0,
+      serviceCharges: data.totalSales?.serviceCharges ?? 0,
+      tips: data.totalSales?.tips ?? 0,
+    };
+    const payments = {
+      card: data.payments?.card ?? 0,
+      cash: data.payments?.cash ?? 0,
+      online: data.payments?.online ?? 0,
+    };
+    const redemptions = data.redemptions ?? 0;
+    
+    const totalPayments = payments.card + payments.cash + payments.online;
+    const totalSalesAmount = sales.netSales + totalSales.giftCardSales + totalSales.serviceCharges + totalSales.tips;
+
+    return (
+      <div className="space-y-6">
+        <ReportHeader
+          title="Finance summary"
+          description="High-level summary of sales, payments and liabilities"
+        />
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label>Month</Label>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-44" data-testid="select-date-range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last-6-months">Last 6 months</SelectItem>
+                <SelectItem value="last-12-months">Last 12 months</SelectItem>
+                <SelectItem value="this-month">This month</SelectItem>
+                <SelectItem value="last-month">Last month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" size="sm" data-testid="button-filters">
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+          </Button>
+          <div className="ml-auto text-sm text-muted-foreground">
+            Data from moments ago
+          </div>
         </div>
-        <Button variant="outline" size="sm" data-testid="button-filters">
-          <Filter className="h-4 w-4 mr-2" />
-          Filters
-        </Button>
-        <div className="ml-auto text-sm text-muted-foreground">
-          Data from 11 mins ago
-        </div>
-      </div>
 
       <Card>
         <CardContent className="p-0">
@@ -319,7 +456,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Gross sales</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(sales.grossSales)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -329,7 +466,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Discounts</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(sales.discounts)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -339,7 +476,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Refunds / Returns</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(sales.refunds)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -349,7 +486,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate font-semibold border-b">
                   <td className="p-3 pl-6">Net sales</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(sales.netSales)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -361,7 +498,7 @@ export default function AdminFinanceAccounting() {
                 {/* Total Sales Section */}
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Gift card sales</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(totalSales.giftCardSales)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -371,7 +508,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Service charges</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(totalSales.serviceCharges)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -381,7 +518,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Tips</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(totalSales.tips)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -391,7 +528,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate font-semibold border-b">
                   <td className="p-3">Total sales</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(totalSalesAmount)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -413,7 +550,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Card</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(payments.card)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -423,7 +560,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Cash</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(payments.cash)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -433,7 +570,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Online</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(payments.online)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -443,7 +580,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate font-semibold border-b">
                   <td className="p-3">Total payments</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(totalPayments)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -465,7 +602,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate">
                   <td className="p-3 pl-6">Gift card redemptions</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(redemptions)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -475,7 +612,7 @@ export default function AdminFinanceAccounting() {
                 </tr>
                 <tr className="hover-elevate font-semibold">
                   <td className="p-3">Total redemptions</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{formatCurrency(redemptions)}</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
                   <td className="p-3">AED 0.00</td>
@@ -489,7 +626,8 @@ export default function AdminFinanceAccounting() {
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  };
 
   const renderSalesList = () => (
     <div className="space-y-6">
