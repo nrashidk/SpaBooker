@@ -97,6 +97,25 @@ interface FinanceSummaryData {
   redemptions?: number;
 }
 
+interface SalesSummaryRow {
+  type: string;
+  salesQty: number;
+  itemsSold: number;
+  grossSales: number;
+  totalDiscounts: number;
+  refunds: number;
+  netSales: number;
+  taxes: number;
+  totalSales: number;
+}
+
+interface SalesSummaryData {
+  total?: SalesSummaryRow;
+  service?: SalesSummaryRow;
+  product?: SalesSummaryRow;
+  memberships?: SalesSummaryRow;
+}
+
 // Helper function to format currency
 const formatCurrency = (amount: number) => {
   return `AED ${amount.toFixed(2)}`;
@@ -713,12 +732,64 @@ export default function AdminFinanceAccounting() {
     </div>
   );
 
-  const renderSalesSummary = () => (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Sales summary"
-        description="Sales quantities and value, excluding tips and gift card sales."
-      />
+  const renderSalesSummary = () => {
+    if (isLoadingSalesSummary) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    // Safely extract data with proper type validation
+    const data = (salesSummaryData as SalesSummaryData) || {};
+    const total = {
+      salesQty: data.total?.salesQty ?? 0,
+      itemsSold: data.total?.itemsSold ?? 0,
+      grossSales: data.total?.grossSales ?? 0,
+      totalDiscounts: data.total?.totalDiscounts ?? 0,
+      refunds: data.total?.refunds ?? 0,
+      netSales: data.total?.netSales ?? 0,
+      taxes: data.total?.taxes ?? 0,
+      totalSales: data.total?.totalSales ?? 0,
+    };
+    const service = {
+      salesQty: data.service?.salesQty ?? 0,
+      itemsSold: data.service?.itemsSold ?? 0,
+      grossSales: data.service?.grossSales ?? 0,
+      totalDiscounts: data.service?.totalDiscounts ?? 0,
+      refunds: data.service?.refunds ?? 0,
+      netSales: data.service?.netSales ?? 0,
+      taxes: data.service?.taxes ?? 0,
+      totalSales: data.service?.totalSales ?? 0,
+    };
+    const product = {
+      salesQty: data.product?.salesQty ?? 0,
+      itemsSold: data.product?.itemsSold ?? 0,
+      grossSales: data.product?.grossSales ?? 0,
+      totalDiscounts: data.product?.totalDiscounts ?? 0,
+      refunds: data.product?.refunds ?? 0,
+      netSales: data.product?.netSales ?? 0,
+      taxes: data.product?.taxes ?? 0,
+      totalSales: data.product?.totalSales ?? 0,
+    };
+    const memberships = {
+      salesQty: data.memberships?.salesQty ?? 0,
+      itemsSold: data.memberships?.itemsSold ?? 0,
+      grossSales: data.memberships?.grossSales ?? 0,
+      totalDiscounts: data.memberships?.totalDiscounts ?? 0,
+      refunds: data.memberships?.refunds ?? 0,
+      netSales: data.memberships?.netSales ?? 0,
+      taxes: data.memberships?.taxes ?? 0,
+      totalSales: data.memberships?.totalSales ?? 0,
+    };
+
+    return (
+      <div className="space-y-6">
+        <ReportHeader
+          title="Sales summary"
+          description="Sales quantities and value, excluding tips and gift card sales."
+        />
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
@@ -781,53 +852,53 @@ export default function AdminFinanceAccounting() {
               <tbody>
                 <tr className="border-b hover-elevate font-semibold">
                   <td className="p-3" data-testid="text-type-total">Total</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{total.salesQty}</td>
+                  <td className="p-3">{total.itemsSold}</td>
+                  <td className="p-3">{formatCurrency(total.grossSales)}</td>
+                  <td className="p-3">{formatCurrency(total.totalDiscounts)}</td>
+                  <td className="p-3">{formatCurrency(total.refunds)}</td>
+                  <td className="p-3">{formatCurrency(total.netSales)}</td>
+                  <td className="p-3">{formatCurrency(total.taxes)}</td>
+                  <td className="p-3">{formatCurrency(total.totalSales)}</td>
                 </tr>
                 <tr className="border-b hover-elevate text-primary">
                   <td className="p-3">
                     <a href="#" className="hover:underline">Service</a>
                   </td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{service.salesQty}</td>
+                  <td className="p-3">{service.itemsSold}</td>
+                  <td className="p-3">{formatCurrency(service.grossSales)}</td>
+                  <td className="p-3">{formatCurrency(service.totalDiscounts)}</td>
+                  <td className="p-3">{formatCurrency(service.refunds)}</td>
+                  <td className="p-3">{formatCurrency(service.netSales)}</td>
+                  <td className="p-3">{formatCurrency(service.taxes)}</td>
+                  <td className="p-3">{formatCurrency(service.totalSales)}</td>
                 </tr>
                 <tr className="border-b hover-elevate text-primary">
                   <td className="p-3">
                     <a href="#" className="hover:underline">Product</a>
                   </td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{product.salesQty}</td>
+                  <td className="p-3">{product.itemsSold}</td>
+                  <td className="p-3">{formatCurrency(product.grossSales)}</td>
+                  <td className="p-3">{formatCurrency(product.totalDiscounts)}</td>
+                  <td className="p-3">{formatCurrency(product.refunds)}</td>
+                  <td className="p-3">{formatCurrency(product.netSales)}</td>
+                  <td className="p-3">{formatCurrency(product.taxes)}</td>
+                  <td className="p-3">{formatCurrency(product.totalSales)}</td>
                 </tr>
                 <tr className="border-b hover-elevate text-primary">
                   <td className="p-3">
                     <a href="#" className="hover:underline">Memberships</a>
                   </td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">0</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
-                  <td className="p-3">AED 0.00</td>
+                  <td className="p-3">{memberships.salesQty}</td>
+                  <td className="p-3">{memberships.itemsSold}</td>
+                  <td className="p-3">{formatCurrency(memberships.grossSales)}</td>
+                  <td className="p-3">{formatCurrency(memberships.totalDiscounts)}</td>
+                  <td className="p-3">{formatCurrency(memberships.refunds)}</td>
+                  <td className="p-3">{formatCurrency(memberships.netSales)}</td>
+                  <td className="p-3">{formatCurrency(memberships.taxes)}</td>
+                  <td className="p-3">{formatCurrency(memberships.totalSales)}</td>
                 </tr>
               </tbody>
             </table>
@@ -835,7 +906,8 @@ export default function AdminFinanceAccounting() {
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  };
 
   const renderContent = () => {
     switch (selectedReport) {
