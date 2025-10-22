@@ -86,6 +86,11 @@ export const spas = pgTable("spas", {
   taxRegistrationNumber: varchar("tax_registration_number", { length: 15 }), // UAE TRN (15 digits)
   vatRegistrationDate: timestamp("vat_registration_date"), // When spa activated VAT
   
+  // VAT Threshold Reminder (helps spas know when to register for VAT)
+  vatThresholdReminderEnabled: boolean("vat_threshold_reminder_enabled").default(false), // Opt-in reminder
+  vatThresholdAmount: decimal("vat_threshold_amount", { precision: 10, scale: 2 }).default("375000.00"), // AED 375k UAE threshold
+  lastThresholdNotificationYear: integer("last_threshold_notification_year"), // Tracks last year notification was sent
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
