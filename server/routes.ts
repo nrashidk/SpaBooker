@@ -611,12 +611,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OAuth Integration Routes
   
   // Get all integrations for a spa
-  app.get('/api/integrations/:spaId', isAuthenticated, isAdmin, async (req, res) => {
+  app.get('/api/integrations', isAuthenticated, isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const spaId = parseNumericId(req.params.spaId);
-      if (!spaId) {
-        return res.status(400).json({ message: "Invalid spa ID" });
-      }
+      const spaId = req.adminSpa.id;
 
       const integrations = await storage.getSpaIntegrations(spaId);
       
@@ -638,23 +635,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Initiate OAuth flow
-  app.get('/api/oauth/:provider/connect', isAuthenticated, isAdmin, async (req, res) => {
+  app.get('/api/oauth/:provider/connect', isAuthenticated, isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
       const provider = req.params.provider as 'google' | 'hubspot' | 'mailchimp';
-      const { spaId, integrationType } = req.query;
+      const { integrationType } = req.query;
+      const spaId = req.adminSpa.id;
 
-      if (!spaId || !integrationType) {
-        return res.status(400).json({ message: "Missing spaId or integrationType" });
-      }
-
-      const parsedSpaId = parseNumericId(spaId as string);
-      if (!parsedSpaId) {
-        return res.status(400).json({ message: "Invalid spa ID" });
+      if (!integrationType) {
+        return res.status(400).json({ message: "Missing integrationType" });
       }
 
       // Create state with spaId, integrationType, and userId for verification
       const state = Buffer.from(JSON.stringify({
-        spaId: parsedSpaId,
+        spaId,
         integrationType,
         userId: req.user.claims.sub,
         timestamp: Date.now(),
@@ -3530,14 +3523,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Revenue and VAT routes (admin only)
-  app.get("/api/admin/revenue-summary", isAdmin, async (req, res) => {
+  app.get("/api/admin/revenue-summary", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const { startDate, endDate, spaId } = req.query;
+      const { startDate, endDate } = req.query;
+      const spaId = req.adminSpa.id;
       
-      const filters: any = {};
+      const filters: any = { spaId };
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
-      if (spaId) filters.spaId = parseInt(spaId as string);
       
       const summary = await storage.getRevenueSummary(filters);
       res.json(summary);
@@ -3546,14 +3539,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/vat-payable", isAdmin, async (req, res) => {
+  app.get("/api/admin/vat-payable", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const { startDate, endDate, spaId } = req.query;
+      const { startDate, endDate } = req.query;
+      const spaId = req.adminSpa.id;
       
-      const filters: any = {};
+      const filters: any = { spaId };
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
-      if (spaId) filters.spaId = parseInt(spaId as string);
       
       const summary = await storage.getVATPayableSummary(filters);
       res.json(summary);
@@ -3563,15 +3556,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // FTA Audit File (FAF) Export for UAE Tax Compliance
-  app.get("/api/admin/faf-export", isAdmin, async (req, res) => {
+  app.get("/api/admin/faf-export", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const { startDate, endDate, spaId, format } = req.query;
+      const { startDate, endDate, format } = req.query;
+      const spaId = req.adminSpa.id;
       const { generateFAFExport, convertFAFToCSV } = await import('./fafExport');
       
-      const filters: any = {};
+      const filters: any = { spaId };
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
-      if (spaId) filters.spaId = parseInt(spaId as string);
       
       const records = await generateFAFExport(filters);
       
@@ -3589,16 +3582,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Audit Logs routes (admin only)
-  app.get("/api/admin/audit-logs", isAdmin, async (req, res) => {
+  app.get("/api/admin/audit-logs", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const { userId, action, entityType, entityId, spaId, startDate, endDate, limit } = req.query;
+      const { userId, action, entityType, entityId, startDate, endDate, limit } = req.query;
+      const spaId = req.adminSpa.id;
       
-      const filters: any = {};
+      const filters: any = { spaId };
       if (userId) filters.userId = userId as string;
       if (action) filters.action = action as string;
       if (entityType) filters.entityType = entityType as string;
       if (entityId) filters.entityId = parseInt(entityId as string);
-      if (spaId) filters.spaId = parseInt(spaId as string);
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
       if (limit) filters.limit = parseInt(limit as string);
@@ -3653,9 +3646,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all configured notification providers for a spa (admin only)
-  app.get("/api/admin/notification-providers", isAdmin, async (req, res) => {
+  app.get("/api/admin/notification-providers", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const spaId = parseInt(req.query.spaId as string) || 1; // TODO: Get from auth context
+      const spaId = req.adminSpa.id;
       const providers = await storage.getNotificationProviders(spaId);
       
       // Don't expose encrypted credentials in response
@@ -3678,10 +3671,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save or update notification provider credentials (admin only)
-  app.post("/api/admin/notification-providers", isAdmin, async (req, res) => {
+  app.post("/api/admin/notification-providers", isAdmin, injectAdminSpa, async (req: any, res) => {
     try {
-      const userId = (req as any).user.claims.sub;
-      const { spaId, provider, channel, credentials, fromEmail, fromPhone } = req.body;
+      const userId = req.user.claims.sub;
+      const spaId = req.adminSpa.id;
+      const { provider, channel, credentials, fromEmail, fromPhone } = req.body;
       
       // Validate credentials first
       let validationResult;
