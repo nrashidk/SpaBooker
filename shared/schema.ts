@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, jsonb, serial, index, uniqueIndex, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, jsonb, serial, index, uniqueIndex, bigint, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -184,6 +184,7 @@ export const staff = pgTable("staff", {
   specialty: text("specialty"),
   email: text("email"),
   phone: text("phone"),
+  birthday: date("birthday"), // Staff birthday for birthday reminders
   role: text("role").notNull().default("basic"), // basic, view_own_calendar, view_all_calendars, manage_bookings, admin_access
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // percentage
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
@@ -202,6 +203,20 @@ export const staffSchedules = pgTable("staff_schedules", {
   startTime: text("start_time").notNull(), // HH:MM format
   endTime: text("end_time").notNull(),
   active: boolean("active").default(true),
+});
+
+// Staff emergency contacts
+export const staffEmergencyContacts = pgTable("staff_emergency_contacts", {
+  id: serial("id").primaryKey(),
+  staffId: integer("staff_id").references(() => staff.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  relationship: text("relationship").notNull(), // spouse, parent, sibling, friend, etc.
+  phoneNumber: text("phone_number").notNull(),
+  alternatePhone: text("alternate_phone"),
+  email: text("email"),
+  isPrimary: boolean("is_primary").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Products for inventory
@@ -466,10 +481,22 @@ export const transactions = pgTable("transactions", {
 export const staffTimeEntries = pgTable("staff_time_entries", {
   id: serial("id").primaryKey(),
   staffId: integer("staff_id").references(() => staff.id).notNull(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
   clockIn: timestamp("clock_in").notNull(),
   clockOut: timestamp("clock_out"),
   totalHours: decimal("total_hours", { precision: 5, scale: 2 }),
+  breakMinutes: integer("break_minutes").default(0), // Total break time
+  overtimeMinutes: integer("overtime_minutes").default(0), // Calculated overtime
+  manualEntry: boolean("manual_entry").default(false), // Flag for manual vs auto entries
+  locationVerified: boolean("location_verified").default(false), // GPS/location check
+  latitude: decimal("latitude", { precision: 10, scale: 8 }), // GPS coordinates
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  status: text("status").default("pending"), // pending, approved, rejected, disputed
   notes: text("notes"),
+  approvedBy: varchar("approved_by").references(() => users.id), // Manager who approved
+  approvedAt: timestamp("approved_at"), // When approved
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Vendors (for accounts payable)
@@ -680,7 +707,8 @@ export const insertBookingItemSchema = createInsertSchema(bookingItems).omit({ i
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true });
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({ id: true });
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true });
-export const insertStaffTimeEntrySchema = createInsertSchema(staffTimeEntries).omit({ id: true });
+export const insertStaffTimeEntrySchema = createInsertSchema(staffTimeEntries).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStaffEmergencyContactSchema = createInsertSchema(staffEmergencyContacts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true });
 export const insertBillSchema = createInsertSchema(bills).omit({ id: true, createdAt: true });
 export const insertBillItemSchema = createInsertSchema(billItems).omit({ id: true });
@@ -711,6 +739,7 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type InsertStaffTimeEntry = z.infer<typeof insertStaffTimeEntrySchema>;
+export type InsertStaffEmergencyContact = z.infer<typeof insertStaffEmergencyContactSchema>;
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type InsertBill = z.infer<typeof insertBillSchema>;
 export type InsertBillItem = z.infer<typeof insertBillItemSchema>;
@@ -733,6 +762,7 @@ export type CustomerMembership = typeof customerMemberships.$inferSelect;
 export type MembershipUsage = typeof membershipUsage.$inferSelect;
 export type Staff = typeof staff.$inferSelect;
 export type StaffSchedule = typeof staffSchedules.$inferSelect;
+export type StaffEmergencyContact = typeof staffEmergencyContacts.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
