@@ -41,6 +41,40 @@ Utilizes a PostgreSQL database for comprehensive data management and an Express-
     4. **Services** (required) - Add at least 1 service to enable bookings. Fields: name (required), duration in minutes (required), price in AED (required), description (optional). More services can be added later from admin dashboard.
     5. **Staff** (required) - Add at least 1 staff member to handle bookings. Fields: first name (required), last name (optional), email (required), phone (optional). Staff members are created with 'basic' role. More staff can be added later from admin dashboard.
     6. **Activation** (required) - Completion summary with checklist showing all 6 completed steps (Basic Info, Location, Business Hours, Service, Staff).
+-   **Membership Management System:** Complete membership/package system with CRUD operations, search/filtering, and comprehensive UI. Features include:
+    -   **Payment Types:** One-time or recurring (weekly, monthly, quarterly, yearly)
+    -   **Session Management:** Limited sessions (specified count) or unlimited access
+    -   **Validity Periods:** Customizable duration in months
+    -   **Online Features:** Toggle online sales and redemption independently
+    -   **Visual Customization:** Color picker for membership cards
+    -   **Revenue Integration:** All membership purchases automatically linked to invoicing system via `customerMemberships.invoiceId` for complete revenue tracking
+    -   **Audit Logging:** Full audit trail for all membership operations (create, update, delete)
+-   **Finance & Accounting Reporting System:** Comprehensive reporting dashboard matching Fresha's design specifications with 5 report types:
+    1. **Finance Summary** - Multi-section overview with monthly breakdowns showing:
+        - Sales metrics (Gross sales, Discounts, Refunds/Returns, Net sales)
+        - Total sales components (Gift card sales, Service charges, Tips)
+        - Payment breakdowns by method (Card, Cash, Online)
+        - Redemptions tracking
+    2. **Sales Summary** - Revenue grouped by type (Service, Product, Memberships) with:
+        - Sales quantity and items sold
+        - Gross sales, Total discounts, Refunds
+        - Net sales, Taxes, Total sales
+    3. **Sales List** - Complete transaction listing showing:
+        - Sale number, Date, Status
+        - Location, Client, Channel
+        - Items sold, Total sales, Gift cards, Service charges, Amount due
+    4. **Appointments Summary** - Comprehensive appointment analytics with 13 metrics:
+        - Appointments count, Services, % requested
+        - Total & average appointment value
+        - % online, % cancelled, % no show
+        - Total clients, New clients, % new/returning clients
+    5. **Payment Summary** - Payments grouped by method with:
+        - Payment method (Card, Cash, Online)
+        - Number of payments, Payment amount
+        - Number of refunds, Refunds amount, Net payments
+    -   **UI Features:** Reusable ReportHeader component with Options dropdown (Duplicate, Add to favorites, Export: CSV/Excel/PDF), date range filters, sortable columns, sidebar navigation, month-to-date filtering, and responsive tables
+    -   **Data Integration:** Reports designed to aggregate data from invoices, bookings, payments, product sales, and membership purchases with full VAT and discount tracking
+    -   **Export Functionality:** Placeholder for CSV, Excel, and PDF export (implementation pending)
 
 ## External Dependencies
 -   **Replit Auth:** User authentication and role-based access control.
