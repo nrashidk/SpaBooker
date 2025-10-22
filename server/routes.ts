@@ -1596,7 +1596,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let spaId = user?.adminSpaId;
       
       if (!spaId && stepName === "basicInfo") {
-        const newSpa = await storage.createSpa({
+        // Atomically create spa and link admin user
+        const result = await storage.createSpaWithAdmin(userId, {
           name: stepData.name,
           slug: stepData.slug || stepData.name.toLowerCase().replace(/\s+/g, '-'),
           description: stepData.description,
@@ -1608,13 +1609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           setupSteps: { basicInfo: true } as any,
         });
         
-        spaId = newSpa.id;
-        
-        // Link admin user to spa
-        await storage.upsertUser({
-          id: userId,
-          adminSpaId: spaId,
-        } as any);
+        spaId = result.spa.id;
       }
 
       if (!spaId) {

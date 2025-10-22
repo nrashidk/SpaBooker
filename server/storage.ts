@@ -99,6 +99,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { withTransaction } from "./transaction";
 
 // Interface for storage operations
 export interface IStorage {
@@ -123,6 +124,7 @@ export interface IStorage {
   getSpaById(id: number): Promise<Spa | undefined>;
   getSpaByOwnerUserId(ownerUserId: string): Promise<Spa | undefined>;
   createSpa(spa: InsertSpa): Promise<Spa>;
+  createSpaWithAdmin(userId: string, spaData: InsertSpa): Promise<{ spa: Spa; user: User }>;
   updateSpa(id: number, spa: Partial<InsertSpa>): Promise<Spa | undefined>;
   searchSpas(params: {
     search?: string;
@@ -167,6 +169,7 @@ export interface IStorage {
   getCustomerMembershipById(id: number): Promise<CustomerMembership | undefined>;
   getCustomerMembershipsByCustomerId(customerId: number): Promise<CustomerMembership[]>;
   createCustomerMembership(customerMembership: InsertCustomerMembership): Promise<CustomerMembership>;
+  purchaseMembership(membershipData: Omit<InsertCustomerMembership, 'invoiceId'>, invoiceData: InsertInvoice): Promise<{ membership: CustomerMembership; invoice: Invoice }>;
   updateCustomerMembership(id: number, customerMembership: Partial<InsertCustomerMembership>): Promise<CustomerMembership | undefined>;
   
   // Membership Usage operations
@@ -208,6 +211,7 @@ export interface IStorage {
   getBookingById(id: number): Promise<Booking | undefined>;
   getBookingsByCustomerId(customerId: number): Promise<Booking[]>;
   createBooking(booking: InsertBooking): Promise<Booking>;
+  createBookingWithItems(booking: InsertBooking, items: Omit<InsertBookingItem, 'bookingId'>[]): Promise<{ booking: Booking; items: BookingItem[] }>;
   updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
   deleteBooking(id: number): Promise<boolean>;
   
@@ -506,6 +510,29 @@ export class DatabaseStorage implements IStorage {
     return newSpa;
   }
 
+  async createSpaWithAdmin(userId: string, spaData: InsertSpa): Promise<{ spa: Spa; user: User }> {
+    return withTransaction(async (tx) => {
+      // Create spa
+      const [newSpa] = await tx.insert(spas).values(spaData).returning();
+      
+      // Link admin user to spa (using upsert to handle both new and existing users)
+      const [updatedUser] = await tx
+        .insert(users)
+        .values({ id: userId, adminSpaId: newSpa.id } as any)
+        .onConflictDoUpdate({
+          target: users.id,
+          set: { adminSpaId: newSpa.id, updatedAt: new Date() },
+        })
+        .returning();
+      
+      if (!updatedUser) {
+        throw new Error("Failed to link user to spa");
+      }
+      
+      return { spa: newSpa, user: updatedUser };
+    });
+  }
+
   async updateSpa(id: number, spaData: Partial<InsertSpa>): Promise<Spa | undefined> {
     const [updated] = await db
       .update(spas)
@@ -763,6 +790,41 @@ export class DatabaseStorage implements IStorage {
     return newCustomerMembership;
   }
 
+  async purchaseMembership(
+    membershipData: Omit<InsertCustomerMembership, 'invoiceId'>,
+    invoiceData: InsertInvoice
+  ): Promise<{ membership: CustomerMembership; invoice: Invoice }> {
+    return withTransaction(async (tx) => {
+      // Validate membership data
+      if (!membershipData.customerId || !membershipData.membershipId) {
+        throw new Error("Customer ID and Membership ID are required");
+      }
+      
+      // Validate sessions remaining if specified
+      if (membershipData.sessionsRemaining !== null && 
+          membershipData.sessionsRemaining !== undefined && 
+          membershipData.sessionsRemaining < 0) {
+        throw new Error("Sessions remaining cannot be negative");
+      }
+      
+      // Validate expiry date is in the future
+      if (membershipData.expiryDate && new Date(membershipData.expiryDate) <= new Date()) {
+        throw new Error("Expiry date must be in the future");
+      }
+      
+      // Create invoice first
+      const [newInvoice] = await tx.insert(invoices).values(invoiceData).returning();
+      
+      // Create customer membership linked to invoice
+      const [newMembership] = await tx.insert(customerMemberships).values({
+        ...membershipData,
+        invoiceId: newInvoice.id,
+      }).returning();
+      
+      return { membership: newMembership, invoice: newInvoice };
+    });
+  }
+
   async updateCustomerMembership(id: number, customerMembership: Partial<InsertCustomerMembership>): Promise<CustomerMembership | undefined> {
     const [updated] = await db
       .update(customerMemberships)
@@ -1010,6 +1072,33 @@ export class DatabaseStorage implements IStorage {
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const [newBooking] = await db.insert(bookings).values(booking).returning();
     return newBooking;
+  }
+
+  async createBookingWithItems(
+    bookingData: InsertBooking, 
+    itemsData: Omit<InsertBookingItem, 'bookingId'>[]
+  ): Promise<{ booking: Booking; items: BookingItem[] }> {
+    // Validate non-empty items
+    if (!itemsData || itemsData.length === 0) {
+      throw new Error("Cannot create booking without items");
+    }
+    
+    return withTransaction(async (tx) => {
+      // Create booking
+      const [newBooking] = await tx.insert(bookings).values(bookingData).returning();
+      
+      // Create booking items
+      const createdItems: BookingItem[] = [];
+      for (const itemData of itemsData) {
+        const [item] = await tx.insert(bookingItems).values({
+          ...itemData,
+          bookingId: newBooking.id,
+        }).returning();
+        createdItems.push(item);
+      }
+      
+      return { booking: newBooking, items: createdItems };
+    });
   }
 
   async updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined> {
