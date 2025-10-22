@@ -53,6 +53,16 @@ const dateRangeOptions = [
 
 export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
+  // Internal state for editing - only propagate to parent on Apply
+  const [editValue, setEditValue] = useState(value);
+
+  // Sync internal state when popover opens
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setEditValue(value);
+    }
+    setIsOpen(open);
+  };
 
   const getDisplayText = () => {
     const option = dateRangeOptions.find(opt => opt.value === value.type);
@@ -69,38 +79,52 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
 
   const handleTypeChange = (newType: DateRangeType) => {
     if (newType === "month-to-date") {
-      onChange({
+      setEditValue({
         type: newType,
         month: format(new Date(), "yyyy-MM"),
       });
     } else if (newType === "custom") {
       const today = format(new Date(), "yyyy-MM-dd");
-      onChange({
+      setEditValue({
         type: newType,
         startDate: today,
         endDate: today,
       });
     } else {
-      onChange({ type: newType });
+      setEditValue({ type: newType });
     }
   };
 
   const handleMonthChange = (month: string) => {
-    onChange({
-      ...value,
+    setEditValue({
+      ...editValue,
       month,
     });
   };
 
   const handleCustomDateChange = (field: 'startDate' | 'endDate', date: string) => {
-    onChange({
-      ...value,
+    setEditValue({
+      ...editValue,
       [field]: date,
     });
   };
 
+  const handleApply = () => {
+    // Only update parent state if valid
+    const isValid = editValue.type !== "custom" || 
+      (editValue.startDate && editValue.endDate && editValue.startDate <= editValue.endDate);
+    
+    if (isValid) {
+      onChange(editValue);
+      setIsOpen(false);
+    }
+  };
+
+  const isApplyDisabled = editValue.type === "custom" && 
+    (!editValue.startDate || !editValue.endDate || editValue.startDate > editValue.endDate);
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -118,7 +142,7 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Date Range Type</Label>
-            <Select value={value.type} onValueChange={handleTypeChange}>
+            <Select value={editValue.type} onValueChange={handleTypeChange}>
               <SelectTrigger data-testid="select-date-range-type">
                 <SelectValue />
               </SelectTrigger>
@@ -136,27 +160,27 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
             </Select>
           </div>
 
-          {value.type === "month-to-date" && (
+          {editValue.type === "month-to-date" && (
             <div className="space-y-2">
               <Label htmlFor="month-select">Select Month</Label>
               <Input
                 id="month-select"
                 type="month"
-                value={value.month || format(new Date(), "yyyy-MM")}
+                value={editValue.month || format(new Date(), "yyyy-MM")}
                 onChange={(e) => handleMonthChange(e.target.value)}
                 data-testid="input-month-selector"
               />
             </div>
           )}
 
-          {value.type === "custom" && (
+          {editValue.type === "custom" && (
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="start-date">Start Date</Label>
                 <Input
                   id="start-date"
                   type="date"
-                  value={value.startDate || ""}
+                  value={editValue.startDate || ""}
                   onChange={(e) => handleCustomDateChange('startDate', e.target.value)}
                   data-testid="input-start-date"
                 />
@@ -166,13 +190,13 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
                 <Input
                   id="end-date"
                   type="date"
-                  value={value.endDate || ""}
+                  value={editValue.endDate || ""}
                   onChange={(e) => handleCustomDateChange('endDate', e.target.value)}
                   max={format(new Date(), "yyyy-MM-dd")}
                   data-testid="input-end-date"
                 />
               </div>
-              {value.startDate && value.endDate && value.startDate > value.endDate && (
+              {editValue.startDate && editValue.endDate && editValue.startDate > editValue.endDate && (
                 <p className="text-sm text-destructive">
                   Start date must be before or equal to end date
                 </p>
@@ -182,8 +206,8 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
 
           <Button
             className="w-full"
-            onClick={() => setIsOpen(false)}
-            disabled={value.type === "custom" && (!value.startDate || !value.endDate || value.startDate > value.endDate)}
+            onClick={handleApply}
+            disabled={isApplyDisabled}
             data-testid="button-apply-filter"
           >
             Apply

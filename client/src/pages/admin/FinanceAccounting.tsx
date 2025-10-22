@@ -95,8 +95,8 @@ function getDateRangeFromFilter(filterValue: {
         endDate: format(now, "yyyy-MM-dd")
       };
     case "custom":
-      // Validate custom dates - both must be provided
-      if (!filterValue.startDate || !filterValue.endDate) {
+      // Validate custom dates - both must be provided and start must be <= end
+      if (!filterValue.startDate || !filterValue.endDate || filterValue.startDate > filterValue.endDate) {
         // Fall back to this month if invalid
         return {
           startDate: format(startOfMonth(now), "yyyy-MM-dd"),
