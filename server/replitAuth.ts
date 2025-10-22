@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { AuditLogger } from "./auditLog";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -120,13 +121,47 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(getStrategyName(req.hostname), {
-      successReturnToOrRedirect: "/admin",
-      failureRedirect: "/api/login",
+    passport.authenticate(getStrategyName(req.hostname), async (err: any, user: any, info: any) => {
+      if (err) {
+        return next(err);
+      }
+      
+      if (!user) {
+        return res.redirect("/api/login");
+      }
+      
+      // Log in the user
+      req.login(user, async (loginErr) => {
+        if (loginErr) {
+          return next(loginErr);
+        }
+        
+        // Log successful authentication
+        if (user && user.claims) {
+          try {
+            await AuditLogger.logAuth(req, "LOGIN", user.claims.sub);
+          } catch (error) {
+            console.error("Failed to log authentication:", error);
+          }
+        }
+        
+        // Redirect to admin panel
+        res.redirect("/admin");
+      });
     })(req, res, next);
   });
 
-  app.get("/api/logout", (req, res) => {
+  app.get("/api/logout", async (req, res) => {
+    // Log logout before clearing session
+    const user = req.user as any;
+    if (user && user.claims) {
+      try {
+        await AuditLogger.logAuth(req, "LOGOUT", user.claims.sub);
+      } catch (error) {
+        console.error("Failed to log logout:", error);
+      }
+    }
+    
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
