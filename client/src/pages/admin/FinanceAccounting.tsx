@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { DateRangeFilter, DateRangeType } from "@/components/DateRangeFilter";
 
 type ReportType = 
   | "appointments-summary"
@@ -33,21 +34,16 @@ type ReportType =
   | "sales-list"
   | "sales-summary";
 
-// Helper function to calculate date range
-function getDateRange(rangeType: string, monthToDate?: string): { startDate: string; endDate: string } {
+// Helper function to calculate date range from DateRangeFilter value
+function getDateRangeFromFilter(filterValue: {
+  type: DateRangeType;
+  startDate?: string;
+  endDate?: string;
+  month?: string;
+}): { startDate: string; endDate: string } {
   const now = new Date();
   
-  if (monthToDate) {
-    const [year, month] = monthToDate.split("-").map(Number);
-    const start = new Date(year, month - 1, 1);
-    const end = endOfMonth(start);
-    return {
-      startDate: format(start, "yyyy-MM-dd"),
-      endDate: format(end, "yyyy-MM-dd")
-    };
-  }
-  
-  switch (rangeType) {
+  switch (filterValue.type) {
     case "this-month":
       return {
         startDate: format(startOfMonth(now), "yyyy-MM-dd"),
@@ -59,19 +55,61 @@ function getDateRange(rangeType: string, monthToDate?: string): { startDate: str
         startDate: format(startOfMonth(lastMonth), "yyyy-MM-dd"),
         endDate: format(endOfMonth(lastMonth), "yyyy-MM-dd")
       };
-    case "last-6-months":
+    case "last-3-months":
+      // Start at beginning of month 3 months ago, end today
+      const threeMonthsAgo = subMonths(now, 3);
       return {
-        startDate: format(subMonths(now, 6), "yyyy-MM-dd"),
+        startDate: format(startOfMonth(threeMonthsAgo), "yyyy-MM-dd"),
+        endDate: format(now, "yyyy-MM-dd")
+      };
+    case "last-6-months":
+      // Start at beginning of month 6 months ago, end today
+      const sixMonthsAgo = subMonths(now, 6);
+      return {
+        startDate: format(startOfMonth(sixMonthsAgo), "yyyy-MM-dd"),
         endDate: format(now, "yyyy-MM-dd")
       };
     case "last-12-months":
+      // Start at beginning of month 12 months ago, end today
+      const twelveMonthsAgo = subMonths(now, 12);
       return {
-        startDate: format(subMonths(now, 12), "yyyy-MM-dd"),
+        startDate: format(startOfMonth(twelveMonthsAgo), "yyyy-MM-dd"),
         endDate: format(now, "yyyy-MM-dd")
+      };
+    case "month-to-date":
+      if (filterValue.month) {
+        const [year, month] = filterValue.month.split("-").map(Number);
+        const selectedMonthStart = new Date(year, month - 1, 1);
+        const selectedMonthEnd = endOfMonth(selectedMonthStart);
+        
+        // True month-to-date: if selected month is current month, use today as end
+        // If past month, use full month
+        const isSameMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+        return {
+          startDate: format(selectedMonthStart, "yyyy-MM-dd"),
+          endDate: isSameMonth ? format(now, "yyyy-MM-dd") : format(selectedMonthEnd, "yyyy-MM-dd")
+        };
+      }
+      return {
+        startDate: format(startOfMonth(now), "yyyy-MM-dd"),
+        endDate: format(now, "yyyy-MM-dd")
+      };
+    case "custom":
+      // Validate custom dates - both must be provided
+      if (!filterValue.startDate || !filterValue.endDate) {
+        // Fall back to this month if invalid
+        return {
+          startDate: format(startOfMonth(now), "yyyy-MM-dd"),
+          endDate: format(now, "yyyy-MM-dd")
+        };
+      }
+      return {
+        startDate: filterValue.startDate,
+        endDate: filterValue.endDate
       };
     default:
       return {
-        startDate: format(subMonths(now, 6), "yyyy-MM-dd"),
+        startDate: format(startOfMonth(subMonths(now, 6)), "yyyy-MM-dd"),
         endDate: format(now, "yyyy-MM-dd")
       };
   }
@@ -200,8 +238,16 @@ const formatPercent = (value: number | string | null | undefined) => {
 
 export default function AdminFinanceAccounting() {
   const [selectedReport, setSelectedReport] = useState<ReportType>("finance-summary");
-  const [dateRange, setDateRange] = useState("last-6-months");
-  const [monthToDate, setMonthToDate] = useState(format(new Date(), "yyyy-MM"));
+  
+  // Unified date range filter state
+  const [dateRangeFilter, setDateRangeFilter] = useState<{
+    type: DateRangeType;
+    startDate?: string;
+    endDate?: string;
+    month?: string;
+  }>({
+    type: "last-6-months",
+  });
   
   // Sorting state for Sales Summary
   const [salesSummarySortColumn, setSalesSummarySortColumn] = useState<string | null>(null);
@@ -215,37 +261,47 @@ export default function AdminFinanceAccounting() {
   const [appointmentsSummarySortColumn, setAppointmentsSummarySortColumn] = useState<string | null>(null);
   const [appointmentsSummarySortDirection, setAppointmentsSummarySortDirection] = useState<'asc' | 'desc'>('desc');
   
-  // Calculate date ranges based on selected filters
-  const financeDateRange = useMemo(() => getDateRange(dateRange), [dateRange]);
-  const monthDateRange = useMemo(() => getDateRange("this-month", monthToDate), [monthToDate]);
+  // Sorting state for Payment Summary
+  const [paymentSummarySortColumn, setPaymentSummarySortColumn] = useState<string | null>(null);
+  const [paymentSummarySortDirection, setPaymentSummarySortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Calculate date range based on filter
+  const dateRange = useMemo(() => getDateRangeFromFilter(dateRangeFilter), [dateRangeFilter]);
+  
+  // Build URLs with query parameters
+  const financeSummaryUrl = `/api/admin/reports/finance-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+  const salesSummaryUrl = `/api/admin/reports/sales-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+  const salesListUrl = `/api/admin/reports/sales-list?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+  const appointmentsSummaryUrl = `/api/admin/reports/appointments-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+  const paymentSummaryUrl = `/api/admin/reports/payment-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
   
   // Fetch Finance Summary data
   const { data: financeSummaryData, isLoading: isLoadingFinanceSummary } = useQuery({
-    queryKey: ["/api/admin/reports/finance-summary", financeDateRange],
+    queryKey: [financeSummaryUrl],
     enabled: selectedReport === "finance-summary",
   });
   
   // Fetch Sales Summary data
   const { data: salesSummaryData, isLoading: isLoadingSalesSummary } = useQuery({
-    queryKey: ["/api/admin/reports/sales-summary", financeDateRange],
+    queryKey: [salesSummaryUrl],
     enabled: selectedReport === "sales-summary",
   });
   
   // Fetch Sales List data
   const { data: salesListData, isLoading: isLoadingSalesList } = useQuery({
-    queryKey: ["/api/admin/reports/sales-list", monthDateRange],
+    queryKey: [salesListUrl],
     enabled: selectedReport === "sales-list",
   });
   
   // Fetch Appointments Summary data
   const { data: appointmentsSummaryData, isLoading: isLoadingAppointmentsSummary } = useQuery({
-    queryKey: ["/api/admin/reports/appointments-summary", monthDateRange],
+    queryKey: [appointmentsSummaryUrl],
     enabled: selectedReport === "appointments-summary",
   });
   
   // Fetch Payment Summary data
   const { data: paymentSummaryData, isLoading: isLoadingPaymentSummary } = useQuery({
-    queryKey: ["/api/admin/reports/payment-summary", monthDateRange],
+    queryKey: [paymentSummaryUrl],
     enabled: selectedReport === "payment-summary",
   });
 
@@ -345,16 +401,10 @@ export default function AdminFinanceAccounting() {
         />
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Label>Month to date</Label>
-          <Input
-            type="month"
-            value={monthToDate}
-            onChange={(e) => setMonthToDate(e.target.value)}
-            className="w-44"
-            data-testid="input-month-to-date"
-          />
-        </div>
+        <DateRangeFilter 
+          value={dateRangeFilter} 
+          onChange={setDateRangeFilter} 
+        />
         <Button variant="outline" size="sm" data-testid="button-filters">
           <Filter className="h-4 w-4 mr-2" />
           Filters
@@ -689,16 +739,10 @@ export default function AdminFinanceAccounting() {
         />
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Label>Month to date</Label>
-          <Input
-            type="month"
-            value={monthToDate}
-            onChange={(e) => setMonthToDate(e.target.value)}
-            className="w-44"
-            data-testid="input-month-to-date"
-          />
-        </div>
+        <DateRangeFilter 
+          value={dateRangeFilter} 
+          onChange={setDateRangeFilter} 
+        />
         <Button variant="outline" size="sm" data-testid="button-filters">
           <Filter className="h-4 w-4 mr-2" />
           Filters
@@ -883,20 +927,10 @@ export default function AdminFinanceAccounting() {
         />
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Label>Month</Label>
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-44" data-testid="select-date-range">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="last-6-months">Last 6 months</SelectItem>
-                <SelectItem value="last-12-months">Last 12 months</SelectItem>
-                <SelectItem value="this-month">This month</SelectItem>
-                <SelectItem value="last-month">Last month</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <DateRangeFilter 
+            value={dateRangeFilter} 
+            onChange={setDateRangeFilter} 
+          />
           <Button variant="outline" size="sm" data-testid="button-filters">
             <Filter className="h-4 w-4 mr-2" />
             Filters
@@ -904,6 +938,9 @@ export default function AdminFinanceAccounting() {
           <div className="ml-auto text-sm text-muted-foreground">
             Data from moments ago
           </div>
+          <Button variant="outline" size="sm" data-testid="button-customize">
+            Customize
+          </Button>
         </div>
 
       <Card>
@@ -1158,16 +1195,10 @@ export default function AdminFinanceAccounting() {
         />
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Label>Month to date</Label>
-          <Input
-            type="month"
-            value={monthToDate}
-            onChange={(e) => setMonthToDate(e.target.value)}
-            className="w-44"
-            data-testid="input-month-to-date"
-          />
-        </div>
+        <DateRangeFilter 
+          value={dateRangeFilter} 
+          onChange={setDateRangeFilter} 
+        />
         <Button variant="outline" size="sm" data-testid="button-filters">
           <Filter className="h-4 w-4 mr-2" />
           Filters
@@ -1510,16 +1541,10 @@ export default function AdminFinanceAccounting() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-2">
-          <Label>Month to date</Label>
-          <Input
-            type="month"
-            value={monthToDate}
-            onChange={(e) => setMonthToDate(e.target.value)}
-            className="w-44"
-            data-testid="input-month-to-date"
-          />
-        </div>
+        <DateRangeFilter 
+          value={dateRangeFilter} 
+          onChange={setDateRangeFilter} 
+        />
         <Button variant="outline" size="sm" data-testid="button-filters">
           <Filter className="h-4 w-4 mr-2" />
           Filters
