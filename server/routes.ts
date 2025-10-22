@@ -1887,6 +1887,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // VAT Threshold Reminder routes
+  app.get("/api/admin/vat-threshold-reminder", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+
+      const spa = await storage.getSpaById(user.adminSpaId);
+      if (!spa) {
+        return res.status(404).json({ message: "Spa not found" });
+      }
+
+      // Get all invoices for the spa to calculate current year revenue
+      const invoices = await storage.getInvoicesBySpaId(user.adminSpaId);
+      
+      const { checkVATThreshold } = await import("./revenueUtils");
+      const thresholdAmount = parseFloat(spa.vatThresholdAmount || "375000");
+      const thresholdCheck = checkVATThreshold(invoices, thresholdAmount);
+
+      res.json({
+        vatThresholdReminderEnabled: spa.vatThresholdReminderEnabled || false,
+        vatThresholdAmount: spa.vatThresholdAmount || "375000.00",
+        currentYearRevenue: thresholdCheck.annualRevenue,
+        percentageOfThreshold: thresholdCheck.percentageOfThreshold,
+        thresholdReached: thresholdCheck.thresholdReached,
+        remainingToThreshold: thresholdCheck.remainingToThreshold,
+      });
+    } catch (error) {
+      console.error("Error fetching VAT threshold reminder settings:", error);
+      res.status(500).json({ message: "Failed to fetch threshold reminder settings" });
+    }
+  });
+
+  app.put("/api/admin/vat-threshold-reminder", isAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserByReplitId((req.user as any)?.id);
+      if (!user?.adminSpaId) {
+        return res.status(400).json({ message: "No spa found" });
+      }
+
+      const { vatThresholdReminderEnabled, vatThresholdAmount } = req.body;
+
+      // Validate threshold amount
+      const amount = parseFloat(vatThresholdAmount);
+      if (isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ 
+          message: "Invalid threshold amount. Must be a positive number." 
+        });
+      }
+
+      const updateData: any = {
+        vatThresholdReminderEnabled: vatThresholdReminderEnabled || false,
+        vatThresholdAmount: vatThresholdAmount,
+      };
+
+      const updatedSpa = await storage.updateSpa(user.adminSpaId, updateData);
+      
+      res.json({
+        vatThresholdReminderEnabled: updatedSpa?.vatThresholdReminderEnabled || false,
+        vatThresholdAmount: updatedSpa?.vatThresholdAmount || "375000.00",
+      });
+    } catch (error) {
+      console.error("Error updating VAT threshold reminder settings:", error);
+      res.status(500).json({ message: "Failed to update threshold reminder settings" });
+    }
+  });
+
   // Invoice Management routes
   app.delete("/api/admin/invoices/:id", isAdmin, async (req, res) => {
     try {
