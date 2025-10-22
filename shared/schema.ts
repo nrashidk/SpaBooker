@@ -296,12 +296,48 @@ export const customers = pgTable("customers", {
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
+  gender: text("gender"), // male, female, other, prefer-not-to-say
+  birthday: timestamp("birthday"), // Date of birth
+  address: jsonb("address"), // { street, city, area, emirate, postalCode }
   taxRegistrationNumber: varchar("tax_registration_number", { length: 15 }), // UAE TRN for B2B customers
   loyaltyPoints: integer("loyalty_points").default(0),
   totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default("0.00"),
+  walletBalance: decimal("wallet_balance", { precision: 10, scale: 2 }).default("0.00"), // Store credit balance
   notes: text("notes"),
+  blocked: boolean("blocked").default(false), // Is client blocked from booking?
+  blockedReason: text("blocked_reason"), // Reason for blocking
+  blockedAt: timestamp("blocked_at"), // When was client blocked
+  blockedBy: varchar("blocked_by").references(() => users.id), // Admin who blocked
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_customers_email").on(table.email),
+  index("idx_customers_phone").on(table.phone),
+  index("idx_customers_blocked").on(table.blocked),
+]);
+
+// Wallet Transactions (store credit history)
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  spaId: integer("spa_id").references(() => spas.id).notNull(),
+  type: text("type").notNull(), // credit, debit
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(), // Balance after transaction
+  source: text("source").notNull(), // refund, manual_adjustment, promotion, redemption, booking_payment
+  referenceId: integer("reference_id"), // ID of related invoice/booking/refund
+  description: text("description"), // Human-readable description
+  createdBy: varchar("created_by").references(() => users.id), // Admin who created transaction
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_wallet_transactions_customer").on(table.customerId),
+  index("idx_wallet_transactions_spa").on(table.spaId),
+  index("idx_wallet_transactions_type").on(table.type),
+]);
+
+export const insertWalletTransactionSchema = createInsertSchema(walletTransactions).omit({ id: true, createdAt: true });
+export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
 
 // Promo Codes
 export const promoCodes = pgTable("promo_codes", {
@@ -621,10 +657,23 @@ export const insertStaffSchema = createInsertSchema(staff).omit({ id: true, crea
 });
 export const insertStaffScheduleSchema = createInsertSchema(staffSchedules).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
-export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true }).extend({
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   email: z.string().email("Please enter a valid email address (e.g., sample@sample.com)").optional().or(z.literal('')).nullable(),
   phone: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number must be at most 15 digits").optional().or(z.literal('')).nullable(),
   userId: z.string().optional().nullable(),
+  gender: z.enum(["male", "female", "other", "prefer-not-to-say"]).optional().nullable(),
+  birthday: z.coerce.date().optional().nullable(),
+  address: z.object({
+    street: z.string().optional(),
+    city: z.string().optional(),
+    area: z.string().optional(),
+    emirate: z.string().optional(),
+    postalCode: z.string().optional(),
+  }).optional().nullable(),
+  walletBalance: z.coerce.string().optional(),
+  blocked: z.boolean().optional(),
+  blockedReason: z.string().optional().nullable(),
+  blockedBy: z.string().optional().nullable(),
 });
 export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true });
 export const insertBookingItemSchema = createInsertSchema(bookingItems).omit({ id: true });
