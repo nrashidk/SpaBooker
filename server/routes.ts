@@ -3653,35 +3653,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
-      // Get all invoices for the period
+      // Step 1: Get all bookings for this spa in the date range
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      const spaBookingIds = new Set(spaBookings.map((b: any) => b.id));
+      
+      // Step 2: Get staff for this spa (for product sales)
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      // Step 3: Get product sales by this spa's staff
+      const allProductSales = await storage.getAllProductSales();
+      const spaProductSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        const isInDateRange = saleDate >= start && saleDate <= end;
+        const isForSpa = sale.soldBy && spaStaffIds.has(sale.soldBy);
+        return isInDateRange && isForSpa;
+      });
+      const productSaleInvoiceIds = new Set(spaProductSales.map((ps: any) => ps.invoiceId).filter(Boolean));
+      
+      // Step 4: Get membership purchases for this spa
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const spaMemberships = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        const isInDateRange = purchaseDate >= start && purchaseDate <= end;
+        const isForSpa = membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+        return isInDateRange && isForSpa;
+      });
+      const membershipInvoiceIds = new Set(spaMemberships.map((m: any) => m.invoiceId).filter(Boolean));
+      
+      // Step 5: Get all invoices for this spa (booking-linked, product sales, membership purchases)
       const allInvoices = await storage.getAllInvoices();
-      const invoices = allInvoices.filter((inv: any) => {
-        const invDate = new Date(inv.invoiceDate);
-        return invDate >= start && invDate <= end && inv.spaId === spaId;
+      const spaInvoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        const isInDateRange = invDate >= start && invDate <= end;
+        const isForSpa = 
+          (inv.bookingId && spaBookingIds.has(inv.bookingId)) ||
+          productSaleInvoiceIds.has(inv.id) ||
+          membershipInvoiceIds.has(inv.id);
+        return isInDateRange && isForSpa;
       });
+      const spaInvoiceIds = new Set(spaInvoices.map((inv: any) => inv.id));
       
-      // Get all transactions for the period
+      // Step 3: Get transactions linked to these invoices (spa-filtered payments)
       const allTransactions = await storage.getAllTransactions();
-      const transactions = allTransactions.filter((txn: any) => {
+      const spaTransactions = allTransactions.filter((txn: any) => {
         const txnDate = new Date(txn.transactionDate);
-        return txnDate >= start && txnDate <= end;
+        const isInDateRange = txnDate >= start && txnDate <= end;
+        const isForSpa = txn.invoiceId && spaInvoiceIds.has(txn.invoiceId);
+        return isInDateRange && isForSpa;
       });
       
-      // Get all loyalty cards for the period
+      // Step 4: Get services for this spa to filter loyalty cards
+      const allServices = await storage.getAllServices();
+      const spaServices = allServices.filter((service: any) => service.spaId === spaId);
+      const spaServiceIds = new Set(spaServices.map((s: any) => s.id));
+      
+      // Step 5: Get loyalty cards for this spa's services in date range
       const allLoyaltyCards = await storage.getAllLoyaltyCards();
-      const loyaltyCards = allLoyaltyCards.filter((card: any) => {
+      const spaLoyaltyCards = allLoyaltyCards.filter((card: any) => {
         const purchaseDate = new Date(card.purchaseDate);
-        return purchaseDate >= start && purchaseDate <= end;
+        const isInDateRange = purchaseDate >= start && purchaseDate <= end;
+        const isForSpa = card.serviceId && spaServiceIds.has(card.serviceId);
+        return isInDateRange && isForSpa;
+      });
+      const spaLoyaltyCardIds = new Set(spaLoyaltyCards.map((c: any) => c.id));
+      
+      // Step 6: Get loyalty usage for this spa's bookings
+      const allLoyaltyUsage = await storage.getAllLoyaltyCardUsage();
+      const spaLoyaltyUsage = allLoyaltyUsage.filter((usage: any) => {
+        const usedAt = new Date(usage.usedAt);
+        const isInDateRange = usedAt >= start && usedAt <= end;
+        const isForSpa = usage.bookingId && spaBookingIds.has(usage.bookingId);
+        return isInDateRange && isForSpa;
       });
       
-      // Calculate sales metrics
+      // Calculate sales metrics from spa-filtered data
       let grossSales = 0;
       let totalDiscounts = 0;
       let refunds = 0;
       let giftCardSales = 0;
       let serviceCharges = 0;
       
-      invoices.forEach((inv: any) => {
+      spaInvoices.forEach((inv: any) => {
         const subtotal = parseFloat(inv.subtotal || '0');
         const discount = parseFloat(inv.discountAmount || '0');
         grossSales += subtotal;
@@ -3692,19 +3754,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      loyaltyCards.forEach((card: any) => {
+      spaLoyaltyCards.forEach((card: any) => {
         giftCardSales += parseFloat(card.purchasePrice || '0');
       });
       
       const netSales = grossSales - totalDiscounts - refunds;
       const totalSales = netSales + giftCardSales + serviceCharges;
       
-      // Calculate payments by method
+      // Calculate payments by method (spa-filtered)
       let cardPayments = 0;
       let cashPayments = 0;
       let onlinePayments = 0;
       
-      transactions.forEach((txn: any) => {
+      spaTransactions.forEach((txn: any) => {
         const amount = parseFloat(txn.amount || '0');
         if (txn.transactionType === 'payment') {
           switch (txn.paymentMethod) {
@@ -3721,15 +3783,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Calculate redemptions
-      const allLoyaltyUsage = await storage.getAllLoyaltyCardUsage();
-      const loyaltyUsage = allLoyaltyUsage.filter((usage: any) => {
-        const usedAt = new Date(usage.usedAt);
-        return usedAt >= start && usedAt <= end;
-      });
-      
+      // Calculate redemptions (spa-filtered)
       let redemptions = 0;
-      loyaltyUsage.forEach((usage: any) => {
+      spaLoyaltyUsage.forEach((usage: any) => {
         redemptions += parseFloat(usage.sessionValue || '0');
       });
       
@@ -3770,25 +3826,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
-      // Get bookings (services)
+      // Get bookings (services) for this spa
       const allBookings = await storage.getAllBookings();
       const bookings = allBookings.filter((booking: any) => {
         const bookingDate = new Date(booking.bookingDate);
         return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
       });
       
-      // Get product sales
+      // Get staff for this spa to filter product sales
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      // Get product sales sold by this spa's staff
       const allProductSales = await storage.getAllProductSales();
       const productSales = allProductSales.filter((sale: any) => {
         const saleDate = new Date(sale.saleDate);
-        return saleDate >= start && saleDate <= end;
+        const isInDateRange = saleDate >= start && saleDate <= end;
+        const isForSpa = sale.soldBy && spaStaffIds.has(sale.soldBy);
+        return isInDateRange && isForSpa;
       });
       
-      // Get membership purchases
+      // Get memberships for this spa (through membership definition's spaId)
       const allMemberships = await storage.getAllCustomerMemberships();
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
       const membershipPurchases = allMemberships.filter((membership: any) => {
         const purchaseDate = new Date(membership.purchaseDate);
-        return purchaseDate >= start && purchaseDate <= end;
+        const isInDateRange = purchaseDate >= start && purchaseDate <= end;
+        const isForSpa = membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+        return isInDateRange && isForSpa;
       });
       
       // Calculate service metrics
@@ -3868,11 +3937,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
-      // Get all invoices
+      // Get all spa-related data for invoice filtering
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      const spaBookingIds = new Set(spaBookings.map((b: any) => b.id));
+      
+      // Get staff for this spa (for product sales)
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      // Get product sales by this spa's staff
+      const allProductSales = await storage.getAllProductSales();
+      const spaProductSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        const isInDateRange = saleDate >= start && saleDate <= end;
+        const isForSpa = sale.soldBy && spaStaffIds.has(sale.soldBy);
+        return isInDateRange && isForSpa;
+      });
+      const productSaleInvoiceIds = new Set(spaProductSales.map((ps: any) => ps.invoiceId).filter(Boolean));
+      
+      // Get membership purchases for this spa
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const spaMemberships = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        const isInDateRange = purchaseDate >= start && purchaseDate <= end;
+        const isForSpa = membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+        return isInDateRange && isForSpa;
+      });
+      const membershipInvoiceIds = new Set(spaMemberships.map((m: any) => m.invoiceId).filter(Boolean));
+      
+      // Get all invoices for this spa (booking-linked, product sales, membership purchases)
       const allInvoices = await storage.getAllInvoices();
-      const invoices = allInvoices.filter((inv: any) => {
-        const invDate = new Date(inv.invoiceDate);
-        return invDate >= start && invDate <= end && inv.spaId === spaId;
+      const spaInvoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        const isInDateRange = invDate >= start && invDate <= end;
+        const isForSpa = 
+          (inv.bookingId && spaBookingIds.has(inv.bookingId)) ||
+          productSaleInvoiceIds.has(inv.id) ||
+          membershipInvoiceIds.has(inv.id);
+        return isInDateRange && isForSpa;
       });
       
       // Get all customers for lookup
@@ -3883,11 +3994,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const spa = await storage.getSpaById(spaId);
       
       // Format sales list
-      const salesList = invoices.map((inv: any) => {
+      const salesList = spaInvoices.map((inv: any) => {
         const customer = customerMap.get(inv.customerId);
         return {
           saleNumber: inv.invoiceNumber,
-          date: inv.invoiceDate,
+          date: inv.issueDate,
           status: inv.status,
           location: spa?.name || 'Unknown',
           client: customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown',
@@ -3991,17 +4102,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
-      // Get all transactions
+      // Get all spa-related data for invoice filtering
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      const spaBookingIds = new Set(spaBookings.map((b: any) => b.id));
+      
+      // Get staff for this spa (for product sales)
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      // Get product sales by this spa's staff
+      const allProductSales = await storage.getAllProductSales();
+      const spaProductSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        const isInDateRange = saleDate >= start && saleDate <= end;
+        const isForSpa = sale.soldBy && spaStaffIds.has(sale.soldBy);
+        return isInDateRange && isForSpa;
+      });
+      const productSaleInvoiceIds = new Set(spaProductSales.map((ps: any) => ps.invoiceId).filter(Boolean));
+      
+      // Get membership purchases for this spa
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const spaMemberships = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        const isInDateRange = purchaseDate >= start && purchaseDate <= end;
+        const isForSpa = membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+        return isInDateRange && isForSpa;
+      });
+      const membershipInvoiceIds = new Set(spaMemberships.map((m: any) => m.invoiceId).filter(Boolean));
+      
+      // Get all invoices for this spa (booking-linked, product sales, membership purchases)
+      const allInvoices = await storage.getAllInvoices();
+      const spaInvoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        const isInDateRange = invDate >= start && invDate <= end;
+        const isForSpa = 
+          (inv.bookingId && spaBookingIds.has(inv.bookingId)) ||
+          productSaleInvoiceIds.has(inv.id) ||
+          membershipInvoiceIds.has(inv.id);
+        return isInDateRange && isForSpa;
+      });
+      const spaInvoiceIds = new Set(spaInvoices.map((inv: any) => inv.id));
+      
+      // Get transactions linked to these invoices (spa-filtered)
       const allTransactions = await storage.getAllTransactions();
-      const transactions = allTransactions.filter((txn: any) => {
+      const spaTransactions = allTransactions.filter((txn: any) => {
         const txnDate = new Date(txn.transactionDate);
-        return txnDate >= start && txnDate <= end;
+        const isInDateRange = txnDate >= start && txnDate <= end;
+        const isForSpa = txn.invoiceId && spaInvoiceIds.has(txn.invoiceId);
+        return isInDateRange && isForSpa;
       });
       
       // Group by payment method
       const paymentMethods = ['card', 'cash', 'online'];
       const summary = paymentMethods.map(method => {
-        const methodTransactions = transactions.filter((t: any) => t.paymentMethod === method);
+        const methodTransactions = spaTransactions.filter((t: any) => t.paymentMethod === method);
         const payments = methodTransactions.filter((t: any) => t.transactionType === 'payment');
         const refunds = methodTransactions.filter((t: any) => t.transactionType === 'refund');
         
@@ -4037,21 +4200,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Start date and end date are required" });
       }
       
-      // Fetch report data (reusing the logic from the main endpoint)
+      // Fetch report data with proper spa filtering
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
-      const allInvoices = await storage.getAllInvoices();
-      const invoices = allInvoices.filter((inv: any) => {
-        const invDate = new Date(inv.issueDate);
-        return invDate >= start && invDate <= end;
+      // Get all spa-related data for comprehensive invoice filtering
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
       });
+      const spaBookingIds = new Set(spaBookings.map((b: any) => b.id));
+      
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      const allProductSales = await storage.getAllProductSales();
+      const spaProductSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        return saleDate >= start && saleDate <= end && sale.soldBy && spaStaffIds.has(sale.soldBy);
+      });
+      const productSaleInvoiceIds = new Set(spaProductSales.map((ps: any) => ps.invoiceId).filter(Boolean));
+      
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const spaMemberships = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        return purchaseDate >= start && purchaseDate <= end && membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+      });
+      const membershipInvoiceIds = new Set(spaMemberships.map((m: any) => m.invoiceId).filter(Boolean));
+      
+      // Get all invoices for this spa (booking-linked, product sales, membership purchases)
+      const allInvoices = await storage.getAllInvoices();
+      const spaInvoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        const isInDateRange = invDate >= start && invDate <= end;
+        const isForSpa = 
+          (inv.bookingId && spaBookingIds.has(inv.bookingId)) ||
+          productSaleInvoiceIds.has(inv.id) ||
+          membershipInvoiceIds.has(inv.id);
+        return isInDateRange && isForSpa;
+      });
+      
+      // Calculate totals
+      const grossSales = spaInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.subtotal || '0'), 0);
+      const discounts = spaInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.discountAmount || '0'), 0);
+      const refunds = spaInvoices.filter((inv: any) => inv.status === 'refunded').reduce((sum: number, inv: any) => sum + parseFloat(inv.totalAmount || '0'), 0);
+      const netSales = grossSales - discounts - refunds;
       
       // Prepare export data
       const exportData = [
-        { category: 'Gross Sales', amount: formatCurrency(invoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.subtotal || '0'), 0)) },
-        { category: 'Discounts', amount: formatCurrency(invoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.discountAmount || '0'), 0)) },
-        { category: 'Net Sales', amount: formatCurrency(0) },
+        { category: 'Gross Sales', amount: formatCurrency(grossSales) },
+        { category: 'Discounts', amount: formatCurrency(discounts) },
+        { category: 'Refunds', amount: formatCurrency(refunds) },
+        { category: 'Net Sales', amount: formatCurrency(netSales) },
       ];
       
       const filename = `finance-summary-${formatDate(start)}-to-${formatDate(end)}`;
@@ -4101,16 +4307,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
+      // Get bookings for this spa
       const allBookings = await storage.getAllBookings();
       const bookings = allBookings.filter((booking: any) => {
         const bookingDate = new Date(booking.bookingDate);
         return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
       });
       
+      // Get staff for this spa to filter product sales
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      // Get product sales sold by this spa's staff
       const allProductSales = await storage.getAllProductSales();
       const productSales = allProductSales.filter((sale: any) => {
         const saleDate = new Date(sale.saleDate);
-        return saleDate >= start && saleDate <= end;
+        const isInDateRange = saleDate >= start && saleDate <= end;
+        const isForSpa = sale.soldBy && spaStaffIds.has(sale.soldBy);
+        return isInDateRange && isForSpa;
       });
       
       const serviceGrossSales = bookings.reduce((sum: number, booking: any) => sum + parseFloat(booking.totalPrice || '0'), 0);
@@ -4159,6 +4374,338 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       handleRouteError(res, error, "Failed to export sales summary");
+    }
+  });
+  
+  // Export Sales List Report
+  app.get("/api/admin/reports/sales-list/export/:format", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      const { format } = req.params;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get all spa-related data for comprehensive invoice filtering
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      const spaBookingIds = new Set(spaBookings.map((b: any) => b.id));
+      
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      const allProductSales = await storage.getAllProductSales();
+      const spaProductSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        return saleDate >= start && saleDate <= end && sale.soldBy && spaStaffIds.has(sale.soldBy);
+      });
+      const productSaleInvoiceIds = new Set(spaProductSales.map((ps: any) => ps.invoiceId).filter(Boolean));
+      
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const spaMemberships = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        return purchaseDate >= start && purchaseDate <= end && membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+      });
+      const membershipInvoiceIds = new Set(spaMemberships.map((m: any) => m.invoiceId).filter(Boolean));
+      
+      // Get all invoices for this spa (booking-linked, product sales, membership purchases)
+      const allInvoices = await storage.getAllInvoices();
+      const spaInvoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        const isInDateRange = invDate >= start && invDate <= end;
+        const isForSpa = 
+          (inv.bookingId && spaBookingIds.has(inv.bookingId)) ||
+          productSaleInvoiceIds.has(inv.id) ||
+          membershipInvoiceIds.has(inv.id);
+        return isInDateRange && isForSpa;
+      });
+      
+      // Get all customers for lookup
+      const allCustomers = await storage.getAllCustomers();
+      const customerMap = new Map(allCustomers.map((c: any) => [c.id, c]));
+      
+      // Get spa info
+      const spa = await storage.getSpaById(spaId);
+      
+      // Format sales list
+      const exportData = spaInvoices.map((inv: any) => {
+        const customer = customerMap.get(inv.customerId);
+        return {
+          saleNumber: inv.invoiceNumber,
+          date: formatDate(new Date(inv.issueDate)),
+          status: inv.status,
+          location: spa?.name || 'Unknown',
+          client: customer ? `${customer.firstName} ${customer.lastName}` : 'Unknown',
+          totalSales: formatCurrency(parseFloat(inv.totalAmount || '0')),
+        };
+      });
+      
+      const filename = `sales-list-${formatDate(start)}-to-${formatDate(end)}`;
+      
+      if (format === 'csv') {
+        await exportToCSV(
+          exportData,
+          [
+            { id: 'saleNumber', title: 'Sale Number' },
+            { id: 'date', title: 'Date' },
+            { id: 'status', title: 'Status' },
+            { id: 'client', title: 'Client' },
+            { id: 'totalSales', title: 'Total Sales' }
+          ],
+          filename,
+          res
+        );
+      } else if (format === 'excel') {
+        await exportToExcel(
+          exportData,
+          [
+            { key: 'saleNumber', header: 'Sale Number', width: 20 },
+            { key: 'date', header: 'Date', width: 15 },
+            { key: 'status', header: 'Status', width: 12 },
+            { key: 'client', header: 'Client', width: 25 },
+            { key: 'totalSales', header: 'Total Sales', width: 15 }
+          ],
+          filename,
+          'Sales List',
+          res
+        );
+      } else if (format === 'pdf') {
+        await exportToPDF(
+          exportData,
+          ['saleNumber', 'date', 'status', 'client', 'totalSales'],
+          'Sales List Report',
+          filename,
+          res
+        );
+      } else {
+        res.status(400).json({ message: 'Invalid format. Use csv, excel, or pdf' });
+      }
+    } catch (error) {
+      handleRouteError(res, error, "Failed to export sales list");
+    }
+  });
+  
+  // Export Appointments Summary Report
+  app.get("/api/admin/reports/appointments-summary/export/:format", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      const { format } = req.params;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get bookings for this spa
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      
+      // Calculate metrics
+      const totalAppointments = spaBookings.length;
+      const totalValue = spaBookings.reduce((sum: number, b: any) => sum + parseFloat(b.totalPrice || '0'), 0);
+      const averageValue = totalAppointments > 0 ? totalValue / totalAppointments : 0;
+      const onlineBookings = spaBookings.filter((b: any) => b.bookingChannel === 'online').length;
+      const cancelledBookings = spaBookings.filter((b: any) => b.status === 'cancelled').length;
+      const percentOnline = totalAppointments > 0 ? (onlineBookings / totalAppointments) * 100 : 0;
+      const percentCancelled = totalAppointments > 0 ? (cancelledBookings / totalAppointments) * 100 : 0;
+      
+      // Format export data
+      const exportData = [
+        { metric: 'Total Appointments', value: totalAppointments.toString() },
+        { metric: 'Total Value', value: formatCurrency(totalValue) },
+        { metric: 'Average Value', value: formatCurrency(averageValue) },
+        { metric: '% Online', value: formatPercentage(percentOnline / 100) },
+        { metric: '% Cancelled', value: formatPercentage(percentCancelled / 100) },
+      ];
+      
+      const filename = `appointments-summary-${formatDate(start)}-to-${formatDate(end)}`;
+      
+      if (format === 'csv') {
+        await exportToCSV(
+          exportData,
+          [
+            { id: 'metric', title: 'Metric' },
+            { id: 'value', title: 'Value' }
+          ],
+          filename,
+          res
+        );
+      } else if (format === 'excel') {
+        await exportToExcel(
+          exportData,
+          [
+            { key: 'metric', header: 'Metric', width: 30 },
+            { key: 'value', header: 'Value', width: 20 }
+          ],
+          filename,
+          'Appointments Summary',
+          res
+        );
+      } else if (format === 'pdf') {
+        await exportToPDF(
+          exportData,
+          ['metric', 'value'],
+          'Appointments Summary Report',
+          filename,
+          res
+        );
+      } else {
+        res.status(400).json({ message: 'Invalid format. Use csv, excel, or pdf' });
+      }
+    } catch (error) {
+      handleRouteError(res, error, "Failed to export appointments summary");
+    }
+  });
+  
+  // Export Payment Summary Report
+  app.get("/api/admin/reports/payment-summary/export/:format", isAuthenticated, isAdmin, injectAdminSpa, async (req, res) => {
+    try {
+      const spaId = (req as any).adminSpaId;
+      const { startDate, endDate } = req.query;
+      const { format } = req.params;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+      
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Get all spa-related data for comprehensive invoice filtering
+      const allBookings = await storage.getAllBookings();
+      const spaBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= start && bookingDate <= end && booking.spaId === spaId;
+      });
+      const spaBookingIds = new Set(spaBookings.map((b: any) => b.id));
+      
+      const allStaff = await storage.getAllStaff();
+      const spaStaff = allStaff.filter((staff: any) => staff.spaId === spaId);
+      const spaStaffIds = new Set(spaStaff.map((s: any) => s.id));
+      
+      const allProductSales = await storage.getAllProductSales();
+      const spaProductSales = allProductSales.filter((sale: any) => {
+        const saleDate = new Date(sale.saleDate);
+        return saleDate >= start && saleDate <= end && sale.soldBy && spaStaffIds.has(sale.soldBy);
+      });
+      const productSaleInvoiceIds = new Set(spaProductSales.map((ps: any) => ps.invoiceId).filter(Boolean));
+      
+      const allMembershipDefs = await storage.getAllMemberships();
+      const spaMembershipDefs = allMembershipDefs.filter((def: any) => def.spaId === spaId);
+      const spaMembershipDefIds = new Set(spaMembershipDefs.map((def: any) => def.id));
+      
+      const allMemberships = await storage.getAllCustomerMemberships();
+      const spaMemberships = allMemberships.filter((membership: any) => {
+        const purchaseDate = new Date(membership.purchaseDate);
+        return purchaseDate >= start && purchaseDate <= end && membership.membershipId && spaMembershipDefIds.has(membership.membershipId);
+      });
+      const membershipInvoiceIds = new Set(spaMemberships.map((m: any) => m.invoiceId).filter(Boolean));
+      
+      // Get all invoices for this spa (booking-linked, product sales, membership purchases)
+      const allInvoices = await storage.getAllInvoices();
+      const spaInvoices = allInvoices.filter((inv: any) => {
+        const invDate = new Date(inv.issueDate);
+        const isInDateRange = invDate >= start && invDate <= end;
+        const isForSpa = 
+          (inv.bookingId && spaBookingIds.has(inv.bookingId)) ||
+          productSaleInvoiceIds.has(inv.id) ||
+          membershipInvoiceIds.has(inv.id);
+        return isInDateRange && isForSpa;
+      });
+      const spaInvoiceIds = new Set(spaInvoices.map((inv: any) => inv.id));
+      
+      // Get transactions linked to these invoices
+      const allTransactions = await storage.getAllTransactions();
+      const spaTransactions = allTransactions.filter((txn: any) => {
+        const txnDate = new Date(txn.transactionDate);
+        const isInDateRange = txnDate >= start && txnDate <= end;
+        const isForSpa = txn.invoiceId && spaInvoiceIds.has(txn.invoiceId);
+        return isInDateRange && isForSpa;
+      });
+      
+      // Group by payment method
+      const paymentMethods = ['card', 'cash', 'online'];
+      const exportData = paymentMethods.map(method => {
+        const methodTransactions = spaTransactions.filter((t: any) => t.paymentMethod === method);
+        const payments = methodTransactions.filter((t: any) => t.transactionType === 'payment');
+        const refunds = methodTransactions.filter((t: any) => t.transactionType === 'refund');
+        
+        const paymentAmount = payments.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+        const refundAmount = refunds.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+        
+        return {
+          paymentMethod: method.charAt(0).toUpperCase() + method.slice(1),
+          numberOfPayments: payments.length,
+          paymentAmount: formatCurrency(paymentAmount),
+          numberOfRefunds: refunds.length,
+          refunds: formatCurrency(refundAmount),
+          netPayments: formatCurrency(paymentAmount - refundAmount),
+        };
+      });
+      
+      const filename = `payment-summary-${formatDate(start)}-to-${formatDate(end)}`;
+      
+      if (format === 'csv') {
+        await exportToCSV(
+          exportData,
+          [
+            { id: 'paymentMethod', title: 'Payment Method' },
+            { id: 'numberOfPayments', title: 'Number of Payments' },
+            { id: 'paymentAmount', title: 'Payment Amount' },
+            { id: 'numberOfRefunds', title: 'Number of Refunds' },
+            { id: 'refunds', title: 'Refunds' },
+            { id: 'netPayments', title: 'Net Payments' }
+          ],
+          filename,
+          res
+        );
+      } else if (format === 'excel') {
+        await exportToExcel(
+          exportData,
+          [
+            { key: 'paymentMethod', header: 'Payment Method', width: 20 },
+            { key: 'numberOfPayments', header: 'Number of Payments', width: 18 },
+            { key: 'paymentAmount', header: 'Payment Amount', width: 18 },
+            { key: 'numberOfRefunds', header: 'Number of Refunds', width: 18 },
+            { key: 'refunds', header: 'Refunds', width: 15 },
+            { key: 'netPayments', header: 'Net Payments', width: 18 }
+          ],
+          filename,
+          'Payment Summary',
+          res
+        );
+      } else if (format === 'pdf') {
+        await exportToPDF(
+          exportData,
+          ['paymentMethod', 'numberOfPayments', 'paymentAmount', 'numberOfRefunds', 'refunds', 'netPayments'],
+          'Payment Summary Report',
+          filename,
+          res
+        );
+      } else {
+        res.status(400).json({ message: 'Invalid format. Use csv, excel, or pdf' });
+      }
+    } catch (error) {
+      handleRouteError(res, error, "Failed to export payment summary");
     }
   });
 
