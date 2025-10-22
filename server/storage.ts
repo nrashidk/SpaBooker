@@ -11,6 +11,7 @@ import {
   membershipUsage,
   staff,
   staffSchedules,
+  staffEmergencyContacts,
   products,
   customers,
   walletTransactions,
@@ -60,6 +61,10 @@ import {
   type InsertStaff,
   type StaffSchedule,
   type InsertStaffSchedule,
+  type StaffEmergencyContact,
+  type InsertStaffEmergencyContact,
+  type StaffTimeEntry,
+  type InsertStaffTimeEntry,
   type Product,
   type InsertProduct,
   type Customer,
@@ -952,6 +957,185 @@ export class DatabaseStorage implements IStorage {
 
   async deleteStaffSchedule(id: number): Promise<boolean> {
     const result = await db.delete(staffSchedules).where(eq(staffSchedules.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Staff Emergency Contact operations
+  async getStaffEmergencyContacts(staffId: number): Promise<StaffEmergencyContact[]> {
+    return db.select().from(staffEmergencyContacts).where(eq(staffEmergencyContacts.staffId, staffId));
+  }
+
+  async createStaffEmergencyContact(contact: InsertStaffEmergencyContact): Promise<StaffEmergencyContact> {
+    const [newContact] = await db.insert(staffEmergencyContacts).values(contact).returning();
+    return newContact;
+  }
+
+  async updateStaffEmergencyContact(id: number, contact: Partial<InsertStaffEmergencyContact>): Promise<StaffEmergencyContact | undefined> {
+    const [updated] = await db
+      .update(staffEmergencyContacts)
+      .set({ ...contact, updatedAt: new Date() })
+      .where(eq(staffEmergencyContacts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteStaffEmergencyContact(id: number): Promise<boolean> {
+    const result = await db.delete(staffEmergencyContacts).where(eq(staffEmergencyContacts.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Staff Time Entry operations (Enhanced Timesheets)
+  async getAllTimesheets(filters?: { spaId?: number; staffId?: number; status?: string; startDate?: Date; endDate?: Date }): Promise<StaffTimeEntry[]> {
+    const conditions = [];
+    
+    if (filters?.spaId) {
+      conditions.push(eq(staffTimeEntries.spaId, filters.spaId));
+    }
+    if (filters?.staffId) {
+      conditions.push(eq(staffTimeEntries.staffId, filters.staffId));
+    }
+    if (filters?.status) {
+      conditions.push(sql`${staffTimeEntries.status} = ${filters.status}`);
+    }
+    if (filters?.startDate) {
+      conditions.push(sql`${staffTimeEntries.clockIn} >= ${filters.startDate}`);
+    }
+    if (filters?.endDate) {
+      conditions.push(sql`${staffTimeEntries.clockIn} <= ${filters.endDate}`);
+    }
+
+    if (conditions.length > 0) {
+      return db.select().from(staffTimeEntries).where(sql`${sql.join(conditions, sql` AND `)}`).orderBy(desc(staffTimeEntries.clockIn));
+    }
+    
+    return db.select().from(staffTimeEntries).orderBy(desc(staffTimeEntries.clockIn));
+  }
+
+  async getTimesheetById(id: number): Promise<StaffTimeEntry | undefined> {
+    const [entry] = await db.select().from(staffTimeEntries).where(eq(staffTimeEntries.id, id));
+    return entry;
+  }
+
+  async getStaffTimesheets(staffId: number, startDate?: Date, endDate?: Date): Promise<StaffTimeEntry[]> {
+    const conditions = [eq(staffTimeEntries.staffId, staffId)];
+    
+    if (startDate) {
+      conditions.push(sql`${staffTimeEntries.clockIn} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${staffTimeEntries.clockIn} <= ${endDate}`);
+    }
+
+    return db.select().from(staffTimeEntries)
+      .where(sql`${sql.join(conditions, sql` AND `)}`)
+      .orderBy(desc(staffTimeEntries.clockIn));
+  }
+
+  async createTimesheet(entry: InsertStaffTimeEntry): Promise<StaffTimeEntry> {
+    const [newEntry] = await db.insert(staffTimeEntries).values(entry).returning();
+    return newEntry;
+  }
+
+  async updateTimesheet(id: number, entry: Partial<InsertStaffTimeEntry>): Promise<StaffTimeEntry | undefined> {
+    const [updated] = await db
+      .update(staffTimeEntries)
+      .set({ ...entry, updatedAt: new Date() })
+      .where(eq(staffTimeEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveTimesheet(id: number, approvedBy: string): Promise<StaffTimeEntry | undefined> {
+    const [updated] = await db
+      .update(staffTimeEntries)
+      .set({
+        status: 'approved',
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(staffTimeEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejectTimesheet(id: number, approvedBy: string, reason: string): Promise<StaffTimeEntry | undefined> {
+    const [updated] = await db
+      .update(staffTimeEntries)
+      .set({
+        status: 'rejected',
+        approvedBy,
+        approvedAt: new Date(),
+        notes: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(staffTimeEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async clockIn(staffId: number, spaId: number, location?: { latitude: number; longitude: number }): Promise<StaffTimeEntry> {
+    // Check if there's an open timesheet (no clockOut)
+    const [openEntry] = await db.select().from(staffTimeEntries)
+      .where(sql`${staffTimeEntries.staffId} = ${staffId} AND ${staffTimeEntries.clockOut} IS NULL`)
+      .orderBy(desc(staffTimeEntries.clockIn))
+      .limit(1);
+
+    if (openEntry) {
+      throw new Error('Staff member already has an open timesheet. Please clock out first.');
+    }
+
+    const [newEntry] = await db.insert(staffTimeEntries).values({
+      staffId,
+      spaId,
+      clockIn: new Date(),
+      latitude: location?.latitude?.toString(),
+      longitude: location?.longitude?.toString(),
+      locationVerified: !!location,
+      status: 'pending',
+    }).returning();
+
+    return newEntry;
+  }
+
+  async clockOut(entryId: number, location?: { latitude: number; longitude: number }): Promise<StaffTimeEntry> {
+    const [entry] = await db.select().from(staffTimeEntries).where(eq(staffTimeEntries.id, entryId));
+    
+    if (!entry) {
+      throw new Error('Timesheet entry not found');
+    }
+
+    if (entry.clockOut) {
+      throw new Error('Already clocked out');
+    }
+
+    const clockOutTime = new Date();
+    const totalHours = ((clockOutTime.getTime() - new Date(entry.clockIn).getTime()) / (1000 * 60 * 60)).toFixed(2);
+
+    // Calculate overtime (if more than 8 hours in a day)
+    const regularHours = 8;
+    const totalMinutes = parseFloat(totalHours) * 60;
+    const overtimeMinutes = Math.max(0, Math.floor(totalMinutes - regularHours * 60));
+
+    const [updated] = await db
+      .update(staffTimeEntries)
+      .set({
+        clockOut: clockOutTime,
+        totalHours,
+        overtimeMinutes,
+        latitude: location?.latitude?.toString(),
+        longitude: location?.longitude?.toString(),
+        locationVerified: !!location,
+        updatedAt: new Date(),
+      })
+      .where(eq(staffTimeEntries.id, entryId))
+      .returning();
+
+    return updated;
+  }
+
+  async deleteTimesheet(id: number): Promise<boolean> {
+    const result = await db.delete(staffTimeEntries).where(eq(staffTimeEntries.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
