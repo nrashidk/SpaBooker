@@ -1,46 +1,44 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import session from "express-session";
 import { db } from "../db";
 import { registerRoutes } from "../routes";
-import { users, adminApplications, spas } from "../../../shared/schema";
+import { users, adminApplications, spas } from "../../shared/schema";
 import { eq } from "drizzle-orm";
-import { cleanupTestData } from "./setup";
-
-const app = express();
-app.use(express.json());
-app.use(
-  session({
-    secret: "test-secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: false },
-  })
-);
+import { cleanupTestData, createTestAuthMiddleware } from "./setup";
 
 describe("Admin Onboarding and Approval Workflow", () => {
-  let superAdminSession: request.SuperAgentTest;
+  let app: express.Express;
+  let superAdminUserId: string;
   let newAdminUserId: string;
   let applicationId: number;
 
   beforeAll(async () => {
+    // Create test Express app
+    app = express();
+    app.use(express.json());
+    app.use(
+      session({
+        secret: "test-secret",
+        resave: false,
+        saveUninitialized: false,
+        cookie: { secure: false },
+      })
+    );
+    
+    // Register routes
     await registerRoutes(app);
     await cleanupTestData();
     
-    // Create and authenticate super admin
-    const superAdminId = `super-admin-${Date.now()}`;
+    // Create super admin user
+    superAdminUserId = `super-admin-${Date.now()}`;
     await db.insert(users).values({
-      id: superAdminId,
+      id: superAdminUserId,
       email: `superadmin-${Date.now()}@test.com`,
       role: "super_admin",
+      status: "approved",
     });
-
-    superAdminSession = request.agent(app);
-    // Mock Replit auth by setting user in session
-    (superAdminSession as any).user = {
-      claims: { sub: superAdminId },
-    };
   });
 
   afterAll(async () => {
@@ -50,6 +48,9 @@ describe("Admin Onboarding and Approval Workflow", () => {
     }
     if (applicationId) {
       await db.delete(adminApplications).where(eq(adminApplications.id, applicationId));
+    }
+    if (superAdminUserId) {
+      await db.delete(users).where(eq(users.id, superAdminUserId));
     }
   });
 
@@ -63,11 +64,25 @@ describe("Admin Onboarding and Approval Workflow", () => {
         id: newAdminUserId,
         email,
         role: "admin",
-        approved: false,
+        status: "pending",
       });
 
+      // Create test app with auth for new admin
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(newAdminUserId));
+      await registerRoutes(testApp);
+
       // Submit admin application
-      const response = await request(app)
+      const response = await request(testApp)
         .post("/api/admin/register")
         .send({
           userId: newAdminUserId,
@@ -86,7 +101,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
     });
 
     it("should prevent duplicate applications from same user", async () => {
-      const response = await request(app)
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(newAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .post("/api/admin/register")
         .send({
           userId: newAdminUserId,
@@ -101,7 +129,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
 
   describe("Step 2: Super Admin Approval", () => {
     it("should show pending application to super admin", async () => {
-      const response = await superAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(superAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .get("/api/super-admin/applications")
         .query({ status: "pending" });
 
@@ -114,7 +155,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
     });
 
     it("should allow super admin to approve application", async () => {
-      const response = await superAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(superAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .post(`/api/super-admin/applications/${applicationId}/approve`)
         .send({});
 
@@ -123,11 +177,24 @@ describe("Admin Onboarding and Approval Workflow", () => {
 
       // Verify user is marked as approved
       const [user] = await db.select().from(users).where(eq(users.id, newAdminUserId));
-      expect(user.approved).toBe(true);
+      expect(user.status).toBe("approved");
     });
 
     it("should prevent duplicate approval", async () => {
-      const response = await superAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(superAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .post(`/api/super-admin/applications/${applicationId}/approve`)
         .send({});
 
@@ -137,17 +204,21 @@ describe("Admin Onboarding and Approval Workflow", () => {
   });
 
   describe("Step 3: Approved Admin Access", () => {
-    let approvedAdminSession: request.SuperAgentTest;
-
-    beforeEach(() => {
-      approvedAdminSession = request.agent(app);
-      (approvedAdminSession as any).user = {
-        claims: { sub: newAdminUserId },
-      };
-    });
-
     it("should allow approved admin to access setup wizard", async () => {
-      const response = await approvedAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(newAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .get("/api/admin/setup/status");
 
       expect(response.status).toBe(200);
@@ -157,7 +228,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
     });
 
     it("should block approved admin from other admin routes until setup complete", async () => {
-      const response = await approvedAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(newAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .get("/api/admin/bookings");
 
       expect(response.status).toBe(403);
@@ -166,7 +250,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
     });
 
     it("should allow approved admin to start setup wizard", async () => {
-      const response = await approvedAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(newAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .post("/api/admin/setup/step/basicInfo")
         .send({
           name: "Luxury Spa",
@@ -198,11 +295,24 @@ describe("Admin Onboarding and Approval Workflow", () => {
         id: rejectedAdminUserId,
         email,
         role: "admin",
-        approved: false,
+        status: "pending",
       });
 
       // Submit application
-      const response = await request(app)
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(rejectedAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .post("/api/admin/register")
         .send({
           userId: rejectedAdminUserId,
@@ -219,7 +329,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
     });
 
     it("should allow super admin to reject application", async () => {
-      const response = await superAdminSession
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(superAdminUserId));
+      await registerRoutes(testApp);
+
+      const response = await request(testApp)
         .post(`/api/super-admin/applications/${rejectedApplicationId}/reject`)
         .send({
           reason: "Insufficient documentation",
@@ -231,12 +354,20 @@ describe("Admin Onboarding and Approval Workflow", () => {
     });
 
     it("should prevent rejected admin from accessing setup wizard", async () => {
-      const rejectedAdminSession = request.agent(app);
-      (rejectedAdminSession as any).user = {
-        claims: { sub: rejectedAdminUserId },
-      };
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.use(
+        session({
+          secret: "test-secret",
+          resave: false,
+          saveUninitialized: false,
+          cookie: { secure: false },
+        })
+      );
+      testApp.use(createTestAuthMiddleware(rejectedAdminUserId));
+      await registerRoutes(testApp);
 
-      const response = await rejectedAdminSession
+      const response = await request(testApp)
         .get("/api/admin/setup/status");
 
       expect(response.status).toBe(403);

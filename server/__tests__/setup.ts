@@ -5,6 +5,7 @@ import {
 } from "../../shared/schema";
 import bcrypt from "bcryptjs";
 import { sql } from "drizzle-orm";
+import type { Request, Response, NextFunction } from "express";
 
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -115,4 +116,17 @@ export async function createTestBooking(
   });
 
   return booking;
+}
+
+// Test authentication middleware
+export function createTestAuthMiddleware(userId: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Mock Replit Auth user object
+    (req as any).user = {
+      claims: {
+        sub: userId,
+      },
+    };
+    next();
+  };
 }
