@@ -37,6 +37,16 @@ export default function AdminSettings() {
     queryKey: ["/api/admin/vat-settings"],
   });
 
+  // Fetch VAT threshold reminder settings
+  const { data: thresholdSettings } = useQuery<{
+    vatThresholdReminderEnabled: boolean;
+    vatThresholdAmount: string;
+    currentYearRevenue?: number;
+    percentageOfThreshold?: number;
+  }>({
+    queryKey: ["/api/admin/vat-threshold-reminder"],
+  });
+
   // Check for OAuth callback results
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -85,6 +95,11 @@ export default function AdminSettings() {
     taxRegistrationNumber: "",
   });
 
+  const [vatThresholdReminder, setVatThresholdReminder] = useState({
+    enabled: false,
+    thresholdAmount: "375000",
+  });
+
   // Update state when settings are loaded
   useEffect(() => {
     if (settings) {
@@ -117,6 +132,16 @@ export default function AdminSettings() {
       });
     }
   }, [vatSettings]);
+
+  // Update VAT threshold reminder when loaded
+  useEffect(() => {
+    if (thresholdSettings) {
+      setVatThresholdReminder({
+        enabled: thresholdSettings.vatThresholdReminderEnabled || false,
+        thresholdAmount: thresholdSettings.vatThresholdAmount || "375000",
+      });
+    }
+  }, [thresholdSettings]);
 
   // Mutation to update settings
   const updateSettingsMutation = useMutation({
@@ -277,6 +302,53 @@ export default function AdminSettings() {
           toast({
             title: "Error",
             description: error?.message || "Failed to save VAT settings.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  // VAT threshold reminder mutation
+  const updateThresholdReminderMutation = useMutation({
+    mutationFn: async (data: { vatThresholdReminderEnabled: boolean; vatThresholdAmount: string }) => {
+      return await apiRequest("PUT", "/api/admin/vat-threshold-reminder", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/vat-threshold-reminder"] });
+    },
+  });
+
+  const handleSaveThresholdReminder = () => {
+    // Validate threshold amount
+    const amount = parseFloat(vatThresholdReminder.thresholdAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid threshold amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateThresholdReminderMutation.mutate(
+      {
+        vatThresholdReminderEnabled: vatThresholdReminder.enabled,
+        vatThresholdAmount: vatThresholdReminder.thresholdAmount,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Reminder settings saved",
+            description: vatThresholdReminder.enabled
+              ? "You will be notified when your annual revenue approaches the VAT threshold."
+              : "VAT threshold reminders have been disabled.",
+          });
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Error",
+            description: error?.message || "Failed to save reminder settings.",
             variant: "destructive",
           });
         },
@@ -504,6 +576,96 @@ export default function AdminSettings() {
             disabled={updateVatMutation.isPending}
           >
             {updateVatMutation.isPending ? "Saving..." : "Save VAT Settings"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <CardTitle>VAT Threshold Reminder</CardTitle>
+          </div>
+          <CardDescription>
+            Get notified when your annual revenue (Jan 1 - Dec 31) approaches the UAE VAT registration threshold.
+            This helps you prepare for VAT registration before exceeding AED 375,000 in sales.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {thresholdSettings && thresholdSettings.currentYearRevenue !== undefined && (
+            <Alert>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Current Year Revenue ({new Date().getFullYear()})</span>
+                    <span className="text-sm font-bold">
+                      AED {thresholdSettings.currentYearRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">VAT Threshold</span>
+                    <span className="text-sm text-muted-foreground">
+                      AED {parseFloat(thresholdSettings.vatThresholdAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {thresholdSettings.percentageOfThreshold !== undefined && (
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-muted-foreground">Progress to threshold</span>
+                        <span className="text-xs font-medium">{thresholdSettings.percentageOfThreshold.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min(100, thresholdSettings.percentageOfThreshold)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="threshold-reminder-enabled">Enable Reminder</Label>
+                <p className="text-sm text-muted-foreground">
+                  Receive notification when annual revenue reaches the threshold
+                </p>
+              </div>
+              <Switch
+                id="threshold-reminder-enabled"
+                checked={vatThresholdReminder.enabled}
+                onCheckedChange={(checked) => setVatThresholdReminder({ ...vatThresholdReminder, enabled: checked })}
+                data-testid="switch-threshold-reminder-enabled"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="threshold-amount">Threshold Amount (AED)</Label>
+              <Input
+                id="threshold-amount"
+                type="number"
+                value={vatThresholdReminder.thresholdAmount}
+                onChange={(e) => setVatThresholdReminder({ ...vatThresholdReminder, thresholdAmount: e.target.value })}
+                placeholder="375000"
+                step="1000"
+                data-testid="input-threshold-amount"
+              />
+              <p className="text-sm text-muted-foreground">
+                UAE FTA mandates VAT registration at AED 375,000 annual revenue (default)
+              </p>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleSaveThresholdReminder} 
+            data-testid="button-save-threshold-reminder"
+            disabled={updateThresholdReminderMutation.isPending}
+          >
+            {updateThresholdReminderMutation.isPending ? "Saving..." : "Save Reminder Settings"}
           </Button>
         </CardContent>
       </Card>
