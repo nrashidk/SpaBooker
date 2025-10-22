@@ -207,6 +207,10 @@ export default function AdminFinanceAccounting() {
   const [salesSummarySortColumn, setSalesSummarySortColumn] = useState<string | null>(null);
   const [salesSummarySortDirection, setSalesSummarySortDirection] = useState<'asc' | 'desc'>('desc');
   
+  // Sorting state for Sales List
+  const [salesListSortColumn, setSalesListSortColumn] = useState<string | null>(null);
+  const [salesListSortDirection, setSalesListSortDirection] = useState<'asc' | 'desc'>('desc');
+  
   // Calculate date ranges based on selected filters
   const financeDateRange = useMemo(() => getDateRange(dateRange), [dateRange]);
   const monthDateRange = useMemo(() => getDateRange("this-month", monthToDate), [monthToDate]);
@@ -802,7 +806,28 @@ export default function AdminFinanceAccounting() {
       serviceCharges: data.total?.serviceCharges ?? 0,
       amountDue: data.total?.amountDue ?? 0,
     };
-    const sales = data.sales ?? [];
+    let sales = [...(data.sales ?? [])];
+
+    // Sort sales data
+    if (salesListSortColumn) {
+      sales.sort((a, b) => {
+        const aVal = a[salesListSortColumn as keyof typeof a];
+        const bVal = b[salesListSortColumn as keyof typeof b];
+        const comparison = typeof aVal === 'number' && typeof bVal === 'number'
+          ? aVal - bVal
+          : String(aVal || '').localeCompare(String(bVal || ''));
+        return salesListSortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    const handleSort = (column: string) => {
+      if (salesListSortColumn === column) {
+        setSalesListSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSalesListSortColumn(column);
+        setSalesListSortDirection('desc');
+      }
+    };
 
     return (
       <div className="space-y-6">
@@ -841,24 +866,181 @@ export default function AdminFinanceAccounting() {
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-left p-3 font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Sale no. <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('saleNo')}
+                      data-testid="button-sort-sale-no"
+                    >
+                      Sale no.
+                      {salesListSortColumn === 'saleNo' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
                   <th className="text-left p-3 font-semibold">
-                    <Button variant="ghost" size="sm" className="h-auto p-0 hover:bg-transparent">
-                      Sale date <ArrowUpDown className="h-3 w-3 ml-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('saleDate')}
+                      data-testid="button-sort-sale-date"
+                    >
+                      Sale date
+                      {salesListSortColumn === 'saleDate' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
                     </Button>
                   </th>
-                  <th className="text-left p-3 font-semibold">Sale status</th>
-                  <th className="text-left p-3 font-semibold">Location</th>
-                  <th className="text-left p-3 font-semibold">Client</th>
-                  <th className="text-left p-3 font-semibold">Channel</th>
-                  <th className="text-left p-3 font-semibold">Items sold</th>
-                  <th className="text-left p-3 font-semibold">Total sales</th>
-                  <th className="text-left p-3 font-semibold">Gift card</th>
-                  <th className="text-left p-3 font-semibold">Service charges</th>
-                  <th className="text-left p-3 font-semibold">Amount due</th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('saleStatus')}
+                      data-testid="button-sort-sale-status"
+                    >
+                      Sale status
+                      {salesListSortColumn === 'saleStatus' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('location')}
+                      data-testid="button-sort-location"
+                    >
+                      Location
+                      {salesListSortColumn === 'location' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('client')}
+                      data-testid="button-sort-client"
+                    >
+                      Client
+                      {salesListSortColumn === 'client' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('channel')}
+                      data-testid="button-sort-channel"
+                    >
+                      Channel
+                      {salesListSortColumn === 'channel' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('itemsSold')}
+                      data-testid="button-sort-items-sold"
+                    >
+                      Items sold
+                      {salesListSortColumn === 'itemsSold' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('totalSales')}
+                      data-testid="button-sort-total-sales"
+                    >
+                      Total sales
+                      {salesListSortColumn === 'totalSales' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('giftCard')}
+                      data-testid="button-sort-gift-card"
+                    >
+                      Gift card
+                      {salesListSortColumn === 'giftCard' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('serviceCharges')}
+                      data-testid="button-sort-service-charges"
+                    >
+                      Service charges
+                      {salesListSortColumn === 'serviceCharges' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
+                  <th className="text-left p-3 font-semibold">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={() => handleSort('amountDue')}
+                      data-testid="button-sort-amount-due"
+                    >
+                      Amount due
+                      {salesListSortColumn === 'amountDue' ? (
+                        salesListSortDirection === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
