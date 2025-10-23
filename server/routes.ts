@@ -196,6 +196,13 @@ import {
   insertVendorSchema,
   insertExpenseSchema,
   insertBillSchema,
+  insertServiceVariantSchema,
+  insertServiceVariantStaffPricingSchema,
+  insertServiceAddonSchema,
+  insertServiceAddonOptionSchema,
+  insertServiceBundleSchema,
+  insertServiceBundleItemSchema,
+  insertServiceExtraTimeSchema,
 } from "@shared/schema";
 
 // Domain error class for business logic errors
@@ -2245,6 +2252,662 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       handleRouteError(res, error, "Failed to delete service");
+    }
+  });
+
+  // ============================================
+  // MARKETPLACE FEATURES (Phase 1) - API Routes
+  // ============================================
+
+  // Service Variants routes
+  app.get("/api/admin/services/:serviceId/variants", isAdmin, async (req, res) => {
+    try {
+      const serviceId = parseNumericId(req.params.serviceId);
+      if (!serviceId) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
+      const variants = await storage.getServiceVariants(serviceId);
+      res.json(variants);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch service variants");
+    }
+  });
+
+  app.get("/api/admin/variants/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid variant ID" });
+      }
+      
+      const variant = await storage.getServiceVariantById(id);
+      if (!variant) {
+        return res.status(404).json({ message: "Variant not found" });
+      }
+      
+      // Get staff pricing for this variant
+      const staffPricing = await storage.getVariantStaffPricing(id);
+      
+      res.json({ ...variant, staffPricing });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch variant");
+    }
+  });
+
+  app.post("/api/admin/services/:serviceId/variants", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const serviceId = parseNumericId(req.params.serviceId);
+      if (!serviceId) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
+      const validatedData = insertServiceVariantSchema.parse({
+        ...req.body,
+        serviceId,
+        spaId: req.spaId,
+      });
+      
+      const variant = await storage.createServiceVariant(validatedData);
+      
+      // Log variant creation to audit trail
+      await AuditLogger.logCreate(req, "service_variant", variant.id, variant, req.spaId);
+      
+      res.status(201).json(variant);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create service variant");
+    }
+  });
+
+  app.put("/api/admin/variants/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid variant ID" });
+      }
+      
+      const before = await storage.getServiceVariantById(id);
+      const validatedData = insertServiceVariantSchema.partial().parse(req.body);
+      const variant = await storage.updateServiceVariant(id, validatedData);
+      
+      if (!variant) {
+        return res.status(404).json({ message: "Variant not found" });
+      }
+      
+      // Log variant update to audit trail
+      if (before) {
+        await AuditLogger.logUpdate(req, "service_variant", id, before, validatedData, variant.spaId);
+      }
+      
+      res.json(variant);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update variant");
+    }
+  });
+
+  app.delete("/api/admin/variants/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid variant ID" });
+      }
+      
+      const variant = await storage.getServiceVariantById(id);
+      const deleted = await storage.deleteServiceVariant(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Variant not found" });
+      }
+      
+      // Log variant deletion to audit trail
+      if (variant) {
+        await AuditLogger.logDelete(req, "service_variant", id, variant, variant.spaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete variant");
+    }
+  });
+
+  // Service Variant Staff Pricing routes
+  app.get("/api/admin/variants/:variantId/staff-pricing", isAdmin, async (req, res) => {
+    try {
+      const variantId = parseNumericId(req.params.variantId);
+      if (!variantId) {
+        return res.status(400).json({ message: "Invalid variant ID" });
+      }
+      
+      const pricing = await storage.getVariantStaffPricing(variantId);
+      res.json(pricing);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch variant staff pricing");
+    }
+  });
+
+  app.post("/api/admin/variants/:variantId/staff-pricing", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const variantId = parseNumericId(req.params.variantId);
+      if (!variantId) {
+        return res.status(400).json({ message: "Invalid variant ID" });
+      }
+      
+      const validatedData = insertServiceVariantStaffPricingSchema.parse({
+        ...req.body,
+        variantId,
+      });
+      
+      const pricing = await storage.createVariantStaffPricing(validatedData);
+      
+      // Log staff pricing creation to audit trail
+      const variant = await storage.getServiceVariantById(variantId);
+      if (variant) {
+        await AuditLogger.logCreate(req, "variant_staff_pricing", pricing.id, pricing, variant.spaId);
+      }
+      
+      res.status(201).json(pricing);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create variant staff pricing");
+    }
+  });
+
+  app.put("/api/admin/variant-staff-pricing/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid pricing ID" });
+      }
+      
+      const before = await storage.getVariantStaffPricingByStaff(req.body.variantId, req.body.staffId);
+      const validatedData = insertServiceVariantStaffPricingSchema.partial().parse(req.body);
+      const pricing = await storage.updateVariantStaffPricing(id, validatedData);
+      
+      if (!pricing) {
+        return res.status(404).json({ message: "Pricing not found" });
+      }
+      
+      res.json(pricing);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update variant staff pricing");
+    }
+  });
+
+  app.delete("/api/admin/variant-staff-pricing/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid pricing ID" });
+      }
+      
+      const deleted = await storage.deleteVariantStaffPricing(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Pricing not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete variant staff pricing");
+    }
+  });
+
+  // Service Add-ons routes
+  app.get("/api/admin/services/:serviceId/addons", isAdmin, async (req, res) => {
+    try {
+      const serviceId = parseNumericId(req.params.serviceId);
+      if (!serviceId) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
+      const addons = await storage.getServiceAddons(serviceId);
+      res.json(addons);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch service add-ons");
+    }
+  });
+
+  app.get("/api/admin/addons/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid add-on ID" });
+      }
+      
+      const addon = await storage.getServiceAddonById(id);
+      if (!addon) {
+        return res.status(404).json({ message: "Add-on not found" });
+      }
+      
+      // Get options for this add-on
+      const options = await storage.getAddonOptions(id);
+      
+      res.json({ ...addon, options });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch add-on");
+    }
+  });
+
+  app.post("/api/admin/services/:serviceId/addons", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const serviceId = parseNumericId(req.params.serviceId);
+      if (!serviceId) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
+      const validatedData = insertServiceAddonSchema.parse({
+        ...req.body,
+        serviceId,
+        spaId: req.spaId,
+      });
+      
+      const addon = await storage.createServiceAddon(validatedData);
+      
+      // Log add-on creation to audit trail
+      await AuditLogger.logCreate(req, "service_addon", addon.id, addon, req.spaId);
+      
+      res.status(201).json(addon);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create service add-on");
+    }
+  });
+
+  app.put("/api/admin/addons/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid add-on ID" });
+      }
+      
+      const before = await storage.getServiceAddonById(id);
+      const validatedData = insertServiceAddonSchema.partial().parse(req.body);
+      const addon = await storage.updateServiceAddon(id, validatedData);
+      
+      if (!addon) {
+        return res.status(404).json({ message: "Add-on not found" });
+      }
+      
+      // Log add-on update to audit trail
+      if (before) {
+        await AuditLogger.logUpdate(req, "service_addon", id, before, validatedData, addon.spaId);
+      }
+      
+      res.json(addon);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update add-on");
+    }
+  });
+
+  app.delete("/api/admin/addons/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid add-on ID" });
+      }
+      
+      const addon = await storage.getServiceAddonById(id);
+      const deleted = await storage.deleteServiceAddon(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Add-on not found" });
+      }
+      
+      // Log add-on deletion to audit trail
+      if (addon) {
+        await AuditLogger.logDelete(req, "service_addon", id, addon, addon.spaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete add-on");
+    }
+  });
+
+  // Service Add-on Options routes
+  app.get("/api/admin/addons/:addonId/options", isAdmin, async (req, res) => {
+    try {
+      const addonId = parseNumericId(req.params.addonId);
+      if (!addonId) {
+        return res.status(400).json({ message: "Invalid add-on ID" });
+      }
+      
+      const options = await storage.getAddonOptions(addonId);
+      res.json(options);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch add-on options");
+    }
+  });
+
+  app.post("/api/admin/addons/:addonId/options", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const addonId = parseNumericId(req.params.addonId);
+      if (!addonId) {
+        return res.status(400).json({ message: "Invalid add-on ID" });
+      }
+      
+      const validatedData = insertServiceAddonOptionSchema.parse({
+        ...req.body,
+        addonId,
+      });
+      
+      const option = await storage.createAddonOption(validatedData);
+      
+      // Log option creation to audit trail
+      const addon = await storage.getServiceAddonById(addonId);
+      if (addon) {
+        await AuditLogger.logCreate(req, "addon_option", option.id, option, addon.spaId);
+      }
+      
+      res.status(201).json(option);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create add-on option");
+    }
+  });
+
+  app.put("/api/admin/addon-options/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid option ID" });
+      }
+      
+      const before = await storage.getAddonOptionById(id);
+      const validatedData = insertServiceAddonOptionSchema.partial().parse(req.body);
+      const option = await storage.updateAddonOption(id, validatedData);
+      
+      if (!option) {
+        return res.status(404).json({ message: "Option not found" });
+      }
+      
+      res.json(option);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update add-on option");
+    }
+  });
+
+  app.delete("/api/admin/addon-options/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid option ID" });
+      }
+      
+      const deleted = await storage.deleteAddonOption(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Option not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete add-on option");
+    }
+  });
+
+  // Service Bundles routes
+  app.get("/api/admin/bundles", isAdmin, injectAdminSpa, async (req: any, res) => {
+    try {
+      const bundles = await storage.getServiceBundles(req.spaId);
+      res.json(bundles);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch service bundles");
+    }
+  });
+
+  app.get("/api/admin/bundles/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid bundle ID" });
+      }
+      
+      const bundle = await storage.getServiceBundleById(id);
+      if (!bundle) {
+        return res.status(404).json({ message: "Bundle not found" });
+      }
+      
+      // Get items for this bundle
+      const items = await storage.getBundleItems(id);
+      
+      res.json({ ...bundle, items });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch bundle");
+    }
+  });
+
+  app.post("/api/admin/bundles", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const validatedData = insertServiceBundleSchema.parse({
+        ...req.body,
+        spaId: req.spaId,
+      });
+      
+      const bundle = await storage.createServiceBundle(validatedData);
+      
+      // Log bundle creation to audit trail
+      await AuditLogger.logCreate(req, "service_bundle", bundle.id, bundle, req.spaId);
+      
+      res.status(201).json(bundle);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create service bundle");
+    }
+  });
+
+  app.put("/api/admin/bundles/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid bundle ID" });
+      }
+      
+      const before = await storage.getServiceBundleById(id);
+      const validatedData = insertServiceBundleSchema.partial().parse(req.body);
+      const bundle = await storage.updateServiceBundle(id, validatedData);
+      
+      if (!bundle) {
+        return res.status(404).json({ message: "Bundle not found" });
+      }
+      
+      // Log bundle update to audit trail
+      if (before) {
+        await AuditLogger.logUpdate(req, "service_bundle", id, before, validatedData, bundle.spaId);
+      }
+      
+      res.json(bundle);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update bundle");
+    }
+  });
+
+  app.delete("/api/admin/bundles/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid bundle ID" });
+      }
+      
+      const bundle = await storage.getServiceBundleById(id);
+      const deleted = await storage.deleteServiceBundle(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Bundle not found" });
+      }
+      
+      // Log bundle deletion to audit trail
+      if (bundle) {
+        await AuditLogger.logDelete(req, "service_bundle", id, bundle, bundle.spaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete bundle");
+    }
+  });
+
+  // Service Bundle Items routes
+  app.get("/api/admin/bundles/:bundleId/items", isAdmin, async (req, res) => {
+    try {
+      const bundleId = parseNumericId(req.params.bundleId);
+      if (!bundleId) {
+        return res.status(400).json({ message: "Invalid bundle ID" });
+      }
+      
+      const items = await storage.getBundleItems(bundleId);
+      res.json(items);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch bundle items");
+    }
+  });
+
+  app.post("/api/admin/bundles/:bundleId/items", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const bundleId = parseNumericId(req.params.bundleId);
+      if (!bundleId) {
+        return res.status(400).json({ message: "Invalid bundle ID" });
+      }
+      
+      const validatedData = insertServiceBundleItemSchema.parse({
+        ...req.body,
+        bundleId,
+      });
+      
+      const item = await storage.createBundleItem(validatedData);
+      
+      // Log bundle item creation to audit trail
+      const bundle = await storage.getServiceBundleById(bundleId);
+      if (bundle) {
+        await AuditLogger.logCreate(req, "bundle_item", item.id, item, bundle.spaId);
+      }
+      
+      res.status(201).json(item);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create bundle item");
+    }
+  });
+
+  app.put("/api/admin/bundle-items/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid item ID" });
+      }
+      
+      const before = await storage.getBundleItemById(id);
+      const validatedData = insertServiceBundleItemSchema.partial().parse(req.body);
+      const item = await storage.updateBundleItem(id, validatedData);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      res.json(item);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update bundle item");
+    }
+  });
+
+  app.delete("/api/admin/bundle-items/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid item ID" });
+      }
+      
+      const deleted = await storage.deleteBundleItem(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete bundle item");
+    }
+  });
+
+  // Service Extra Time routes
+  app.get("/api/admin/services/:serviceId/extra-time", isAdmin, async (req, res) => {
+    try {
+      const serviceId = parseNumericId(req.params.serviceId);
+      if (!serviceId) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
+      const extraTimes = await storage.getServiceExtraTimes(serviceId);
+      res.json(extraTimes);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch service extra times");
+    }
+  });
+
+  app.post("/api/admin/services/:serviceId/extra-time", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const serviceId = parseNumericId(req.params.serviceId);
+      if (!serviceId) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+      
+      const validatedData = insertServiceExtraTimeSchema.parse({
+        ...req.body,
+        serviceId,
+        spaId: req.spaId,
+      });
+      
+      const extraTime = await storage.createServiceExtraTime(validatedData);
+      
+      // Log extra time creation to audit trail
+      await AuditLogger.logCreate(req, "service_extra_time", extraTime.id, extraTime, req.spaId);
+      
+      res.status(201).json(extraTime);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to create service extra time");
+    }
+  });
+
+  app.put("/api/admin/extra-time/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid extra time ID" });
+      }
+      
+      const before = await storage.getServiceExtraTimeById(id);
+      const validatedData = insertServiceExtraTimeSchema.partial().parse(req.body);
+      const extraTime = await storage.updateServiceExtraTime(id, validatedData);
+      
+      if (!extraTime) {
+        return res.status(404).json({ message: "Extra time not found" });
+      }
+      
+      // Log extra time update to audit trail
+      if (before) {
+        await AuditLogger.logUpdate(req, "service_extra_time", id, before, validatedData, extraTime.spaId);
+      }
+      
+      res.json(extraTime);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to update extra time");
+    }
+  });
+
+  app.delete("/api/admin/extra-time/:id", isAdmin, injectAdminSpa, ensureSetupComplete, async (req: any, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid extra time ID" });
+      }
+      
+      const extraTime = await storage.getServiceExtraTimeById(id);
+      const deleted = await storage.deleteServiceExtraTime(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Extra time not found" });
+      }
+      
+      // Log extra time deletion to audit trail
+      if (extraTime) {
+        await AuditLogger.logDelete(req, "service_extra_time", id, extraTime, extraTime.spaId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleRouteError(res, error, "Failed to delete extra time");
     }
   });
 
