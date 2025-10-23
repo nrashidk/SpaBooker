@@ -151,7 +151,7 @@ export const serviceVariants = pgTable("service_variants", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   sku: text("sku"), // Optional SKU for inventory tracking
   displayOrder: integer("display_order").default(0),
-  active: boolean("active").default(true),
+  active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

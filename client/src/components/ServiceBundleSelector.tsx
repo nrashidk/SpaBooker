@@ -34,7 +34,7 @@ export interface ServiceVariant {
   name: string;
   duration: number;
   price: string | number;
-  active: boolean;
+  active: boolean | null;
 }
 
 interface ServiceBundleSelectorProps {
