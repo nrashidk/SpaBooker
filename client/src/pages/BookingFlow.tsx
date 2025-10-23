@@ -5,6 +5,7 @@ import { Sparkles, TicketPercent, Check, X } from "lucide-react";
 import ServiceCategorySelector, { type Service } from "@/components/ServiceCategorySelector";
 import ProfessionalSelector, { type Professional, type ServiceProfessionalMap } from "@/components/ProfessionalSelector";
 import ServiceAddonSelector, { type AddonGroup } from "@/components/ServiceAddonSelector";
+import ServiceBundleSelector, { type Bundle } from "@/components/ServiceBundleSelector";
 import TimeSelectionView from "@/components/TimeSelectionView";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import CustomerDetailsForm, { type CustomerFormData } from "@/components/CustomerDetailsForm";
@@ -28,6 +29,7 @@ export default function BookingPage() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, number | null>>({});
   const [selectedAddons, setSelectedAddons] = useState<Record<number, number[]>>({}); // groupId -> optionIds[]
+  const [selectedBundleId, setSelectedBundleId] = useState<number | null>(null);
   const [professionalMode, setProfessionalMode] = useState<'any' | 'per-service' | 'specific' | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
   const [serviceProfessionalMap, setServiceProfessionalMap] = useState<ServiceProfessionalMap>({});
@@ -71,6 +73,12 @@ export default function BookingPage() {
   const { data: addonGroups = [] } = useQuery<AddonGroup[]>({
     queryKey: [`/api/spas/${spaId}/service-addons`, selectedServiceIds],
     enabled: !!spaId && selectedServiceIds.length > 0,
+  });
+
+  // Fetch service bundles for the spa
+  const { data: bundles = [] } = useQuery<Bundle[]>({
+    queryKey: [`/api/spas/${spaId}/service-bundles`],
+    enabled: !!spaId,
   });
 
   // Convert DB services to component format
@@ -170,7 +178,7 @@ export default function BookingPage() {
         throw new Error('Please select a date and time');
       }
 
-      // Prepare booking data with variant and addon information
+      // Prepare booking data with variant, addon, and bundle information
       const bookingItems = selectedServiceIds.map(serviceId => ({
         serviceId: parseInt(serviceId),
         variantId: selectedVariants[serviceId] || null,
@@ -190,6 +198,7 @@ export default function BookingPage() {
         services: selectedServiceIds,
         bookingItems, // Include variant selections
         bookingAddons, // Include addon selections
+        bundleId: selectedBundleId, // Include bundle if selected
         date: selectedDate.toISOString().split('T')[0],
         time: selectedTime,
         staffId: professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : null,
@@ -229,6 +238,7 @@ export default function BookingPage() {
     setSelectedServiceIds([]);
     setSelectedVariants({}); // Clear variant selections
     setSelectedAddons({}); // Clear addon selections
+    setSelectedBundleId(null); // Clear bundle selection
     setProfessionalMode(null);
     setSelectedProfessionalId(null);
     setServiceProfessionalMap({});
@@ -248,7 +258,33 @@ export default function BookingPage() {
     }));
   };
 
-  // Enhance selected services with variant information
+  const handleBundleSelect = (bundleId: number | null) => {
+    setSelectedBundleId(bundleId);
+    
+    if (bundleId) {
+      // Auto-populate services from bundle
+      const bundle = bundles.find(b => b.id === bundleId);
+      if (bundle) {
+        const serviceIds = bundle.items.map(item => item.serviceId.toString());
+        setSelectedServiceIds(serviceIds);
+        
+        // Auto-populate variants if specified in bundle
+        const variantMap: Record<string, number | null> = {};
+        bundle.items.forEach(item => {
+          if (item.variantId) {
+            variantMap[item.serviceId.toString()] = item.variantId;
+          }
+        });
+        setSelectedVariants(variantMap);
+        
+        // Clear addons when bundle is selected (bundles are complete packages)
+        setSelectedAddons({});
+      }
+    }
+  };
+
+  // Enhance selected services with variant information and bundle pricing
+  const selectedBundle = selectedBundleId ? bundles.find(b => b.id === selectedBundleId) : null;
   const selectedServices = services.filter(s => selectedServiceIds.includes(s.id)).map(service => {
     const variantId = selectedVariants[service.id];
     if (variantId) {
@@ -265,6 +301,41 @@ export default function BookingPage() {
     }
     return service;
   });
+
+  // Calculate bundle price if bundle is selected (uses variant pricing when specified)
+  const bundlePrice = selectedBundle ? (() => {
+    if (selectedBundle.priceType === 'custom' && selectedBundle.customPrice) {
+      return parseFloat(selectedBundle.customPrice);
+    }
+    
+    // Calculate from services with variant pricing
+    const totalServicePrice = selectedBundle.items.reduce((sum, item) => {
+      // Check if this bundle item specifies a variant
+      if (item.variantId) {
+        const variant = dbVariants.find(v => v.id === item.variantId);
+        if (variant) {
+          const variantPrice = typeof variant.price === 'string' ? parseFloat(variant.price) : variant.price;
+          return sum + (variantPrice * item.quantity);
+        }
+      }
+      
+      // Fall back to base service price
+      const service = services.find(s => s.id === item.serviceId.toString());
+      if (service) {
+        return sum + (service.price * item.quantity);
+      }
+      return sum;
+    }, 0);
+    
+    // Apply discount if present
+    if (selectedBundle.discountPercent) {
+      const discount = parseFloat(selectedBundle.discountPercent);
+      return totalServicePrice * (1 - discount / 100);
+    }
+    
+    return totalServicePrice;
+  })() : null;
+
   const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId) || null;
   
   // Calculate selected add-on options with pricing and extra time
@@ -274,7 +345,7 @@ export default function BookingPage() {
     return optionIds.map(optionId => {
       const option = group.options.find((opt: any) => opt.id === optionId);
       return option;
-    }).filter(Boolean);
+    }).filter((opt): opt is any => opt !== undefined);
   });
 
   // Calculate total addon price
@@ -416,8 +487,35 @@ export default function BookingPage() {
         <div className="max-w-6xl mx-auto">
           {step === 1 && (
             <div className="space-y-8">
+              {bundles.length > 0 && !selectedBundleId && (
+                <ServiceBundleSelector
+                  bundles={bundles}
+                  selectedBundleId={selectedBundleId}
+                  onSelectBundle={handleBundleSelect}
+                  services={services}
+                  variants={dbVariants}
+                />
+              )}
+              
               <div>
-                <h2 className="text-4xl font-bold mb-8">Services</h2>
+                <h2 className="text-4xl font-bold mb-8">
+                  {selectedBundle ? `${selectedBundle.name} - Services` : 'Services'}
+                </h2>
+                {selectedBundle && (
+                  <div className="mb-4 p-3 bg-primary/10 rounded-md flex items-center justify-between">
+                    <p className="text-sm">
+                      <strong>Bundle Selected:</strong> {selectedBundle.name}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleBundleSelect(null)}
+                      data-testid="button-clear-bundle-inline"
+                    >
+                      Choose Different Services
+                    </Button>
+                  </div>
+                )}
                 <ServiceCategorySelector
                   selectedServiceIds={selectedServiceIds}
                   onServiceToggle={handleServiceToggle}
@@ -431,7 +529,7 @@ export default function BookingPage() {
                 />
               </div>
               
-              {selectedServiceIds.length > 0 && addonGroups.length > 0 && (
+              {selectedServiceIds.length > 0 && addonGroups.length > 0 && !selectedBundleId && (
                 <ServiceAddonSelector
                   addonGroups={addonGroups}
                   selectedOptions={selectedAddons}
@@ -531,6 +629,8 @@ export default function BookingPage() {
                 <BookingSummary
                   services={selectedServices}
                   addons={selectedAddonOptions}
+                  bundle={selectedBundle}
+                  bundlePrice={bundlePrice}
                   date={selectedDate}
                   time={selectedTime}
                   staffName={getStaffName()}

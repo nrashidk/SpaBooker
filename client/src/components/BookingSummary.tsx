@@ -12,9 +12,20 @@ interface Addon {
   extraTimeMinutes?: number;
 }
 
+interface Bundle {
+  id: number;
+  name: string;
+  description: string | null;
+  priceType: string;
+  customPrice: string | null;
+  discountPercent: string | null;
+}
+
 interface BookingSummaryProps {
   services?: Service[];
   addons?: Addon[];
+  bundle?: Bundle | null;
+  bundlePrice?: number | null;
   date: Date | null;
   time: string | null;
   staffName: string | null;
@@ -31,6 +42,8 @@ interface BookingSummaryProps {
 export default function BookingSummary({
   services = [],
   addons = [],
+  bundle = null,
+  bundlePrice = null,
   date,
   time,
   staffName,
@@ -50,7 +63,13 @@ export default function BookingSummary({
   const addonExtraTime = addons.reduce((sum, addon) => sum + (addon.extraTimeMinutes || 0), 0);
   
   // In UAE, prices include VAT (5%). Formula: netAmount = (totalPrice × 100) / 105
-  const subtotalIncVAT = services.reduce((sum, service) => sum + (service.price || 0), 0) + addonPrice;
+  // If bundle is selected, use bundle price instead of individual service prices
+  let subtotalIncVAT: number;
+  if (bundle && bundlePrice !== null) {
+    subtotalIncVAT = bundlePrice + addonPrice;
+  } else {
+    subtotalIncVAT = services.reduce((sum, service) => sum + (service.price || 0), 0) + addonPrice;
+  }
   const subtotalNetAmount = (subtotalIncVAT * 100) / 105; // Extract net amount (before VAT)
   const subtotalVAT = subtotalIncVAT - subtotalNetAmount; // VAT on original subtotal
   
@@ -80,6 +99,16 @@ export default function BookingSummary({
     <Card className="p-6">
       <h3 className="text-xl font-semibold mb-4">Booking Summary</h3>
       
+      {bundle && (
+        <Alert className="mb-4 border-primary bg-primary/10">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <AlertDescription>
+            <strong>Package Deal:</strong> {bundle.name}
+            {bundle.description && ` - ${bundle.description}`}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {appliedPromo && (
         <Alert className="mb-4 border-green-500 bg-green-50 dark:bg-green-950">
           <TicketPercent className="h-4 w-4 text-green-600" />
