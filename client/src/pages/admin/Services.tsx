@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Search, Filter, MoreVertical, Layers, ListTree, 
   CreditCard, Package, Warehouse, ChevronDown, X, Users,
@@ -30,12 +31,16 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Service, ServiceCategory, Membership } from "@shared/schema";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import ServiceVariants from "@/components/admin/ServiceVariants";
+import ServiceBundles from "@/components/admin/ServiceBundles";
 
 type ServicesSection = "service-menu" | "memberships";
+type ServiceTab = "services" | "variants" | "bundles";
 
 export default function AdminServices() {
   const { toast } = useToast();
   const [selectedSection, setSelectedSection] = useState<ServicesSection>("service-menu");
+  const [selectedTab, setSelectedTab] = useState<ServiceTab>("services");
   const [selectedCategory, setSelectedCategory] = useState<string | number>("all");
   const [showNewService, setShowNewService] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -713,55 +718,66 @@ export default function AdminServices() {
             View and manage the services offered by your business. <a href="#" className="text-primary">Learn more</a>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <DropdownMenu open={showOptionsMenu} onOpenChange={setShowOptionsMenu}>
-            <DropdownMenuTrigger asChild>
-              <Button data-testid="button-add-service-options">
-                <Plus className="h-4 w-4 mr-2" />
-                Add
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setShowNewService(true)} data-testid="option-single-service">
-                Single service
-              </DropdownMenuItem>
-              <DropdownMenuItem data-testid="option-bundle">
-                Bundle
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => {
-                  setShowAddCategory(true);
-                  setShowOptionsMenu(false);
-                }} 
-                data-testid="option-category"
-              >
-                Category
-              </DropdownMenuItem>
-              <DropdownMenuItem data-testid="option-service">
-                +Service
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="outline" data-testid="button-options">
-            Options
-          </Button>
-        </div>
       </div>
 
-      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-        <CardContent className="p-4">
+      <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as ServiceTab)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="services" data-testid="tab-services">
+            Services
+          </TabsTrigger>
+          <TabsTrigger value="variants" data-testid="tab-variants">
+            Variants
+          </TabsTrigger>
+          <TabsTrigger value="bundles" data-testid="tab-bundles">
+            Bundles
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="services" className="space-y-6 mt-6">
           <div className="flex items-center justify-between">
-            <div>
-              <Badge className="mb-2">New</Badge>
-              <p className="font-medium">Simplify your service menu, perfect for extras, products or refreshments</p>
+            <div className="flex items-center gap-2">
+              <DropdownMenu open={showOptionsMenu} onOpenChange={setShowOptionsMenu}>
+                <DropdownMenuTrigger asChild>
+                  <Button data-testid="button-add-service-options">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setShowNewService(true)} data-testid="option-single-service">
+                    Single service
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setShowAddCategory(true);
+                      setShowOptionsMenu(false);
+                    }} 
+                    data-testid="option-category"
+                  >
+                    Category
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" data-testid="button-options">
+                Options
+              </Button>
             </div>
-            <Button variant="ghost" className="text-primary" data-testid="button-learn-more">
-              Learn more →
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+
+          <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Badge className="mb-2">New</Badge>
+                  <p className="font-medium">Simplify your service menu, perfect for extras, products or refreshments</p>
+                </div>
+                <Button variant="ghost" className="text-primary" data-testid="button-learn-more">
+                  Learn more →
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
       <div className="flex gap-6">
         {/* Categories Sidebar */}
@@ -971,6 +987,16 @@ export default function AdminServices() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="variants" className="mt-6">
+          <ServiceVariants />
+        </TabsContent>
+
+        <TabsContent value="bundles" className="mt-6">
+          <ServiceBundles />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 
