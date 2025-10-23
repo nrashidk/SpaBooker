@@ -44,6 +44,12 @@ The backend utilizes a PostgreSQL database and an Express-based REST API.
     - **Enhanced Staff Profiles:** Birthday field for staff members to enable birthday notifications and celebrations.
     - **Emergency Contacts:** Complete CRUD system for staff emergency contacts with relationship tracking (emergency, spouse, parent, sibling, friend, other), multiple phone numbers, email, and primary contact designation.
     - **Advanced Timesheet System:** Enhanced time tracking with breaks, overtime calculation (>8 hours = overtime), GPS location verification for clock in/out, approval workflow (pending/approved/rejected/disputed states), manual entry support, and comprehensive audit trail. Includes staff-facing clock in/out endpoints and admin approval/rejection workflows.
+-   **Marketplace Enhancement Phase 1 (Core Booking):**
+    - **Service Variants:** Size/duration options for services (e.g., 30min/60min/90min facials, Small/Medium/Large massages) with per-variant pricing and per-staff pricing overrides. Supports base price, discounted price, and location-specific pricing.
+    - **Service Add-ons:** Optional extras that can be added to any service booking (e.g., aromatherapy, hot stones, scalp massage). Supports single-select and multi-select option groups with individual pricing.
+    - **Service Bundles:** Pre-packaged combinations of multiple services at discounted bundle pricing (e.g., "Relaxation Package" = massage + facial + manicure). Tracks individual service selections and bundle-level discount.
+    - **Extra Time Configuration:** Define additional time before/after services for processing, blocked time, and servicing (e.g., 15min room prep, 10min cleanup). Improves calendar accuracy and prevents overbooking.
+    - **Backend Complete:** 7 database tables, 38 storage methods, 35+ API endpoints with authentication/authorization/audit logging. All code compiling with zero LSP errors.
 
 ## External Dependencies
 -   **Replit Auth:** User authentication and authorization.
