@@ -1169,7 +1169,7 @@ export const insertServiceAddonSchema = createInsertSchema(serviceAddons).omit({
 export const insertServiceAddonOptionSchema = createInsertSchema(serviceAddonOptions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertServiceBundleSchema = createInsertSchema(serviceBundles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertServiceBundleItemSchema = createInsertSchema(serviceBundleItems).omit({ id: true, createdAt: true });
-export const insertServiceExtraTimeSchema = createInsertSchema(serviceExtraTime).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertServiceExtraTimeSchema = createInsertSchema(serviceExtraTime).omit({ id: true, spaId: true, createdAt: true, updatedAt: true });
 
 // Marketplace Features (Phase 1) - Select types
 export type ServiceVariant = typeof serviceVariants.$inferSelect;

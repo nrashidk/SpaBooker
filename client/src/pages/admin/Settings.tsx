@@ -5,15 +5,38 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Building2, Mail, Phone, MapPin, DollarSign, Palette, Calendar, Link as LinkIcon, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, DollarSign, Palette, Calendar, Link as LinkIcon, CheckCircle2, XCircle, FileText, Clock, Plus, Trash2, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { SpaSettings, SpaIntegration } from "@shared/schema";
+import type { SpaSettings, SpaIntegration, Service, ServiceExtraTime, InsertServiceExtraTime } from "@shared/schema";
 import NotificationProviderConfig from "@/components/NotificationProviderConfig";
 import NotificationSettings from "@/components/NotificationSettings";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -45,6 +68,16 @@ export default function AdminSettings() {
     percentageOfThreshold?: number;
   }>({
     queryKey: ["/api/admin/vat-threshold-reminder"],
+  });
+
+  // Fetch services for extra time configuration
+  const { data: services = [] } = useQuery<Service[]>({
+    queryKey: ["/api/admin/services"],
+  });
+
+  // Fetch extra time configurations
+  const { data: extraTimes = [] } = useQuery<ServiceExtraTime[]>({
+    queryKey: ["/api/admin/service-extra-time"],
   });
 
   // Check for OAuth callback results
@@ -98,6 +131,30 @@ export default function AdminSettings() {
   const [vatThresholdReminder, setVatThresholdReminder] = useState({
     enabled: false,
     thresholdAmount: "375000",
+  });
+
+  // Extra Time state
+  const [extraTimeDialog, setExtraTimeDialog] = useState<{
+    open: boolean;
+    serviceId: number | null;
+    serviceName: string;
+    editingId?: number;
+  }>({
+    open: false,
+    serviceId: null,
+    serviceName: "",
+  });
+
+  const [extraTimeForm, setExtraTimeForm] = useState<{
+    timeType: "processing" | "blocked" | "servicing";
+    durationMinutes: string;
+    description: string;
+    active: boolean;
+  }>({
+    timeType: "processing",
+    durationMinutes: "0",
+    description: "",
+    active: true,
   });
 
   // Update state when settings are loaded
@@ -400,6 +457,146 @@ export default function AdminSettings() {
   // Helper to find if integration is connected
   const getIntegrationStatus = (integrationType: string) => {
     return integrations.find(i => i.integrationType === integrationType && i.status === 'active');
+  };
+
+  // Extra Time mutations
+  const createExtraTimeMutation = useMutation({
+    mutationFn: async (data: InsertServiceExtraTime) => {
+      return await apiRequest("POST", "/api/admin/service-extra-time", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/service-extra-time"] });
+      toast({
+        title: "Extra time created",
+        description: "Service extra time has been added successfully.",
+      });
+      setExtraTimeDialog({ open: false, serviceId: null, serviceName: "" });
+      setExtraTimeForm({
+        timeType: "processing",
+        durationMinutes: "0",
+        description: "",
+        active: true,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create extra time.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateExtraTimeMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertServiceExtraTime> }) => {
+      return await apiRequest("PUT", `/api/admin/service-extra-time/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/service-extra-time"] });
+      toast({
+        title: "Extra time updated",
+        description: "Service extra time has been updated successfully.",
+      });
+      setExtraTimeDialog({ open: false, serviceId: null, serviceName: "" });
+      setExtraTimeForm({
+        timeType: "processing",
+        durationMinutes: "0",
+        description: "",
+        active: true,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update extra time.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteExtraTimeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/admin/service-extra-time/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/service-extra-time"] });
+      toast({
+        title: "Extra time deleted",
+        description: "Service extra time has been removed successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete extra time.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Extra Time handlers
+  const handleOpenExtraTimeDialog = (serviceId: number, serviceName: string, editData?: ServiceExtraTime) => {
+    if (editData) {
+      setExtraTimeForm({
+        timeType: editData.timeType as "processing" | "blocked" | "servicing",
+        durationMinutes: String(editData.durationMinutes),
+        description: editData.description || "",
+        active: editData.active ?? true,
+      });
+      setExtraTimeDialog({
+        open: true,
+        serviceId,
+        serviceName,
+        editingId: editData.id,
+      });
+    } else {
+      setExtraTimeForm({
+        timeType: "processing",
+        durationMinutes: "0",
+        description: "",
+        active: true,
+      });
+      setExtraTimeDialog({
+        open: true,
+        serviceId,
+        serviceName,
+      });
+    }
+  };
+
+  const handleSaveExtraTime = () => {
+    if (!extraTimeDialog.serviceId) return;
+
+    const durationMinutes = parseInt(extraTimeForm.durationMinutes);
+    if (isNaN(durationMinutes) || durationMinutes < 0) {
+      toast({
+        title: "Invalid Duration",
+        description: "Please enter a valid duration in minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data: InsertServiceExtraTime = {
+      serviceId: extraTimeDialog.serviceId,
+      timeType: extraTimeForm.timeType,
+      durationMinutes,
+      description: extraTimeForm.description || null,
+      active: extraTimeForm.active,
+      displayOrder: 0,
+    };
+
+    if (extraTimeDialog.editingId) {
+      updateExtraTimeMutation.mutate({ id: extraTimeDialog.editingId, data });
+    } else {
+      createExtraTimeMutation.mutate(data);
+    }
+  };
+
+  const handleDeleteExtraTime = (id: number) => {
+    if (confirm("Are you sure you want to delete this extra time configuration?")) {
+      deleteExtraTimeMutation.mutate(id);
+    }
   };
 
   if (isLoading) {
@@ -775,6 +972,109 @@ export default function AdminSettings() {
         <NotificationSettings />
       </div>
 
+      {/* Service Extra Time Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Service Extra Time
+              </CardTitle>
+              <CardDescription>
+                Configure additional time before/after services for setup, cleanup, and processing
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {services.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No services found. Add services first to configure extra time.
+              </div>
+            ) : (
+              services.map((service) => {
+                const serviceExtraTimes = extraTimes.filter(et => et.serviceId === service.id);
+                return (
+                  <div key={service.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">{service.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Base duration: {service.duration} minutes
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenExtraTimeDialog(service.id, service.name)}
+                        data-testid={`button-add-extra-time-${service.id}`}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Extra Time
+                      </Button>
+                    </div>
+
+                    {serviceExtraTimes.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Duration</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {serviceExtraTimes.map((extraTime) => (
+                            <TableRow key={extraTime.id}>
+                              <TableCell className="font-medium capitalize">
+                                {extraTime.timeType}
+                              </TableCell>
+                              <TableCell>{extraTime.durationMinutes} min</TableCell>
+                              <TableCell>{extraTime.description || "-"}</TableCell>
+                              <TableCell>
+                                {extraTime.active ? (
+                                  <Badge variant="default">Active</Badge>
+                                ) : (
+                                  <Badge variant="secondary">Inactive</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenExtraTimeDialog(service.id, service.name, extraTime)}
+                                    data-testid={`button-edit-extra-time-${extraTime.id}`}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteExtraTime(extraTime.id)}
+                                    data-testid={`button-delete-extra-time-${extraTime.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -867,6 +1167,96 @@ export default function AdminSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Extra Time Dialog */}
+      <Dialog open={extraTimeDialog.open} onOpenChange={(open) => setExtraTimeDialog({ ...extraTimeDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {extraTimeDialog.editingId ? "Edit" : "Add"} Extra Time - {extraTimeDialog.serviceName}
+            </DialogTitle>
+            <DialogDescription>
+              Configure additional time for setup, cleanup, or processing
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="timeType">Time Type</Label>
+              <Select
+                value={extraTimeForm.timeType}
+                onValueChange={(value: "processing" | "blocked" | "servicing") =>
+                  setExtraTimeForm({ ...extraTimeForm, timeType: value })
+                }
+              >
+                <SelectTrigger data-testid="select-time-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="blocked">Blocked</SelectItem>
+                  <SelectItem value="servicing">Servicing</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground mt-1">
+                {extraTimeForm.timeType === "processing" && "Time needed before service (setup, preparation)"}
+                {extraTimeForm.timeType === "blocked" && "Time blocked after service (cleanup, room reset)"}
+                {extraTimeForm.timeType === "servicing" && "Additional service time not included in base duration"}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="durationMinutes">Duration (minutes)</Label>
+              <Input
+                id="durationMinutes"
+                type="number"
+                min="0"
+                value={extraTimeForm.durationMinutes}
+                onChange={(e) => setExtraTimeForm({ ...extraTimeForm, durationMinutes: e.target.value })}
+                data-testid="input-duration-minutes"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input
+                id="description"
+                placeholder="e.g., Room setup, Equipment cleanup"
+                value={extraTimeForm.description}
+                onChange={(e) => setExtraTimeForm({ ...extraTimeForm, description: e.target.value })}
+                data-testid="input-description"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                id="active"
+                checked={extraTimeForm.active}
+                onCheckedChange={(checked) => setExtraTimeForm({ ...extraTimeForm, active: checked })}
+                data-testid="switch-active"
+              />
+              <Label htmlFor="active">Active</Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setExtraTimeDialog({ open: false, serviceId: null, serviceName: "" })}
+              data-testid="button-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveExtraTime}
+              disabled={createExtraTimeMutation.isPending || updateExtraTimeMutation.isPending}
+              data-testid="button-save"
+            >
+              {createExtraTimeMutation.isPending || updateExtraTimeMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
