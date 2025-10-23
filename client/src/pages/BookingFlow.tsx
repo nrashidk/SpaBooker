@@ -13,7 +13,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { Spa, Service as DbService, Staff } from "@shared/schema";
+import type { Spa, Service as DbService, Staff, ServiceVariant } from "@shared/schema";
 
 const mockServices: Service[] = [];
 
@@ -25,6 +25,7 @@ export default function BookingPage() {
   const [location] = useLocation();
   const [step, setStep] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, number | null>>({});
   const [professionalMode, setProfessionalMode] = useState<'any' | 'per-service' | 'specific' | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
   const [serviceProfessionalMap, setServiceProfessionalMap] = useState<ServiceProfessionalMap>({});
@@ -55,6 +56,12 @@ export default function BookingPage() {
   // Fetch staff for the spa
   const { data: dbStaff = [] } = useQuery<Staff[]>({
     queryKey: [`/api/spas/${spaId}/staff`],
+    enabled: !!spaId,
+  });
+
+  // Fetch service variants for the spa
+  const { data: dbVariants = [] } = useQuery<ServiceVariant[]>({
+    queryKey: [`/api/spas/${spaId}/service-variants`],
     enabled: !!spaId,
   });
 
@@ -155,13 +162,19 @@ export default function BookingPage() {
         throw new Error('Please select a date and time');
       }
 
-      // Prepare booking data
+      // Prepare booking data with variant information
+      const bookingItems = selectedServiceIds.map(serviceId => ({
+        serviceId: parseInt(serviceId),
+        variantId: selectedVariants[serviceId] || null,
+      }));
+
       const bookingData = {
         spaId: parseInt(spaId),
         customerName: data.name,
         customerEmail: data.email || undefined,
         customerPhone: data.mobile || undefined,
         services: selectedServiceIds,
+        bookingItems, // Include variant selections
         date: selectedDate.toISOString().split('T')[0],
         time: selectedTime,
         staffId: professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : null,
@@ -199,6 +212,7 @@ export default function BookingPage() {
   const handleNewBooking = () => {
     setStep(1);
     setSelectedServiceIds([]);
+    setSelectedVariants({}); // Clear variant selections
     setProfessionalMode(null);
     setSelectedProfessionalId(null);
     setServiceProfessionalMap({});
@@ -211,10 +225,26 @@ export default function BookingPage() {
     setPromoError(null);
   };
 
-  const selectedServices = services.filter(s => selectedServiceIds.includes(s.id));
+  // Enhance selected services with variant information
+  const selectedServices = services.filter(s => selectedServiceIds.includes(s.id)).map(service => {
+    const variantId = selectedVariants[service.id];
+    if (variantId) {
+      const variant = dbVariants.find(v => v.id === variantId);
+      if (variant) {
+        return {
+          ...service,
+          name: `${service.name} - ${variant.name}`,
+          duration: variant.duration,
+          price: typeof variant.price === 'string' ? parseFloat(variant.price) : variant.price,
+          variantId: variant.id,
+        };
+      }
+    }
+    return service;
+  });
   const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId) || null;
   
-  // Calculate total duration of selected services
+  // Calculate total duration of selected services (already includes variant durations)
   const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0);
 
   // Fetch available time slots for selected date and services
@@ -346,7 +376,12 @@ export default function BookingPage() {
               <ServiceCategorySelector
                 selectedServiceIds={selectedServiceIds}
                 onServiceToggle={handleServiceToggle}
-                services={mockServices}
+                services={services}
+                serviceVariants={dbVariants}
+                selectedVariants={selectedVariants}
+                onVariantSelect={(serviceId: string, variantId: number | null) => {
+                  setSelectedVariants(prev => ({ ...prev, [serviceId]: variantId }));
+                }}
                 onContinue={handleContinueToProfessional}
               />
             </div>
