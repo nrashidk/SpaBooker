@@ -903,6 +903,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public spa service bundles endpoint
+  app.get("/api/spas/:id/service-bundles", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+      
+      // Get all bundles for this spa
+      const bundles = await storage.getServiceBundles(id);
+      const activeBundles = bundles.filter((b: any) => b.active && b.onlineBookable);
+      
+      // For each bundle, fetch its items (services)
+      const bundlesWithItems = await Promise.all(
+        activeBundles.map(async (bundle: any) => {
+          const items = await storage.getServiceBundleItems(bundle.id);
+          return {
+            ...bundle,
+            items,
+          };
+        })
+      );
+      
+      res.json(bundlesWithItems);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch spa service bundles");
+    }
+  });
+
   // Get available time slots for a spa
   app.get("/api/spas/:id/available-slots", async (req, res) => {
     try {
