@@ -918,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For each bundle, fetch its items (services)
       const bundlesWithItems = await Promise.all(
         activeBundles.map(async (bundle: any) => {
-          const items = await storage.getServiceBundleItems(bundle.id);
+          const items = await storage.getBundleItems(bundle.id);
           return {
             ...bundle,
             items,

@@ -524,6 +524,7 @@ export const bookings = pgTable("bookings", {
   status: text("status").notNull().default("confirmed"), // confirmed, completed, cancelled, no-show, modified
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
   promoCodeId: integer("promo_code_id").references(() => promoCodes.id), // track which promo code was used
+  bundleId: integer("bundle_id").references(() => serviceBundles.id), // track if booking was made from a bundle
   discountType: text("discount_type"), // flat, percentage
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0.00"), // e.g., 50 for AED 50 or 20 for 20%
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"), // calculated discount amount
@@ -539,6 +540,7 @@ export const bookings = pgTable("bookings", {
   index("idx_bookings_status").on(table.status),
   index("idx_bookings_spa").on(table.spaId),
   index("idx_bookings_promo_code").on(table.promoCodeId),
+  index("idx_bookings_bundle").on(table.bundleId),
 ]);
 
 // Booking items (services in a booking)
@@ -547,9 +549,15 @@ export const bookingItems = pgTable("booking_items", {
   bookingId: integer("booking_id").references(() => bookings.id).notNull(),
   serviceId: integer("service_id").references(() => services.id).notNull(),
   staffId: integer("staff_id").references(() => staff.id),
+  variantId: integer("variant_id").references(() => serviceVariants.id), // selected variant for the service
+  addonIds: jsonb("addon_ids").$type<number[]>(), // array of selected add-on option IDs
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   duration: integer("duration").notNull(),
-});
+}, (table) => [
+  index("idx_booking_items_booking").on(table.bookingId),
+  index("idx_booking_items_service").on(table.serviceId),
+  index("idx_booking_items_variant").on(table.variantId),
+]);
 
 // Invoices
 export const invoices = pgTable("invoices", {
