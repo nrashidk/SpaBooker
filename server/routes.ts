@@ -837,6 +837,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public spa service variants endpoint
+  app.get("/api/spas/:id/service-variants", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+      
+      // Get all services for this spa first
+      const services = await storage.getAllServices();
+      const spaServices = services.filter(s => s.spaId === id);
+      
+      // Fetch variants for all spa services
+      const allVariants = await Promise.all(
+        spaServices.map(s => storage.getServiceVariants(s.id))
+      );
+      
+      // Flatten and filter active variants
+      const spaVariants = allVariants.flat().filter((v: any) => v.active);
+      res.json(spaVariants);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch spa service variants");
+    }
+  });
+
+  // Public spa service add-ons endpoint  
+  app.get("/api/spas/:id/service-addons", async (req, res) => {
+    try {
+      const id = parseNumericId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Invalid spa ID" });
+      }
+      
+      // Get all services for this spa first
+      const services = await storage.getAllServices();
+      const spaServices = services.filter(s => s.spaId === id);
+      
+      // Fetch add-ons for all spa services
+      const allAddons = await Promise.all(
+        spaServices.map(s => storage.getServiceAddons(s.id))
+      );
+      
+      // Flatten and filter active add-ons
+      const spaAddons = allAddons.flat().filter((a: any) => a.active);
+      
+      // For each add-on group, fetch its options
+      const addonsWithOptions = await Promise.all(
+        spaAddons.map(async (addon: any) => {
+          const options = await storage.getAddonOptions(addon.id);
+          const activeOptions = options.filter((opt: any) => opt.active);
+          return {
+            ...addon,
+            options: activeOptions,
+          };
+        })
+      );
+      
+      // Only return add-on groups that have active options
+      const validAddons = addonsWithOptions.filter((addon: any) => addon.options.length > 0);
+      
+      res.json(validAddons);
+    } catch (error) {
+      handleRouteError(res, error, "Failed to fetch spa service add-ons");
+    }
+  });
+
   // Get available time slots for a spa
   app.get("/api/spas/:id/available-slots", async (req, res) => {
     try {

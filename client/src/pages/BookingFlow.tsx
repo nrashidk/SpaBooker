@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sparkles, TicketPercent, Check, X } from "lucide-react";
 import ServiceCategorySelector, { type Service } from "@/components/ServiceCategorySelector";
 import ProfessionalSelector, { type Professional, type ServiceProfessionalMap } from "@/components/ProfessionalSelector";
+import ServiceAddonSelector, { type AddonGroup } from "@/components/ServiceAddonSelector";
 import TimeSelectionView from "@/components/TimeSelectionView";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import CustomerDetailsForm, { type CustomerFormData } from "@/components/CustomerDetailsForm";
@@ -26,6 +27,7 @@ export default function BookingPage() {
   const [step, setStep] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, number | null>>({});
+  const [selectedAddons, setSelectedAddons] = useState<Record<number, number[]>>({}); // groupId -> optionIds[]
   const [professionalMode, setProfessionalMode] = useState<'any' | 'per-service' | 'specific' | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
   const [serviceProfessionalMap, setServiceProfessionalMap] = useState<ServiceProfessionalMap>({});
@@ -63,6 +65,12 @@ export default function BookingPage() {
   const { data: dbVariants = [] } = useQuery<ServiceVariant[]>({
     queryKey: [`/api/spas/${spaId}/service-variants`],
     enabled: !!spaId,
+  });
+
+  // Fetch service add-ons for selected services
+  const { data: addonGroups = [] } = useQuery<AddonGroup[]>({
+    queryKey: [`/api/spas/${spaId}/service-addons`, selectedServiceIds],
+    enabled: !!spaId && selectedServiceIds.length > 0,
   });
 
   // Convert DB services to component format
@@ -162,10 +170,16 @@ export default function BookingPage() {
         throw new Error('Please select a date and time');
       }
 
-      // Prepare booking data with variant information
+      // Prepare booking data with variant and addon information
       const bookingItems = selectedServiceIds.map(serviceId => ({
         serviceId: parseInt(serviceId),
         variantId: selectedVariants[serviceId] || null,
+      }));
+
+      const bookingAddons = selectedAddonOptions.map((option: any) => ({
+        optionId: option.id,
+        price: typeof option.price === 'string' ? parseFloat(option.price) : option.price,
+        extraTimeMinutes: option.extraTimeMinutes || 0,
       }));
 
       const bookingData = {
@@ -175,6 +189,7 @@ export default function BookingPage() {
         customerPhone: data.mobile || undefined,
         services: selectedServiceIds,
         bookingItems, // Include variant selections
+        bookingAddons, // Include addon selections
         date: selectedDate.toISOString().split('T')[0],
         time: selectedTime,
         staffId: professionalMode === 'specific' && selectedProfessionalId ? parseInt(selectedProfessionalId) : null,
@@ -213,6 +228,7 @@ export default function BookingPage() {
     setStep(1);
     setSelectedServiceIds([]);
     setSelectedVariants({}); // Clear variant selections
+    setSelectedAddons({}); // Clear addon selections
     setProfessionalMode(null);
     setSelectedProfessionalId(null);
     setServiceProfessionalMap({});
@@ -223,6 +239,13 @@ export default function BookingPage() {
     setPromoCode('');
     setAppliedPromo(null);
     setPromoError(null);
+  };
+
+  const handleAddonSelect = (groupId: number, optionIds: number[]) => {
+    setSelectedAddons(prev => ({
+      ...prev,
+      [groupId]: optionIds,
+    }));
   };
 
   // Enhance selected services with variant information
@@ -244,8 +267,29 @@ export default function BookingPage() {
   });
   const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId) || null;
   
-  // Calculate total duration of selected services (already includes variant durations)
-  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0);
+  // Calculate selected add-on options with pricing and extra time
+  const selectedAddonOptions = Object.entries(selectedAddons).flatMap(([groupId, optionIds]) => {
+    const group = addonGroups.find(g => g.id === parseInt(groupId));
+    if (!group) return [];
+    return optionIds.map(optionId => {
+      const option = group.options.find((opt: any) => opt.id === optionId);
+      return option;
+    }).filter(Boolean);
+  });
+
+  // Calculate total addon price
+  const totalAddonPrice = selectedAddonOptions.reduce((sum: number, option: any) => {
+    const price = typeof option.price === 'string' ? parseFloat(option.price) : option.price;
+    return sum + price;
+  }, 0);
+
+  // Calculate total addon extra time
+  const totalAddonExtraTime = selectedAddonOptions.reduce((sum: number, option: any) => {
+    return sum + (option.extraTimeMinutes || 0);
+  }, 0);
+  
+  // Calculate total duration of selected services (includes variant durations + addon extra time)
+  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration, 0) + totalAddonExtraTime;
 
   // Fetch available time slots for selected date and services
   const shouldFetchSlots = step === 3 && !!spaId && !!selectedDate && selectedServiceIds.length > 0;
@@ -371,19 +415,29 @@ export default function BookingPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {step === 1 && (
-            <div>
-              <h2 className="text-4xl font-bold mb-8">Services</h2>
-              <ServiceCategorySelector
-                selectedServiceIds={selectedServiceIds}
-                onServiceToggle={handleServiceToggle}
-                services={services}
-                serviceVariants={dbVariants}
-                selectedVariants={selectedVariants}
-                onVariantSelect={(serviceId: string, variantId: number | null) => {
-                  setSelectedVariants(prev => ({ ...prev, [serviceId]: variantId }));
-                }}
-                onContinue={handleContinueToProfessional}
-              />
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-4xl font-bold mb-8">Services</h2>
+                <ServiceCategorySelector
+                  selectedServiceIds={selectedServiceIds}
+                  onServiceToggle={handleServiceToggle}
+                  services={services}
+                  serviceVariants={dbVariants}
+                  selectedVariants={selectedVariants}
+                  onVariantSelect={(serviceId: string, variantId: number | null) => {
+                    setSelectedVariants(prev => ({ ...prev, [serviceId]: variantId }));
+                  }}
+                  onContinue={handleContinueToProfessional}
+                />
+              </div>
+              
+              {selectedServiceIds.length > 0 && addonGroups.length > 0 && (
+                <ServiceAddonSelector
+                  addonGroups={addonGroups}
+                  selectedOptions={selectedAddons}
+                  onSelectOption={handleAddonSelect}
+                />
+              )}
             </div>
           )}
 
@@ -476,6 +530,7 @@ export default function BookingPage() {
                 
                 <BookingSummary
                   services={selectedServices}
+                  addons={selectedAddonOptions}
                   date={selectedDate}
                   time={selectedTime}
                   staffName={getStaffName()}

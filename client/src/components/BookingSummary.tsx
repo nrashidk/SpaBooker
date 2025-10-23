@@ -5,8 +5,16 @@ import { Calendar, Clock, User, Phone, Mail, Sparkles, TicketPercent } from "luc
 import { format } from "date-fns";
 import { type Service } from "./ServiceSelector";
 
+interface Addon {
+  id: number;
+  name: string;
+  price: string | number;
+  extraTimeMinutes?: number;
+}
+
 interface BookingSummaryProps {
   services?: Service[];
+  addons?: Addon[];
   date: Date | null;
   time: string | null;
   staffName: string | null;
@@ -22,6 +30,7 @@ interface BookingSummaryProps {
 
 export default function BookingSummary({
   services = [],
+  addons = [],
   date,
   time,
   staffName,
@@ -32,8 +41,16 @@ export default function BookingSummary({
 }: BookingSummaryProps) {
   const totalDuration = services.reduce((sum, service) => sum + service.duration, 0);
   
+  // Calculate addon totals
+  const addonPrice = addons.reduce((sum, addon) => {
+    const price = typeof addon.price === 'string' ? parseFloat(addon.price) : addon.price;
+    return sum + price;
+  }, 0);
+  
+  const addonExtraTime = addons.reduce((sum, addon) => sum + (addon.extraTimeMinutes || 0), 0);
+  
   // In UAE, prices include VAT (5%). Formula: netAmount = (totalPrice × 100) / 105
-  const subtotalIncVAT = services.reduce((sum, service) => sum + (service.price || 0), 0);
+  const subtotalIncVAT = services.reduce((sum, service) => sum + (service.price || 0), 0) + addonPrice;
   const subtotalNetAmount = (subtotalIncVAT * 100) / 105; // Extract net amount (before VAT)
   const subtotalVAT = subtotalIncVAT - subtotalNetAmount; // VAT on original subtotal
   
@@ -90,7 +107,32 @@ export default function BookingSummary({
               </div>
               {totalDuration > 0 && (
                 <p className="text-sm text-muted-foreground mt-2">
-                  Total duration: {totalDuration} minutes
+                  Total duration: {totalDuration + addonExtraTime} minutes
+                  {addonExtraTime > 0 && ` (includes +${addonExtraTime} min from add-ons)`}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {addons.length > 0 && (
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-5 w-5 text-primary mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">Add-ons</p>
+              <div className="space-y-1 mt-1">
+                {addons.map((addon, index) => (
+                  <div key={addon.id || index} className="flex items-center justify-between" data-testid={`summary-addon-${addon.id}`}>
+                    <p className="font-medium">{addon.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      AED {(typeof addon.price === 'string' ? parseFloat(addon.price) : addon.price).toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {addonExtraTime > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Extra time: +{addonExtraTime} minutes
                 </p>
               )}
             </div>
