@@ -969,7 +969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public booking creation endpoint
   app.post("/api/bookings", async (req, res) => {
     try {
-      const { spaId, customerName, customerEmail, customerPhone, services, date, time, staffId, notes } = req.body;
+      const { spaId, customerName, customerEmail, customerPhone, services, bookingItems, bookingAddons, bundleId, date, time, staffId, notes } = req.body;
 
       // Log booking request without PII
       console.log('Booking request received:', { 
@@ -1075,21 +1075,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         staffId: staffId || null,
         bookingDate,
         totalAmount: totalAmount.toString(),
+        bundleId: bundleId || null,
         notes: notes || null,
         status: 'confirmed',
       });
 
-      // Create booking items
-      for (const serviceId of services) {
-        const service = selectedServices.find(s => s.id === serviceId);
-        if (service) {
-          await storage.createBookingItem({
-            bookingId: booking.id,
-            serviceId: service.id,
-            staffId: staffId || null,
-            price: service.price.toString(),
-            duration: service.duration,
-          });
+      // Create booking items with variant and addon support
+      if (bookingItems && Array.isArray(bookingItems)) {
+        // Use new bookingItems array with variant information
+        for (const item of bookingItems) {
+          const service = selectedServices.find(s => s.id === item.serviceId);
+          if (service) {
+            // Get variant price if variantId is provided
+            let itemPrice = service.price;
+            let itemDuration = service.duration;
+            
+            if (item.variantId) {
+              const variants = await storage.getServiceVariantsByServiceId(item.serviceId);
+              const variant = variants.find((v: any) => v.id === item.variantId);
+              if (variant) {
+                itemPrice = variant.price;
+                itemDuration = variant.duration;
+              }
+            }
+            
+            // Filter addons for this specific service only
+            let serviceAddonIds: number[] = [];
+            if (bookingAddons && Array.isArray(bookingAddons)) {
+              // Get addon groups for this specific service
+              const serviceAddonGroups = await storage.getServiceAddons(item.serviceId);
+              
+              // For each addon group of this service, check if any selected addons belong to it
+              for (const addonGroup of serviceAddonGroups) {
+                const options = await storage.getAddonOptions(addonGroup.id);
+                const relevantOptionIds = bookingAddons
+                  .filter((addon: any) => options.some((opt: any) => opt.id === addon.optionId))
+                  .map((addon: any) => addon.optionId);
+                serviceAddonIds.push(...relevantOptionIds);
+              }
+            }
+            
+            await storage.createBookingItem({
+              bookingId: booking.id,
+              serviceId: item.serviceId,
+              staffId: staffId || null,
+              variantId: item.variantId || null,
+              addonIds: serviceAddonIds.length > 0 ? serviceAddonIds : null,
+              price: itemPrice.toString(),
+              duration: itemDuration,
+            });
+          }
+        }
+      } else {
+        // Fallback to old behavior for backwards compatibility
+        for (const serviceId of services) {
+          const service = selectedServices.find(s => s.id === serviceId);
+          if (service) {
+            await storage.createBookingItem({
+              bookingId: booking.id,
+              serviceId: service.id,
+              staffId: staffId || null,
+              price: service.price.toString(),
+              duration: service.duration,
+            });
+          }
         }
       }
 
