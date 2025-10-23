@@ -77,6 +77,12 @@ const menuItems = [
     requirePermission: "isAdmin" as const,
   },
   {
+    title: "Service Add-ons",
+    url: "/admin/service-addons",
+    icon: Sparkles,
+    requirePermission: "isAdmin" as const,
+  },
+  {
     title: "Staff",
     url: "/admin/staff",
     icon: Users,

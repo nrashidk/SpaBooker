@@ -27,6 +27,7 @@ import AdminMarketplace from "@/pages/admin/Marketplace";
 import AdminMarketing from "@/pages/admin/Marketing";
 import AdminPromoCodes from "@/pages/admin/PromoCodes";
 import AdminAddOns from "@/pages/admin/AddOns";
+import ServiceAddons from "@/pages/admin/ServiceAddons";
 import SuperAdmin from "@/pages/admin/SuperAdmin";
 import SpaSetup from "@/pages/admin/SpaSetup";
 import MyAccount from "@/pages/MyAccount";
@@ -164,6 +165,15 @@ function Router() {
           <ProtectedRoute requireAdmin>
             <AdminLayout>
               <AdminPromoCodes />
+            </AdminLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/service-addons">
+        {() => (
+          <ProtectedRoute requireAdmin>
+            <AdminLayout>
+              <ServiceAddons />
             </AdminLayout>
           </ProtectedRoute>
         )}
